@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kloudkit/ws-cli/cmd/config"
 	"github.com/kloudkit/ws-cli/cmd/feature"
 	"github.com/kloudkit/ws-cli/cmd/fonts"
 	"github.com/kloudkit/ws-cli/cmd/get"
@@ -27,6 +28,7 @@ func Execute() {
 
 func init() {
 	rootCmd.AddCommand(
+    config.ConfigCmd,
 		feature.FeatureCmd,
 		fonts.FontsCmd,
 		get.GetCmd,
