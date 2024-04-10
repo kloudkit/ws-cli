@@ -30,6 +30,13 @@ var settingsCmd = &cobra.Command{
 	Use:   "settings",
 	Short: "Get the VSCode settings",
 	Run: func(cmd *cobra.Command, args []string) {
+    useWorkspace, _ := cmd.Flags().GetBool("workspace")
+
+    if useWorkspace {
+      fmt.Fprintln(cmd.OutOrStdout(), "/workspace/.vscode/settings.json")
+      return
+    }
+
 		home, exists := os.LookupEnv("HOME")
 
 		if !exists {
@@ -41,5 +48,7 @@ var settingsCmd = &cobra.Command{
 }
 
 func init() {
+  settingsCmd.Flags().Bool("workspace", false, "Get the workspace settings")
+
 	GetCmd.AddCommand(homeCmd, settingsCmd)
 }

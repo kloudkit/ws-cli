@@ -13,8 +13,8 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:     "ws-cli",
-	Short:   "⚡ CLI tool to charge the workspace batteries",
-	Version: "v0.0.9",
+	Short:   "⚡ CLI companion to charge the workspace batteries",
+	Version: "v0.0.1",
 	Aliases: []string{"ws"},
 }
 
