@@ -51,7 +51,8 @@ func createCommand(key string) *cobra.Command {
 
       dest, _ = filepath.Abs(dest)
 
-      fmt.Println("Absolute path:", dest + config.OutputName)
+      fmt.Println("Source path:", source)
+      fmt.Println("Absolute path:", dest + "/" + config.OutputName)
     },
   }
 }
