@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 
 	"github.com/kloudkit/ws-cli/internals/path"
@@ -18,14 +20,14 @@ var configs = map[string]Config{
 		SourcePath: ".config/markdownlint/config",
 		OutputName: ".markdownlint.json",
 	},
-  "ruff": {
-    SourcePath: ".config/ruff/ruff.toml",
-    OutputName: ".ruff.toml",
-  },
-  "yamllint`": {
-    SourcePath: ".config/yamllint/config",
-    OutputName: ".yamllint",
-  },
+	"ruff": {
+		SourcePath: ".config/ruff/ruff.toml",
+		OutputName: ".ruff.toml",
+	},
+	"yamllint`": {
+		SourcePath: ".config/yamllint/config",
+		OutputName: ".yamllint",
+	},
 }
 
 var ConfigCmd = &cobra.Command{
@@ -38,34 +40,75 @@ var copyCmd = &cobra.Command{
 	Short: "Copying workspace defined configurations to a project",
 }
 
+func copy(source, dest string) error {
+	stats, err := os.Stat(source)
+	if err != nil {
+		return err
+	}
+
+	if !stats.Mode().IsRegular() {
+		return fmt.Errorf("%s is not a regular file", source)
+	}
+
+	sourceFile, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dest)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+
+	return err
+}
+
 func createCommand(key string) *cobra.Command {
-  config := configs[key]
+	config := configs[key]
 
-  return &cobra.Command{
-    Use:   key,
-    Short: fmt.Sprintf("Copy the %s configuration to the project", key),
-    Run: func(cmd *cobra.Command, args []string) {
-      dest, _ := cmd.Flags().GetString("dest")
+	return &cobra.Command{
+		Use:   key,
+		Short: fmt.Sprintf("Copy %s configuration to the project", key),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dest, _ := cmd.Flags().GetString("dest")
+			force, _ := cmd.Flags().GetBool("force")
 
-  		source := path.GetHomeDirectory(config.SourcePath)
+			source := path.GetHomeDirectory(config.SourcePath)
 
-      dest, _ = filepath.Abs(dest)
+			dest, _ = filepath.Abs(dest)
+			dest = path.AppendSegments(dest, config.OutputName)
 
-      fmt.Println("Source path:", source)
-      fmt.Println("Absolute path:", dest + "/" + config.OutputName)
-    },
-  }
+			if _, err := os.Stat(dest); err == nil && !force {
+				fmt.Fprintf(cmd.ErrOrStderr(), "ERROR: The file [%s] already exists.\n", dest)
+				return err
+			}
+
+			if err := copy(source, dest); err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "ERROR: The file [%s] could not be written.\n", dest)
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Copied [%s] to [%s]\n", source, dest)
+
+			return nil
+		},
+	}
 }
 
 func init() {
 	copyCmd.PersistentFlags().String("dest", ".", "Output directory")
 	copyCmd.PersistentFlags().BoolP("force", "f", false, "Force the overwriting of an existing file")
 
-  copyCmd.AddCommand(
-    createCommand("markdownlint"),
-    createCommand("ruff"),
-    createCommand("yamllint"),
-  )
+	copyCmd.AddCommand(
+		createCommand("markdownlint"),
+		createCommand("ruff"),
+		createCommand("yamllint"),
+	)
 
 	ConfigCmd.AddCommand(copyCmd)
 }
