@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+  "github.com/kloudkit/ws-cli/internals/path"
 	"github.com/spf13/cobra"
 )
 
@@ -37,13 +38,10 @@ var settingsCmd = &cobra.Command{
       return
     }
 
-		home, exists := os.LookupEnv("HOME")
-
-		if !exists {
-			home = "/home/kloud"
-		}
-
-		fmt.Fprintln(cmd.OutOrStdout(), home+"/.local/share/code-server/User/settings.json")
+		fmt.Fprintln(
+      cmd.OutOrStdout(),
+      path.GetHomeDirectory("/.local/share/code-server/User/settings.json"),
+    )
 	},
 }
 

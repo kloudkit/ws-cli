@@ -4,8 +4,29 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/kloudkit/ws-cli/internals/path"
 	"github.com/spf13/cobra"
 )
+
+type Config struct {
+	SourcePath string
+	OutputName string
+}
+
+var configs = map[string]Config{
+	"markdownlint": {
+		SourcePath: ".config/markdownlint/config",
+		OutputName: ".markdownlint.json",
+	},
+  "ruff": {
+    SourcePath: ".config/ruff/ruff.toml",
+    OutputName: ".ruff.toml",
+  },
+  "yamllint`": {
+    SourcePath: ".config/yamllint/config",
+    OutputName: ".yamllint",
+  },
+}
 
 var ConfigCmd = &cobra.Command{
 	Use:   "config",
@@ -13,21 +34,37 @@ var ConfigCmd = &cobra.Command{
 }
 
 var copyCmd = &cobra.Command{
-	Use:   "cp [name]",
+	Use:   "cp",
 	Short: "Copying workspace defined configurations to a project",
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		dest, _ := cmd.Flags().GetString("dest")
+}
 
-    dest, _ = filepath.Abs(dest)
+func createCommand(key string) *cobra.Command {
+  config := configs[key]
 
-    fmt.Println("Absolute path:", dest)
-	},
+  return &cobra.Command{
+    Use:   key,
+    Short: fmt.Sprintf("Copy the %s configuration to the project", key),
+    Run: func(cmd *cobra.Command, args []string) {
+      dest, _ := cmd.Flags().GetString("dest")
+
+  		source := path.GetHomeDirectory(config.SourcePath)
+
+      dest, _ = filepath.Abs(dest)
+
+      fmt.Println("Absolute path:", dest + config.OutputName)
+    },
+  }
 }
 
 func init() {
-	copyCmd.Flags().String("dest", ".", "Output directory")
-	copyCmd.Flags().BoolP("force", "f", false, "Force the overwriting of an existing file")
+	copyCmd.PersistentFlags().String("dest", ".", "Output directory")
+	copyCmd.PersistentFlags().BoolP("force", "f", false, "Force the overwriting of an existing file")
+
+  copyCmd.AddCommand(
+    createCommand("markdownlint"),
+    createCommand("ruff"),
+    createCommand("yamllint"),
+  )
 
 	ConfigCmd.AddCommand(copyCmd)
 }
