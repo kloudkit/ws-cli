@@ -83,14 +83,12 @@ func createCommand(key string) *cobra.Command {
 			dest, _ = filepath.Abs(dest)
 			dest = path.AppendSegments(dest, config.OutputName)
 
-			if _, err := os.Stat(dest); err == nil && !force {
-				fmt.Fprintf(cmd.ErrOrStderr(), "ERROR: The file [%s] already exists.\n", dest)
-				return err
+			if !path.CanOverride(dest, force) {
+				return fmt.Errorf("the file [%s] already exists", dest)
 			}
 
 			if err := copy(source, dest); err != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "ERROR: The file [%s] could not be written.\n", dest)
-				return err
+				return fmt.Errorf("the file [%s] could not be written", dest)
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Copied [%s] to [%s]\n", source, dest)

@@ -13,7 +13,6 @@ func AppendSegments(root string, segments ...string) string {
 
     re := regexp.MustCompile(`/+`)
 	  root = re.ReplaceAllString(root, "/")
-    // root = strings.TrimPrefix(root, "/")
 
     return  strings.TrimSuffix(root, "/")
 }
@@ -26,4 +25,12 @@ func GetHomeDirectory(segments ...string) string {
 	}
 
 	return AppendSegments(home, segments...)
+}
+
+func CanOverride(path_ string, force_ bool) bool {
+  if _, err := os.Stat(path_); os.IsNotExist(err) && !force_ {
+    return false
+  }
+
+  return true
 }
