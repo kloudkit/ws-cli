@@ -1,16 +1,12 @@
 module github.com/kloudkit/ws-cli
 
 go 1.21.6
+toolchain go1.22.2
 
 require (
-	github.com/apenella/go-ansible/v2 v2.0.0-rc.3
+	github.com/apenella/go-ansible/v2 v2.0.0
 	github.com/spf13/cobra v1.8.0
 	gotest.tools/v3 v3.5.1
-)
-
-require (
-	github.com/kr/pretty v0.3.1 // indirect
-	golang.org/x/crypto v0.22.0 // indirect
 )
 
 require (
