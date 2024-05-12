@@ -27,6 +27,16 @@ func GetHomeDirectory(segments ...string) string {
 	return AppendSegments(home, segments...)
 }
 
+func GetIPCSocket() string {
+	socket, exists := os.LookupEnv("WS_IPC_SOCKET")
+
+	if !exists {
+		socket = "/var/workspace/ipc.socket"
+	}
+
+	return socket
+}
+
 func CanOverride(path_ string, force_ bool) bool {
   if _, err := os.Stat(path_); os.IsNotExist(err) && !force_ {
     return false
