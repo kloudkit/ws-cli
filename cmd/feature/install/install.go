@@ -23,6 +23,12 @@ var daggerCmd = &cobra.Command{
 	Run:   install("dagger"),
 }
 
+var gcloudCmd = &cobra.Command{
+	Use:   "gcloud",
+	Short: "Install gcloud CLI for GCP",
+	Run:   install("jupyter"),
+}
+
 var jupyterCmd = &cobra.Command{
 	Use:   "jupyter",
 	Short: "Install Jupyter packages and related extensions",
@@ -85,10 +91,10 @@ func install(feature string) func(*cobra.Command, []string) {
 
 		feature = getFeaturePath(root, feature, cmd.ErrOrStderr())
 
-    runPlay(feature, cmd.ErrOrStderr())
+		runPlay(feature, cmd.ErrOrStderr())
 	}
 }
 
 func init() {
-	InstallCmd.AddCommand(daggerCmd, dotnetCmd, jupyterCmd, phpCmd)
+	InstallCmd.AddCommand(daggerCmd, dotnetCmd, gcloudCmd, jupyterCmd, phpCmd)
 }
