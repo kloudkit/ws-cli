@@ -37,10 +37,10 @@ func GetIPCSocket() string {
 	return socket
 }
 
-func CanOverride(path_ string, force_ bool) bool {
-  if _, err := os.Stat(path_); os.IsNotExist(err) && !force_ {
-    return false
+func CanOverride(path_ string, force bool) bool {
+  if _, err := os.Stat(path_); os.IsNotExist(err) || force {
+    return true
   }
 
-  return true
+  return false
 }
