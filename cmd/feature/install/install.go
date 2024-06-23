@@ -17,6 +17,12 @@ var InstallCmd = &cobra.Command{
 	Short: "Install extra pre-configured features",
 }
 
+var conanCmd = &cobra.Command{
+	Use:   "conan",
+	Short: "Install conan CLI and related tools",
+	Run:   install("dagger"),
+}
+
 var daggerCmd = &cobra.Command{
 	Use:   "dagger",
 	Short: "Install dagger.io CLI and SDK",
@@ -96,5 +102,12 @@ func install(feature string) func(*cobra.Command, []string) {
 }
 
 func init() {
-	InstallCmd.AddCommand(daggerCmd, dotnetCmd, gcloudCmd, jupyterCmd, phpCmd)
+	InstallCmd.AddCommand(
+		conanCmd,
+		daggerCmd,
+		dotnetCmd,
+		gcloudCmd,
+		jupyterCmd,
+		phpCmd,
+  )
 }
