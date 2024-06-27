@@ -20,7 +20,7 @@ var InstallCmd = &cobra.Command{
 var conanCmd = &cobra.Command{
 	Use:   "conan",
 	Short: "Install conan CLI and related tools",
-	Run:   install("dagger"),
+	Run:   install("conan"),
 }
 
 var daggerCmd = &cobra.Command{
@@ -32,7 +32,7 @@ var daggerCmd = &cobra.Command{
 var gcloudCmd = &cobra.Command{
 	Use:   "gcloud",
 	Short: "Install gcloud CLI for GCP",
-	Run:   install("jupyter"),
+	Run:   install("gcloud"),
 }
 
 var jupyterCmd = &cobra.Command{
