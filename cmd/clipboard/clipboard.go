@@ -1,11 +1,8 @@
 package clipboard
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"net/http"
-	"os"
 
 	"github.com/kloudkit/ws-cli/internals/net"
 	"github.com/spf13/cobra"

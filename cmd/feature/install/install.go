@@ -115,6 +115,6 @@ func init() {
 		gcloudCmd,
 		jupyterCmd,
 		phpCmd,
-    resticCmd
+    resticCmd,
   )
 }
