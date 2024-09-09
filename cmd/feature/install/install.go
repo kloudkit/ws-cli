@@ -53,6 +53,12 @@ var phpCmd = &cobra.Command{
 	Run:   install("php"),
 }
 
+var resticCmd = &cobra.Command{
+	Use:   "restic",
+	Short: "Install Restic",
+	Run:   install("restic"),
+}
+
 // var customCmd = &cobra.Command{
 // 	Use:   "custom",
 // 	Short: "Install a feature using a custom playbook",
@@ -109,5 +115,6 @@ func init() {
 		gcloudCmd,
 		jupyterCmd,
 		phpCmd,
+    resticCmd
   )
 }
