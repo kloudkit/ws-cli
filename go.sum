@@ -1,5 +1,5 @@
-github.com/apenella/go-ansible/v2 v2.0.0 h1:9aZkU8dQ2fVITYX5V1CiQ3VX4PnNPBTgv31wJFd2Ito=
-github.com/apenella/go-ansible/v2 v2.0.0/go.mod h1:ifhiX4d0bpynb8yhdzLTmGl/38HqTYr/26PfjB1enXQ=
+github.com/apenella/go-ansible/v2 v2.0.1 h1:9o3805u4NAIMf1px5EKpRS2LEa2aeQbMtHB7vilt7XE=
+github.com/apenella/go-ansible/v2 v2.0.1/go.mod h1:ifhiX4d0bpynb8yhdzLTmGl/38HqTYr/26PfjB1enXQ=
 github.com/apenella/go-common-utils/data v0.0.0-20221227202648-5452d804e940 h1:heIU8S8TKSbqebsLywfM4n8pvQtqjDZHU6gVPbzrQHQ=
 github.com/apenella/go-common-utils/data v0.0.0-20221227202648-5452d804e940/go.mod h1:cLVL6GjUiKG/WyBzX+KD6h/XRV/HnNZIZbMNNiBgQ9o=
 github.com/apenella/go-common-utils/error v0.0.0-20221227202648-5452d804e940 h1:M6LTqQBjGqTf9t0O2i0GunjhlsX4REK8aSS44sGOEv4=

@@ -5,7 +5,7 @@ go 1.22
 toolchain go1.22.2
 
 require (
-	github.com/apenella/go-ansible/v2 v2.0.0
+	github.com/apenella/go-ansible/v2 v2.0.1
 	github.com/spf13/cobra v1.8.1
 	gotest.tools/v3 v3.5.1
 )
