@@ -59,15 +59,12 @@ var resticCmd = &cobra.Command{
 	Run:   install("restic"),
 }
 
-// var customCmd = &cobra.Command{
-// 	Use:   "custom",
-// 	Short: "Install a feature using a custom playbook",
-// 	Run:   install("php"),
-// }
-
-func runPlay(feature string, errorOut io.Writer) {
+func runPlay(feature string, vars map[string]interface{}, errorOut io.Writer) {
 	playbookCmd := &playbook.AnsiblePlaybookCmd{
 		Playbooks: []string{feature},
+    PlaybookOptions: &playbook.AnsiblePlaybookOptions{
+      ExtraVars: vars,
+    },
 	}
 
 	exec := execute.NewDefaultExecute(
@@ -100,14 +97,27 @@ func getFeaturePath(root string, feature string, errorOut io.Writer) string {
 func install(feature string) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
 		root, _ := cmd.Flags().GetString("root")
+		rawVars, _ := cmd.Flags().GetStringToString("opt")
+
+    vars := make(map[string]interface{})
+
+    for key, value := range rawVars {
+      vars[key] = value
+	  }
 
 		feature = getFeaturePath(root, feature, cmd.ErrOrStderr())
 
-		runPlay(feature, cmd.ErrOrStderr())
+		runPlay(feature, vars, cmd.ErrOrStderr())
 	}
 }
 
 func init() {
+  InstallCmd.PersistentFlags().StringToString(
+    "opt",
+    map[string]string{},
+    "Optional variables to use during installation",
+)
+
 	InstallCmd.AddCommand(
 		conanCmd,
 		daggerCmd,
