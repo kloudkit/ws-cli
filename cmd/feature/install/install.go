@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
+  "path/filepath"
 
 	"github.com/apenella/go-ansible/v2/pkg/execute"
 	"github.com/apenella/go-ansible/v2/pkg/playbook"
@@ -35,6 +35,12 @@ var gcloudCmd = &cobra.Command{
 	Run:   install("gcloud"),
 }
 
+var ghCmd = &cobra.Command{
+	Use:   "gh",
+	Short: "Install gh CLI for GitHub",
+	Run:   install("gh"),
+}
+
 var jupyterCmd = &cobra.Command{
 	Use:   "jupyter",
 	Short: "Install Jupyter packages and related extensions",
@@ -59,12 +65,18 @@ var resticCmd = &cobra.Command{
 	Run:   install("restic"),
 }
 
+var customCmd = &cobra.Command{
+	Use:   "custom",
+	Short: "Install a custom feature",
+	Run:   install("custom"),
+}
+
 func runPlay(feature string, vars map[string]interface{}, errorOut io.Writer) {
 	playbookCmd := &playbook.AnsiblePlaybookCmd{
 		Playbooks: []string{feature},
-    PlaybookOptions: &playbook.AnsiblePlaybookOptions{
-      ExtraVars: vars,
-    },
+		PlaybookOptions: &playbook.AnsiblePlaybookOptions{
+			ExtraVars: vars,
+		},
 	}
 
 	exec := execute.NewDefaultExecute(
@@ -80,11 +92,7 @@ func runPlay(feature string, vars map[string]interface{}, errorOut io.Writer) {
 }
 
 func getFeaturePath(root string, feature string, errorOut io.Writer) string {
-	if !strings.HasSuffix(root, "/") {
-		root += "/"
-	}
-
-	feature = strings.Join([]string{root, feature, ".yaml"}, "")
+	feature = filepath.Join(root, feature + ".yaml")
 
 	if _, err := os.Stat(feature); os.IsNotExist(err) {
 		fmt.Fprintf(errorOut, "ERROR: The feature path [%s] could not be found.\n", feature)
@@ -99,11 +107,17 @@ func install(feature string) func(*cobra.Command, []string) {
 		root, _ := cmd.Flags().GetString("root")
 		rawVars, _ := cmd.Flags().GetStringToString("opt")
 
-    vars := make(map[string]interface{})
+		vars := make(map[string]interface{})
 
-    for key, value := range rawVars {
-      vars[key] = value
-	  }
+		for key, value := range rawVars {
+			vars[key] = value
+		}
+
+		if feature == "custom" {
+			customFeature, _ := cmd.Flags().GetString("custom")
+
+			feature = customFeature
+		}
 
 		feature = getFeaturePath(root, feature, cmd.ErrOrStderr())
 
@@ -112,19 +126,24 @@ func install(feature string) func(*cobra.Command, []string) {
 }
 
 func init() {
-  InstallCmd.PersistentFlags().StringToString(
-    "opt",
-    map[string]string{},
-    "Optional variables to use during installation",
-)
+	InstallCmd.PersistentFlags().StringToString(
+		"opt",
+		map[string]string{},
+		"Optional variables to use during installation",
+	)
+
+	customCmd.Flags().String("feature", "", "The custom feature to install")
+	customCmd.MarkFlagRequired("feature")
 
 	InstallCmd.AddCommand(
 		conanCmd,
+		customCmd,
 		daggerCmd,
 		dotnetCmd,
 		gcloudCmd,
+		ghCmd,
 		jupyterCmd,
 		phpCmd,
-    resticCmd,
-  )
+		resticCmd,
+	)
 }
