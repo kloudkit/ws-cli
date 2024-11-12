@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-  "path/filepath"
+	"path/filepath"
 
 	"github.com/apenella/go-ansible/v2/pkg/execute"
 	"github.com/apenella/go-ansible/v2/pkg/playbook"
@@ -17,52 +17,16 @@ var InstallCmd = &cobra.Command{
 	Short: "Install extra pre-configured features",
 }
 
-var conanCmd = &cobra.Command{
-	Use:   "conan",
-	Short: "Install conan CLI and related tools",
-	Run:   install("conan"),
-}
-
-var daggerCmd = &cobra.Command{
-	Use:   "dagger",
-	Short: "Install dagger.io CLI and SDK",
-	Run:   install("dagger"),
-}
-
-var gcloudCmd = &cobra.Command{
-	Use:   "gcloud",
-	Short: "Install gcloud CLI for GCP",
-	Run:   install("gcloud"),
-}
-
-var ghCmd = &cobra.Command{
-	Use:   "gh",
-	Short: "Install gh CLI for GitHub",
-	Run:   install("gh"),
-}
-
-var jupyterCmd = &cobra.Command{
-	Use:   "jupyter",
-	Short: "Install Jupyter packages and related extensions",
-	Run:   install("jupyter"),
-}
-
-var dotnetCmd = &cobra.Command{
-	Use:   "dotnet",
-	Short: "Install the .NET framework and related extensions",
-	Run:   install("dotnet"),
-}
-
-var phpCmd = &cobra.Command{
-	Use:   "php",
-	Short: "Install PHP and related extensions",
-	Run:   install("php"),
-}
-
-var resticCmd = &cobra.Command{
-	Use:   "restic",
-	Short: "Install Restic",
-	Run:   install("restic"),
+var features = map[string]string{
+	"conan":       "Install Conan CLI and related tools",
+	"cloudflared": "Install Cloudflare tunnel CLI",
+	"dagger":      "Install dagger.io CLI and SDK",
+	"dotnet":      "Install .NET framework and related extensions",
+	"gcloud":      "Install Google Cloud CLI for GCP",
+	"gh":          "Install GitHub CLI",
+	"jupyter":     "Install Jupyter packages and related extensions",
+	"php":         "Install PHP and related extensions",
+	"restic":      "Install Restic CLI",
 }
 
 var customCmd = &cobra.Command{
@@ -92,7 +56,7 @@ func runPlay(feature string, vars map[string]interface{}, errorOut io.Writer) {
 }
 
 func getFeaturePath(root string, feature string, errorOut io.Writer) string {
-	feature = filepath.Join(root, feature + ".yaml")
+	feature = filepath.Join(root, feature+".yaml")
 
 	if _, err := os.Stat(feature); os.IsNotExist(err) {
 		fmt.Fprintf(errorOut, "ERROR: The feature path [%s] could not be found.\n", feature)
@@ -135,15 +99,13 @@ func init() {
 	customCmd.Flags().String("feature", "", "The custom feature to install")
 	customCmd.MarkFlagRequired("feature")
 
-	InstallCmd.AddCommand(
-		conanCmd,
-		customCmd,
-		daggerCmd,
-		dotnetCmd,
-		gcloudCmd,
-		ghCmd,
-		jupyterCmd,
-		phpCmd,
-		resticCmd,
-	)
+	InstallCmd.AddCommand(customCmd)
+
+	for feature, description := range features {
+		InstallCmd.AddCommand(&cobra.Command{
+			Use:   feature,
+			Short: description,
+			Run:   install(feature),
+		})
+	}
 }

@@ -10,12 +10,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type Config struct {
+type config struct {
 	SourcePath string
 	OutputName string
 }
 
-var configs = map[string]Config{
+var configs = map[string]config{
 	"markdownlint": {
 		SourcePath: ".config/markdownlint/config",
 		OutputName: ".markdownlint.json",
