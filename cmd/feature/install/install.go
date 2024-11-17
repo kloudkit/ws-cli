@@ -78,7 +78,7 @@ func install(feature string) func(*cobra.Command, []string) {
 		}
 
 		if feature == "custom" {
-			customFeature, _ := cmd.Flags().GetString("custom")
+			customFeature, _ := cmd.Flags().GetString("feature")
 
 			feature = customFeature
 		}

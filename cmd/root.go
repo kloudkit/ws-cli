@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kloudkit/ws-cli/cmd/config"
 	"github.com/kloudkit/ws-cli/cmd/clipboard"
+	"github.com/kloudkit/ws-cli/cmd/config"
 	"github.com/kloudkit/ws-cli/cmd/feature"
 	"github.com/kloudkit/ws-cli/cmd/fonts"
 	"github.com/kloudkit/ws-cli/cmd/get"
+	"github.com/kloudkit/ws-cli/cmd/info"
 	"github.com/kloudkit/ws-cli/cmd/log"
 	"github.com/spf13/cobra"
 )
@@ -16,7 +17,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:     "ws-cli",
 	Short:   "⚡ CLI companion to charge the workspace batteries",
-	Version: "v0.0.12",
+	Version: "v" + info.Version,
 	Aliases: []string{"ws"},
 }
 
@@ -29,11 +30,12 @@ func Execute() {
 
 func init() {
 	rootCmd.AddCommand(
-    config.ConfigCmd,
-    clipboard.ClipboardCmd,
+		config.ConfigCmd,
+		clipboard.ClipboardCmd,
 		feature.FeatureCmd,
 		fonts.FontsCmd,
 		get.GetCmd,
+		info.InfoCmd,
 		log.LogCmd,
 	)
 }
