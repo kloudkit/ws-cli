@@ -2,10 +2,10 @@ module github.com/kloudkit/ws-cli
 
 go 1.23
 
-toolchain go1.23.3
+toolchain go1.23.4
 
 require (
-	github.com/apenella/go-ansible/v2 v2.0.1
+	github.com/apenella/go-ansible/v2 v2.1.0
 	github.com/spf13/cobra v1.8.1
 	gotest.tools/v3 v3.5.1
 )
@@ -20,7 +20,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/stretchr/testify v1.9.0 // indirect
+	github.com/stretchr/testify v1.10.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

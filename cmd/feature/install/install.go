@@ -27,6 +27,7 @@ var features = map[string]string{
 	"jupyter":     "Install Jupyter packages and related extensions",
 	"php":         "Install PHP and related extensions",
 	"restic":      "Install Restic CLI",
+	"rust":        "Install Rust and Cargo",
 }
 
 var customCmd = &cobra.Command{
