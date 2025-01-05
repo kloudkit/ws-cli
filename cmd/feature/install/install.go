@@ -26,6 +26,7 @@ var features = map[string]string{
 	"gh":          "Install GitHub CLI",
 	"jupyter":     "Install Jupyter packages and related extensions",
 	"php":         "Install PHP and related extensions",
+	"rclone":      "Install rclone CLI",
 	"restic":      "Install Restic CLI",
 	"rust":        "Install Rust and Cargo",
 }
