@@ -29,6 +29,7 @@ var features = map[string]string{
 	"rclone":      "Install rclone CLI",
 	"restic":      "Install Restic CLI",
 	"rust":        "Install Rust and Cargo",
+	"terraform":   "Install Terraform",
 }
 
 var customCmd = &cobra.Command{
