@@ -46,7 +46,7 @@ func readStartup() (time.Time, time.Duration, error) {
 		return time.Time{}, 0, err
 	}
 
-	parsedTime, err := time.Parse(time.ANSIC, strings.TrimSpace(string(data)))
+	parsedTime, err := time.Parse(time.RFC3339, strings.TrimSpace(string(data)))
 	if err != nil {
 		return time.Time{}, 0, err
 	}
