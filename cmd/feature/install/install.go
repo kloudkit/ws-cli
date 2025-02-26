@@ -24,12 +24,13 @@ var features = map[string]string{
 	"dotnet":      "Install .NET framework and related extensions",
 	"gcloud":      "Install Google Cloud CLI for GCP",
 	"gh":          "Install GitHub CLI",
+	"jf":          "Install JFrog CLI",
 	"jupyter":     "Install Jupyter packages and related extensions",
 	"php":         "Install PHP and related extensions",
 	"rclone":      "Install rclone CLI",
 	"restic":      "Install Restic CLI",
 	"rust":        "Install Rust and Cargo",
-	"terraform":   "Install Terraform",
+	"terraform":   "Install Terraform and related extensions",
 }
 
 var customCmd = &cobra.Command{
