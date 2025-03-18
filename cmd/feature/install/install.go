@@ -31,6 +31,7 @@ var features = map[string]string{
 	"rclone":      "Install rclone CLI",
 	"restic":      "Install Restic CLI",
 	"rust":        "Install Rust and Cargo",
+	"talos":       "Install Talos CLI",
 	"terraform":   "Install Terraform and related extensions",
 }
 
