@@ -1,14 +1,38 @@
 package info
 
 import (
+  "bufio"
+  "bytes"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
-  "time"
+	"time"
 
 	"github.com/spf13/cobra"
 )
+
+func fetchExtensions() string {
+  out, _ := exec.Command("code", "--list-extensions", "--show-versions").Output()
+
+	var buf bytes.Buffer
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	skipHeader := true
+
+	for scanner.Scan() {
+		if skipHeader {
+			skipHeader = false
+			continue
+		}
+
+		buf.WriteString("\t\t ")
+		buf.WriteString(scanner.Text())
+		buf.WriteByte('\n')
+	}
+
+	return buf.String()
+}
 
 func readJsonFile() map[string]interface{} {
 	var content map[string]interface{}
@@ -59,12 +83,14 @@ var InfoCmd = &cobra.Command{
 	Short: "Display workspace information",
 	Run: func(cmd *cobra.Command, args []string) {
 		var content = readJsonFile()
-    started, running, _ := readStartup()
+		started, running, _ := readStartup()
 
 		fmt.Fprintln(cmd.OutOrStdout(), "Versions")
 		fmt.Fprintln(cmd.OutOrStdout(), "  workspace\t", readJson(content, "version"))
 		fmt.Fprintln(cmd.OutOrStdout(), "  ws-cli\t", Version)
 		fmt.Fprintln(cmd.OutOrStdout(), "  VSCode\t", readJson(content, "vscode.version"))
+    fmt.Fprintln(cmd.OutOrStdout(), "  Extensions")
+    fmt.Fprint(cmd.OutOrStdout(), fetchExtensions())
 		fmt.Fprintln(cmd.OutOrStdout(), "Uptime")
 		fmt.Fprintln(cmd.OutOrStdout(), "  started\t", started)
 		fmt.Fprintln(cmd.OutOrStdout(), "  running\t", running)

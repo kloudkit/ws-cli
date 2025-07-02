@@ -8,6 +8,9 @@ on:
     paths:
       - cmd/info/version.go
 
+permissions:
+  contents: write
+
 jobs:
   tag:
     runs-on: ubuntu-latest
@@ -21,10 +24,19 @@ jobs:
           VERSION=$(grep -oP 'Version = "\K[^"]+' cmd/info/version.go)
           echo "version=$VERSION" >> ${GITHUB_ENV}
 
-      - name: Check if tag exists
+      - name: 🧪 Check if tag exists
         id: check_tag
         run: |
           if git rev-parse "refs/tags/v$VERSION" >/dev/null 2>&1; then
             echo "Tag v$VERSION already exists. Exiting."
             exit 0
           fi
+
+      - name: 🔖 Create and push tag
+        run: |
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REF: refs/tags/v$VERSION
+          GITHUB_REPOSITORY: ${{ github.repository }}
