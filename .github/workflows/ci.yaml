@@ -44,7 +44,7 @@ jobs:
       - name: 🔵 Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.21.x
+          go-version: 1.24.x
 
       - name: ⏬ Install Dependencies
         run: go get .
