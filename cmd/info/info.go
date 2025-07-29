@@ -65,7 +65,7 @@ func readJson(content map[string]interface{}, key string) string {
 }
 
 func readStartup() (time.Time, time.Duration, error) {
-	data, err := os.ReadFile("/.startup")
+	data, err := os.ReadFile("/var/lib/workspace/state/initialized")
 	if err != nil {
 		return time.Time{}, 0, err
 	}
@@ -75,7 +75,7 @@ func readStartup() (time.Time, time.Duration, error) {
 		return time.Time{}, 0, err
 	}
 
-	return parsedTime, time.Now().Sub(parsedTime), nil
+	return parsedTime, time.Since(parsedTime), nil
 }
 
 var InfoCmd = &cobra.Command{
@@ -85,14 +85,14 @@ var InfoCmd = &cobra.Command{
 		var content = readJsonFile()
 		started, running, _ := readStartup()
 
+		fmt.Fprintln(cmd.OutOrStdout(), "Uptime")
+		fmt.Fprintln(cmd.OutOrStdout(), "  started\t", started)
+		fmt.Fprintln(cmd.OutOrStdout(), "  running\t", running)
 		fmt.Fprintln(cmd.OutOrStdout(), "Versions")
 		fmt.Fprintln(cmd.OutOrStdout(), "  workspace\t", readJson(content, "version"))
 		fmt.Fprintln(cmd.OutOrStdout(), "  ws-cli\t", Version)
 		fmt.Fprintln(cmd.OutOrStdout(), "  VSCode\t", readJson(content, "vscode.version"))
-    fmt.Fprintln(cmd.OutOrStdout(), "  Extensions")
+    fmt.Fprintln(cmd.OutOrStdout(), "Extensions")
     fmt.Fprint(cmd.OutOrStdout(), fetchExtensions())
-		fmt.Fprintln(cmd.OutOrStdout(), "Uptime")
-		fmt.Fprintln(cmd.OutOrStdout(), "  started\t", started)
-		fmt.Fprintln(cmd.OutOrStdout(), "  running\t", running)
 	},
 }
