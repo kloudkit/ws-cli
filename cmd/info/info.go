@@ -37,7 +37,7 @@ func fetchExtensions() string {
 func readJsonFile() map[string]interface{} {
 	var content map[string]interface{}
 
-	data, _ := os.ReadFile("/.manifest")
+	data, _ := os.ReadFile("/var/lib/workspace/manifest.json")
 
 	_ = json.Unmarshal(data, &content)
 
