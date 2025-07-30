@@ -19,6 +19,7 @@ var InstallCmd = &cobra.Command{
 
 var features = map[string]string{
 	"cloudflared": "Install Cloudflare tunnel CLI",
+	"codex":       "Install codex CLI",
 	"conan":       "Install Conan CLI and related tools",
   "cpp":         "Install C++ and related tools",
 	"dagger":      "Install dagger.io CLI and SDK",
