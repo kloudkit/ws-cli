@@ -18,7 +18,7 @@ var homeCmd = &cobra.Command{
 	Use:   "home",
 	Short: "Get the workspace home",
 	Run: func(cmd *cobra.Command, args []string) {
-		home, exists := os.LookupEnv("WS_ROOT")
+		home, exists := os.LookupEnv("WS_SERVER_ROOT")
 
 		if !exists {
 			home = "/workspace"

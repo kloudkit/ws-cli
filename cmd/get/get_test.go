@@ -10,13 +10,13 @@ import (
 
 func TestHome(t *testing.T) {
 	t.Run("WithEnv", func(t *testing.T) {
-		t.Setenv("WS_ROOT", "/app")
+		t.Setenv("WS_SERVER_ROOT", "/app")
 
 		assertOutputEquals(t, []string{"home"}, "/app\n")
 	})
 
 	t.Run("WithoutEnv", func(t *testing.T) {
-		os.Unsetenv("WS_ROOT")
+		os.Unsetenv("WS_SERVER_ROOT")
 
 		assertOutputEquals(t, []string{"home"}, "/workspace\n")
 	})
