@@ -9,6 +9,7 @@ import (
 	"github.com/kloudkit/ws-cli/cmd/feature"
 	"github.com/kloudkit/ws-cli/cmd/fonts"
 	"github.com/kloudkit/ws-cli/cmd/get"
+  "github.com/kloudkit/ws-cli/cmd/gowork"
 	"github.com/kloudkit/ws-cli/cmd/info"
 	"github.com/kloudkit/ws-cli/cmd/log"
 	"github.com/spf13/cobra"
@@ -35,6 +36,7 @@ func init() {
 		feature.FeatureCmd,
 		fonts.FontsCmd,
 		get.GetCmd,
+    gowork.GoworkCmd,
 		info.InfoCmd,
 		log.LogCmd,
 	)
