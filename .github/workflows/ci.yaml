@@ -18,7 +18,7 @@ jobs:
     if: github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]'
 
     steps:
-      - name: 📁 Checkout repository
+      - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
       - uses: pre-commit/action@v3.0.1
@@ -36,7 +36,7 @@ jobs:
           - arm64
 
     steps:
-      - name: 📁 Checkout repository
+      - name: 📥 Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0

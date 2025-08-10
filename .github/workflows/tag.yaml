@@ -15,7 +15,7 @@ jobs:
   tag:
     runs-on: ubuntu-latest
     steps:
-      - name: 📁 Checkout repository
+      - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
       - name: 🔢 Extract version from version.go
