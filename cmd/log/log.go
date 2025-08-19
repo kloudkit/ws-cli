@@ -1,12 +1,9 @@
 package log
 
 import (
-	"bufio"
 	"fmt"
-	"io"
-	"strings"
-	"time"
 
+	ilog "github.com/kloudkit/ws-cli/internals/log"
 	"github.com/spf13/cobra"
 )
 
@@ -24,12 +21,12 @@ var stampCmd = &cobra.Command{
 	Short: "Log the current timestamp to the console",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-    withPipe, _ := cmd.Flags().GetBool("pipe")
+		withPipe, _ := cmd.Flags().GetBool("pipe")
 
 		if withPipe {
-			pipe(cmd.InOrStdin(), cmd.OutOrStdout(), "", 0, true)
+			ilog.Pipe(cmd.InOrStdin(), cmd.OutOrStdout(), "", 0, true)
 		} else {
-			log(cmd.OutOrStdout(), "", "", 0, true)
+			ilog.Log(cmd.OutOrStdout(), "", "", 0, true)
 		}
 	},
 }
@@ -48,10 +45,6 @@ func createCommand(short, long string) *cobra.Command {
 	return cmd
 }
 
-func timestamp() string {
-	return time.Now().UTC().Format("[2006-01-02T15:04:05.000Z]")
-}
-
 func execute(level string) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
 		indentation, _ := cmd.Flags().GetInt("indent")
@@ -59,40 +52,11 @@ func execute(level string) func(*cobra.Command, []string) {
 		withStamp, _ := cmd.Flags().GetBool("stamp")
 
 		if withPipe {
-			pipe(cmd.InOrStdin(), cmd.OutOrStdout(), level, indentation, withStamp)
+			ilog.Pipe(cmd.InOrStdin(), cmd.OutOrStdout(), level, indentation, withStamp)
 		} else {
-			log(cmd.OutOrStdout(), level, args[0], indentation, withStamp)
+			ilog.Log(cmd.OutOrStdout(), level, args[0], indentation, withStamp)
 		}
 	}
-}
-
-func pipe(reader io.Reader, writer io.Writer, level string, indent int, withStamp bool) {
-	scanner := bufio.NewScanner(reader)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		log(writer, level, line, indent, withStamp)
-	}
-}
-
-func log(writer io.Writer, level, message string, indent int, withStamp bool) {
-  stamp := ""
-  prefix := ""
-
-  if withStamp {
-    stamp = timestamp() + " "
-  }
-
-  if len(level) > 0 {
-    level = fmt.Sprintf("%-5s ", level)
-  }
-
-	if indent > 0 {
-		prefix = strings.Repeat("  ", indent) + "- "
-	}
-
-	fmt.Fprintln(writer, stamp+level+prefix+message)
 }
 
 func validate(cmd *cobra.Command, args []string) error {

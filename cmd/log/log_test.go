@@ -2,104 +2,97 @@ package log
 
 import (
 	"bytes"
+	"io"
 	"testing"
 
+	ilog "github.com/kloudkit/ws-cli/internals/log"
 	"gotest.tools/v3/assert"
-	"gotest.tools/v3/assert/cmp"
 )
 
-func TestInfo(t *testing.T) {
+func TestWarnCommandInvokesLogWithFlags(t *testing.T) {
+	var gotLevel, gotMsg string
+	var gotIndent int
+	var gotStamp bool
+	called := 0
+
+	original := ilog.Log
+	ilog.Log = func(w io.Writer, level, message string, indent int, withStamp bool) {
+		called++
+		gotLevel = level
+		gotMsg = message
+		gotIndent = indent
+		gotStamp = withStamp
+	}
+	defer func() { ilog.Log = original }()
+
 	buffer := new(bytes.Buffer)
+	cmd := LogCmd
+	cmd.SetOut(buffer)
+	cmd.SetArgs([]string{"warn", "hello", "--indent", "2", "--stamp"})
 
-	log(buffer, "info", "This is my message", 0, false)
-
-	assert.Equal(t, "info  This is my message\n", buffer.String())
+	err := cmd.Execute()
+	assert.NilError(t, err)
+	assert.Equal(t, 1, called)
+	assert.Equal(t, "warn", gotLevel)
+	assert.Equal(t, "hello", gotMsg)
+	assert.Equal(t, 2, gotIndent)
+	assert.Assert(t, gotStamp)
 }
 
-func TestInfoWithStamp(t *testing.T) {
-	buffer := new(bytes.Buffer)
+func TestInfoCommandUsesPipeWhenFlagged(t *testing.T) {
+	var gotLevel string
+	var gotIndent int
+	var gotStamp bool
+	called := 0
 
-	log(buffer, "info", "This has a stamp", 0, true)
-
-	assert.Assert(
-		t,
-		cmp.Regexp(
-			"^\\[\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.\\d{3}Z] info  This has a stamp\n$",
-			buffer.String(),
-		),
-	)
-}
-
-func TestInfoWithIndent(t *testing.T) {
-	buffer := new(bytes.Buffer)
-
-	log(buffer, "info", "This is indented", 1, false)
-
-	assert.Equal(t, "info    - This is indented\n", buffer.String())
-}
-
-func TestInfoWithStampAndIndent(t *testing.T) {
-	buffer := new(bytes.Buffer)
-
-	log(buffer, "info", "Stamped and indented", 2, true)
-
-	assert.Assert(
-		t,
-		cmp.Regexp(
-			"^\\[\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.\\d{3}Z] info      - Stamped and indented\n$",
-			buffer.String(),
-		),
-	)
-}
-
-func TestPipe(t *testing.T) {
-	buffer := new(bytes.Buffer)
-
-	pipe(bytes.NewBufferString("foo\nbar\nbaz"), buffer, "debug", 2, true)
-
-	assert.Assert(
-		t,
-		cmp.Regexp(
-			`^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] debug     - foo\n`+
-				`\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] debug     - bar\n`+
-				`\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] debug     - baz\n$`,
-			buffer.String(),
-		),
-	)
-}
-
-func TestStamp(t *testing.T) {
-	buffer := new(bytes.Buffer)
+	original := ilog.Pipe
+	ilog.Pipe = func(r io.Reader, w io.Writer, level string, indent int, withStamp bool) {
+		called++
+		gotLevel = level
+		gotIndent = indent
+		gotStamp = withStamp
+	}
+	defer func() { ilog.Pipe = original }()
 
 	cmd := LogCmd
+	cmd.SetIn(bytes.NewBufferString("foo\n"))
+	cmd.SetOut(new(bytes.Buffer))
+	cmd.SetArgs([]string{"info", "--pipe", "--indent", "1", "--stamp"})
 
-	cmd.SetOut(buffer)
+	err := cmd.Execute()
+	assert.NilError(t, err)
+	assert.Equal(t, 1, called)
+	assert.Equal(t, "info", gotLevel)
+	assert.Equal(t, 1, gotIndent)
+	assert.Assert(t, gotStamp)
+}
+
+func TestStampCommandInvokesLog(t *testing.T) {
+	called := 0
+	var gotLevel, gotMsg string
+	var gotIndent int
+	var gotStamp bool
+
+	original := ilog.Log
+	ilog.Log = func(w io.Writer, level, message string, indent int, withStamp bool) {
+		called++
+		gotLevel = level
+		gotMsg = message
+		gotIndent = indent
+		gotStamp = withStamp
+	}
+	defer func() { ilog.Log = original }()
+
+	cmd := LogCmd
+	cmd.PersistentFlags().Set("pipe", "false")
+	cmd.SetOut(new(bytes.Buffer))
 	cmd.SetArgs([]string{"stamp"})
-	cmd.Execute()
 
-	assert.Assert(
-		t,
-		cmp.Regexp(
-			"^\\[\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.\\d{3}Z] \n$",
-			buffer.String(),
-		),
-	)
-}
-
-func TestCommand(t *testing.T) {
-	buffer := new(bytes.Buffer)
-
-	cmd := LogCmd
-
-	cmd.SetOut(buffer)
-	cmd.SetArgs([]string{"warn", "Stamped and indented", "--stamp", "--indent=2"})
-	cmd.Execute()
-
-	assert.Assert(
-		t,
-		cmp.Regexp(
-			"^\\[\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.\\d{3}Z] warn      - Stamped and indented\n$",
-			buffer.String(),
-		),
-	)
+	err := cmd.Execute()
+	assert.NilError(t, err)
+	assert.Equal(t, 1, called)
+	assert.Equal(t, "", gotLevel)
+	assert.Equal(t, "", gotMsg)
+	assert.Equal(t, 0, gotIndent)
+	assert.Assert(t, gotStamp)
 }
