@@ -35,7 +35,7 @@ func TestSettings(t *testing.T) {
 		assertOutputEquals(t, []string{"settings"}, "/home/kloud/.local/share/code-server/User/settings.json\n")
 	})
 
-  t.Run("WorkspaceSettings", func(t *testing.T) {
+	t.Run("WorkspaceSettings", func(t *testing.T) {
 		assertOutputEquals(t, []string{"settings", "--workspace"}, "/workspace/.vscode/settings.json\n")
 	})
 }

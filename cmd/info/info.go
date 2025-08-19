@@ -1,8 +1,8 @@
 package info
 
 import (
-  "bufio"
-  "bytes"
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -14,7 +14,7 @@ import (
 )
 
 func fetchExtensions() string {
-  out, _ := exec.Command("code", "--list-extensions", "--show-versions").Output()
+	out, _ := exec.Command("code", "--list-extensions", "--show-versions").Output()
 
 	var buf bytes.Buffer
 	scanner := bufio.NewScanner(bytes.NewReader(out))
@@ -92,7 +92,7 @@ var InfoCmd = &cobra.Command{
 		fmt.Fprintln(cmd.OutOrStdout(), "  workspace\t", readJson(content, "version"))
 		fmt.Fprintln(cmd.OutOrStdout(), "  ws-cli\t", Version)
 		fmt.Fprintln(cmd.OutOrStdout(), "  VSCode\t", readJson(content, "vscode.version"))
-    fmt.Fprintln(cmd.OutOrStdout(), "Extensions")
-    fmt.Fprint(cmd.OutOrStdout(), fetchExtensions())
+		fmt.Fprintln(cmd.OutOrStdout(), "Extensions")
+		fmt.Fprint(cmd.OutOrStdout(), fetchExtensions())
 	},
 }

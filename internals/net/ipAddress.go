@@ -10,9 +10,9 @@ import (
 func hexToIPv4(hex string) (net.IP, error) {
 	ip := make(net.IP, 4)
 
-  _, err := fmt.Sscanf(hex, "%02x%02x%02x%02x", &ip[3], &ip[2], &ip[1], &ip[0])
+	_, err := fmt.Sscanf(hex, "%02x%02x%02x%02x", &ip[3], &ip[2], &ip[1], &ip[0])
 
-  if err != nil {
+	if err != nil {
 		return nil, err
 	}
 

@@ -35,7 +35,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "Disable color output")
 
 	cobra.OnInitialize(func() {
-    if _, exists := os.LookupEnv("WS_LOGGING_NO_COLOR"); exists {
+		if _, exists := os.LookupEnv("WS_LOGGING_NO_COLOR"); exists {
 			ilog.ColorEnabled = false
 		}
 

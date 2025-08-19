@@ -2,10 +2,10 @@ package get
 
 import (
 	"fmt"
-	"os"
 
+	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/kloudkit/ws-cli/internals/net"
-  "github.com/kloudkit/ws-cli/internals/path"
+	"github.com/kloudkit/ws-cli/internals/path"
 	"github.com/spf13/cobra"
 )
 
@@ -18,13 +18,7 @@ var homeCmd = &cobra.Command{
 	Use:   "home",
 	Short: "Get the workspace home",
 	Run: func(cmd *cobra.Command, args []string) {
-		home, exists := os.LookupEnv("WS_SERVER_ROOT")
-
-		if !exists {
-			home = "/workspace"
-		}
-
-		fmt.Fprintln(cmd.OutOrStdout(), home)
+		fmt.Fprintln(cmd.OutOrStdout(), env.String("WS_SERVER_ROOT", "/workspace"))
 	},
 }
 
@@ -40,9 +34,9 @@ var settingsCmd = &cobra.Command{
 		}
 
 		fmt.Fprintln(
-      cmd.OutOrStdout(),
-      path.GetHomeDirectory("/.local/share/code-server/User/settings.json"),
-    )
+			cmd.OutOrStdout(),
+			path.GetHomeDirectory("/.local/share/code-server/User/settings.json"),
+		)
 	},
 }
 
@@ -50,12 +44,12 @@ var ipCmd = &cobra.Command{
 	Use:   "ip",
 	Short: "Get the internal or node IP addresses",
 	RunE: func(cmd *cobra.Command, args []string) error {
-    var (
-      ip string
-		  err error
-    )
+		var (
+			ip  string
+			err error
+		)
 
-    useNode, _ := cmd.Flags().GetBool("node")
+		useNode, _ := cmd.Flags().GetBool("node")
 
 		if useNode {
 			ip, err = net.GetNodeIP()
@@ -64,7 +58,7 @@ var ipCmd = &cobra.Command{
 		}
 
 		if err == nil {
-      fmt.Fprintln(cmd.OutOrStdout(), ip)
+			fmt.Fprintln(cmd.OutOrStdout(), ip)
 		}
 
 		return err
