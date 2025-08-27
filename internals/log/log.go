@@ -8,38 +8,28 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/kloudkit/ws-cli/internals/styles"
 )
 
 var ColorEnabled = true
-
-var (
-	infoStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
-	errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
-	warnStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
-	debugStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("13"))
-)
 
 func timestamp() string {
 	return time.Now().UTC().Format("[2006-01-02T15:04:05.000Z]")
 }
 
+var styleMap = map[string]lipgloss.Style{
+	"info":  styles.InfoStyle(),
+	"error": styles.ErrorStyle(),
+	"warn":  styles.WarningStyle(),
+	"debug": styles.MutedStyle(),
+}
+
 func formatLevel(level string) string {
-	if !ColorEnabled {
-		return level
+	if style, ok := styleMap[level]; ok {
+		return style.Width(5).Render(level)
 	}
 
-	switch level {
-	case "info":
-		return infoStyle.Render(level)
-	case "error":
-		return errorStyle.Render(level)
-	case "warn":
-		return warnStyle.Render(level)
-	case "debug":
-		return debugStyle.Render(level)
-	default:
-		return level
-	}
+	return level
 }
 
 var Pipe = func(reader io.Reader, writer io.Writer, level string, indent int, withStamp bool) {
@@ -60,7 +50,7 @@ var Log = func(writer io.Writer, level, message string, indent int, withStamp bo
 	}
 
 	if len(level) > 0 {
-		level = lipgloss.NewStyle().Width(5).Render(formatLevel(level)) + " "
+		level = formatLevel(level) + " "
 	}
 
 	if indent > 0 {

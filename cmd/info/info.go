@@ -1,41 +1,18 @@
 package info
 
 import (
-	"bufio"
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
-	"strings"
-	"time"
+	"io"
 
+	"encoding/json"
+	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
+	"os"
+	"strings"
 )
 
-func fetchExtensions() string {
-	out, _ := exec.Command("code", "--list-extensions", "--show-versions").Output()
-
-	var buf bytes.Buffer
-	scanner := bufio.NewScanner(bytes.NewReader(out))
-	skipHeader := true
-
-	for scanner.Scan() {
-		if skipHeader {
-			skipHeader = false
-			continue
-		}
-
-		buf.WriteString("\t\t ")
-		buf.WriteString(scanner.Text())
-		buf.WriteByte('\n')
-	}
-
-	return buf.String()
-}
-
-func readJsonFile() map[string]interface{} {
-	var content map[string]interface{}
+func readJsonFile() map[string]any {
+	var content map[string]any
 
 	data, _ := os.ReadFile("/var/lib/workspace/manifest.json")
 
@@ -44,12 +21,12 @@ func readJsonFile() map[string]interface{} {
 	return content
 }
 
-func readJson(content map[string]interface{}, key string) string {
+func readJson(content map[string]any, key string) string {
 	keys := strings.Split(key, ".")
-	var value interface{} = content
+	var value any = content
 
 	for _, k := range keys {
-		m, ok := value.(map[string]interface{})
+		m, ok := value.(map[string]any)
 		if !ok {
 			return ""
 		}
@@ -64,35 +41,35 @@ func readJson(content map[string]interface{}, key string) string {
 	return fmt.Sprintf("%v", value)
 }
 
-func readStartup() (time.Time, time.Duration, error) {
-	data, err := os.ReadFile("/var/lib/workspace/state/initialized")
-	if err != nil {
-		return time.Time{}, 0, err
-	}
+func showVersion(writer io.Writer) {
+	content := readJsonFile()
 
-	parsedTime, err := time.Parse(time.RFC3339, strings.TrimSpace(string(data)))
-	if err != nil {
-		return time.Time{}, 0, err
-	}
+	fmt.Fprintln(writer, styles.HeaderStyle().Render("Versions"))
+	fmt.Fprintln(writer)
 
-	return parsedTime, time.Since(parsedTime), nil
+	t := styles.Table("", "Value").
+		Rows(
+			[]string{"workspace", readJson(content, "version")},
+			[]string{"ws-cli", Version},
+			[]string{"VSCode", readJson(content, "vscode.version")},
+		)
+
+	fmt.Fprintln(writer, t.Render())
 }
 
 var InfoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Display workspace information",
-	Run: func(cmd *cobra.Command, args []string) {
-		var content = readJsonFile()
-		started, running, _ := readStartup()
+}
 
-		fmt.Fprintln(cmd.OutOrStdout(), "Uptime")
-		fmt.Fprintln(cmd.OutOrStdout(), "  started\t", started)
-		fmt.Fprintln(cmd.OutOrStdout(), "  running\t", running)
-		fmt.Fprintln(cmd.OutOrStdout(), "Versions")
-		fmt.Fprintln(cmd.OutOrStdout(), "  workspace\t", readJson(content, "version"))
-		fmt.Fprintln(cmd.OutOrStdout(), "  ws-cli\t", Version)
-		fmt.Fprintln(cmd.OutOrStdout(), "  VSCode\t", readJson(content, "vscode.version"))
-		fmt.Fprintln(cmd.OutOrStdout(), "Extensions")
-		fmt.Fprint(cmd.OutOrStdout(), fetchExtensions())
+var showVersionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Display installed workspace version",
+	Run: func(cmd *cobra.Command, args []string) {
+		showVersion(cmd.OutOrStdout())
 	},
+}
+
+func init() {
+	InfoCmd.AddCommand(showVersionCmd)
 }
