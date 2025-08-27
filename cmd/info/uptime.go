@@ -2,10 +2,12 @@ package info
 
 import (
 	"fmt"
-	"strings"
+	"io"
 
+	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -23,16 +25,52 @@ func readStartup() (time.Time, time.Duration, error) {
 	return parsedTime, time.Since(parsedTime), nil
 }
 
+func humanizeDuration(duration time.Duration) string {
+	days := int(duration.Hours() / 24)
+	hours := int(duration.Hours()) % 24
+	minutes := int(duration.Minutes()) % 60
+
+	var parts []string
+
+	if days > 0 {
+		parts = append(parts, fmt.Sprintf("%d days", days))
+	}
+
+	if hours > 0 {
+		parts = append(parts, fmt.Sprintf("%d hours", hours))
+	}
+
+	if minutes > 0 {
+		parts = append(parts, fmt.Sprintf("%d minutes", minutes))
+	}
+
+	if len(parts) == 0 {
+		return "just now"
+	}
+
+	return strings.Join(parts, ", ") + " ago"
+}
+
+func showUptime(writer io.Writer) {
+	started, running, _ := readStartup()
+
+	fmt.Fprintln(writer, styles.HeaderStyle().Render("Uptime"))
+	fmt.Fprintln(writer)
+
+	t := styles.Table("", "Value").
+		Rows(
+			[]string{"started", started.String()},
+			[]string{"running", humanizeDuration(running)},
+		)
+
+	fmt.Fprintln(writer, t.Render())
+}
+
 var uptimeCmd = &cobra.Command{
 	Use:   "uptime",
 	Short: "Display the workspace uptime",
 	Run: func(cmd *cobra.Command, args []string) {
-		started, running, _ := readStartup()
-
-		fmt.Fprintln(cmd.OutOrStdout(), "Uptime")
-		fmt.Fprintln(cmd.OutOrStdout(), "  started\t", started)
-		fmt.Fprintln(cmd.OutOrStdout(), "  running\t", running)
-		fmt.Fprintln(cmd.OutOrStdout(), "  human-readable\t", "@todo:")
+		showUptime(cmd.OutOrStdout())
 	},
 }
 

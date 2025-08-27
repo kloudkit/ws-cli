@@ -1,8 +1,6 @@
 package styles
 
-import (
-	catppuccin "github.com/catppuccin/go"
-)
+import catppuccin "github.com/catppuccin/go"
 
 var frappe = catppuccin.Frappe
 

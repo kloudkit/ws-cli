@@ -4,36 +4,46 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
+	"io"
 	"os/exec"
+	"strings"
 )
 
-func fetchExtensions() string {
+func fetchExtensions() [][]string {
 	out, _ := exec.Command("code", "--list-extensions", "--show-versions").Output()
 
-	var buf bytes.Buffer
+	var extensions [][]string
 	scanner := bufio.NewScanner(bytes.NewReader(out))
-	skipHeader := true
 
 	for scanner.Scan() {
-		if skipHeader {
-			skipHeader = false
-			continue
+		line := scanner.Text()
+		parts := strings.Split(line, "@")
+    
+		if len(parts) == 2 {
+			extensions = append(extensions, []string{parts[0], parts[1]})
 		}
-
-		buf.WriteString("\t\t ")
-		buf.WriteString(scanner.Text())
-		buf.WriteByte('\n')
 	}
 
-	return buf.String()
+	return extensions
+}
+
+func showExtensions(writer io.Writer) {
+	fmt.Fprintln(writer, styles.HeaderStyle().Render("Extensions"))
+	fmt.Fprintln(writer)
+
+	t := styles.Table("Name", "Version").
+		Rows(fetchExtensions()...)
+
+	fmt.Fprintln(writer, t.Render())
 }
 
 var extensionsCmd = &cobra.Command{
 	Use:   "extensions",
 	Short: "Display installed extensions",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Fprint(cmd.OutOrStdout(), fetchExtensions())
+		showExtensions(cmd.OutOrStdout())
 	},
 }
 

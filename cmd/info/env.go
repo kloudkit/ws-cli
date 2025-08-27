@@ -6,8 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/lipgloss/table"
 	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
@@ -34,18 +32,6 @@ func showEnvironment(writer io.Writer) {
 
 	t := styles.Table("Variable", "Value").
 		Rows(envVars...)
-
-	t = t.StyleFunc(func(row, col int) lipgloss.Style {
-		if row == table.HeaderRow {
-			return styles.TableHeaderStyle()
-		}
-
-		if col == 0 {
-			return styles.TableRowTitleStyle()
-		}
-
-		return styles.TableCellStyle().Width(50)
-	})
 
 	fmt.Fprintln(writer)
 	fmt.Fprintln(writer, t.Render())

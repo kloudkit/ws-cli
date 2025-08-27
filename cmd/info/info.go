@@ -1,14 +1,14 @@
 package info
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"os"
-	"strings"
 
+	"encoding/json"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
+	"os"
+	"strings"
 )
 
 func readJsonFile() map[string]any {
@@ -44,13 +44,17 @@ func readJson(content map[string]any, key string) string {
 func showVersion(writer io.Writer) {
 	content := readJsonFile()
 
-	title := styles.HeaderStyle().Render("Versions")
+	fmt.Fprintln(writer, styles.HeaderStyle().Render("Versions"))
+	fmt.Fprintln(writer)
 
-	fmt.Fprintln(writer, title)
+	t := styles.Table("", "Value").
+		Rows(
+			[]string{"workspace", readJson(content, "version")},
+			[]string{"ws-cli", Version},
+			[]string{"VSCode", readJson(content, "vscode.version")},
+		)
 
-	fmt.Fprintf(writer, "  workspace\t%s\n", readJson(content, "version"))
-	fmt.Fprintf(writer, "  ws-cli\t%s\n", Version)
-	fmt.Fprintf(writer, "  VSCode\t%s\n", readJson(content, "vscode.version"))
+	fmt.Fprintln(writer, t.Render())
 }
 
 var InfoCmd = &cobra.Command{
@@ -58,7 +62,7 @@ var InfoCmd = &cobra.Command{
 	Short: "Display workspace information",
 }
 
-var versionCmd = &cobra.Command{
+var showVersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Display installed workspace version",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -67,5 +71,5 @@ var versionCmd = &cobra.Command{
 }
 
 func init() {
-	InfoCmd.AddCommand(versionCmd)
+	InfoCmd.AddCommand(showVersionCmd)
 }
