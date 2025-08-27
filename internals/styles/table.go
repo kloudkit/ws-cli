@@ -6,60 +6,55 @@ import (
 )
 
 var (
-	noColorTableHeaderStyle = lipgloss.NewStyle().
-				Align(lipgloss.Center).
-				PaddingLeft(1).
-				PaddingRight(1)
-
-	tableBorderStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(ColorBorder))
-
 	tableCellStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorText)).
-			PaddingLeft(1).
-			PaddingRight(1)
+		Foreground(lipgloss.Color(ColorText)).
+		PaddingLeft(1).
+		PaddingRight(1)
 )
 
 func TableBorderStyle() lipgloss.Style {
-	if ColorEnabled {
-		return tableBorderStyle
-	}
-
-	return NoColorStyle
+	return WithColor(
+		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorBorder)),
+	)
 }
 
 func TableHeaderStyle() lipgloss.Style {
-	if ColorEnabled {
-		return HeaderStyle().
+	return WithColor(
+		HeaderStyle().
 			Align(lipgloss.Center).
 			PaddingLeft(1).
-			PaddingRight(1)
-	}
-
-	return noColorTableHeaderStyle
+			PaddingRight(1),
+		lipgloss.NewStyle().
+			Foreground(lipgloss.Color(ColorText)).
+			PaddingLeft(1).
+			PaddingRight(1),
+	)
 }
 
 func TableCellStyle() lipgloss.Style {
-	return tableCellStyle
+	return WithColor(
+		lipgloss.NewStyle().
+			Foreground(lipgloss.Color(ColorText)).
+			PaddingLeft(1).
+			PaddingRight(1),
+	)
 }
 
 func TableKeyCellStyle() lipgloss.Style {
-	if ColorEnabled {
-		return KeyStyle().
+	return WithColor(
+		KeyStyle().
 			PaddingLeft(1).
-			PaddingRight(1)
-	}
-
-	return tableCellStyle
+			PaddingRight(1),
+		tableCellStyle,
+	)
 }
 
 func TableRowTitleStyle() lipgloss.Style {
-	if ColorEnabled {
-		return TableKeyCellStyle().
-			Bold(true)
-	}
-
-	return tableCellStyle
+  return WithColor(
+    TableKeyCellStyle().
+			Bold(true),
+    tableCellStyle,
+  )
 }
 
 func Table(headers ...string) *table.Table {

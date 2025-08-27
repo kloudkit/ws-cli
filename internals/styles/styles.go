@@ -1,110 +1,61 @@
 package styles
 
-import (
-	"github.com/charmbracelet/lipgloss"
-)
-
-var (
-	NoColorStyle = lipgloss.NewStyle()
-
-	headerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorHeader)).
-			Bold(true)
-
-	subHeaderStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorInfo)).
-			Bold(true)
-
-	keyStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorAccent))
-
-	valueStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorText))
-
-	infoStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorInfo))
-
-	successStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorSuccess))
-
-	warningStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorWarning))
-
-	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorError))
-
-	mutedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorMuted))
-)
+import "github.com/charmbracelet/lipgloss"
 
 func HeaderStyle() lipgloss.Style {
-	if ColorEnabled {
-		return headerStyle
-	}
-
-	return NoColorStyle
+	return WithColor(
+		lipgloss.NewStyle().
+			Foreground(lipgloss.Color(ColorHeader)).
+			Bold(true),
+	)
 }
 
 func SubHeaderStyle() lipgloss.Style {
-	if ColorEnabled {
-		return subHeaderStyle
-	}
-
-	return NoColorStyle
+	return WithColor(
+		lipgloss.NewStyle().
+			Foreground(lipgloss.Color(ColorInfo)).
+			Bold(true),
+	)
 }
 
 func KeyStyle() lipgloss.Style {
-	if ColorEnabled {
-		return keyStyle
-	}
-
-	return NoColorStyle
+	return WithColor(
+		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorAccent)),
+	)
 }
 
 func ValueStyle() lipgloss.Style {
-	if ColorEnabled {
-		return valueStyle
-	}
-
-	return NoColorStyle
+	return WithColor(
+		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorText)),
+	)
 }
 
 func InfoStyle() lipgloss.Style {
-	if ColorEnabled {
-		return infoStyle
-	}
-
-	return NoColorStyle
+	return WithColor(
+		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorInfo)),
+	)
 }
 
 func SuccessStyle() lipgloss.Style {
-	if ColorEnabled {
-		return successStyle
-	}
-
-	return NoColorStyle
+	return WithColor(
+		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorSuccess)),
+	)
 }
 
 func WarningStyle() lipgloss.Style {
-	if ColorEnabled {
-		return warningStyle
-	}
-
-	return NoColorStyle
+	return WithColor(
+		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorWarning)),
+	)
 }
 
 func ErrorStyle() lipgloss.Style {
-	if ColorEnabled {
-		return errorStyle
-	}
-
-	return NoColorStyle
+	return WithColor(
+		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorError)),
+	)
 }
 
 func MutedStyle() lipgloss.Style {
-	if ColorEnabled {
-		return mutedStyle
-	}
-
-	return NoColorStyle
+	return WithColor(
+		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorMuted)),
+	)
 }
