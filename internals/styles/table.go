@@ -50,11 +50,11 @@ func TableKeyCellStyle() lipgloss.Style {
 }
 
 func TableRowTitleStyle() lipgloss.Style {
-  return WithColor(
-    TableKeyCellStyle().
+	return WithColor(
+		TableKeyCellStyle().
 			Bold(true),
-    tableCellStyle,
-  )
+		tableCellStyle,
+	)
 }
 
 func Table(headers ...string) *table.Table {
