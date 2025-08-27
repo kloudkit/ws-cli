@@ -1,4 +1,4 @@
-package font
+package serve
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var FontCmd = &cobra.Command{
+var fontCmd = &cobra.Command{
 	Use:   "font",
 	Short: "Serve fonts for local download",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -29,4 +29,5 @@ var FontCmd = &cobra.Command{
 }
 
 func init() {
+	ServeCmd.AddCommand(fontCmd)
 }
