@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-  "os"
+	"os"
 	"time"
 )
 

@@ -32,10 +32,7 @@ func showEnvironment(writer io.Writer) {
 		return envVars[i][0] < envVars[j][0]
 	})
 
-	t := table.New().
-		Border(lipgloss.NormalBorder()).
-		BorderStyle(styles.TableBorderStyle()).
-		Headers("Variable", "Value").
+	t := styles.Table("Variable", "Value").
 		Rows(envVars...)
 
 	t = t.StyleFunc(func(row, col int) lipgloss.Style {

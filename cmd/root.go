@@ -11,7 +11,7 @@ import (
 	"github.com/kloudkit/ws-cli/cmd/get"
 	"github.com/kloudkit/ws-cli/cmd/info"
 	"github.com/kloudkit/ws-cli/cmd/log"
-	ilog "github.com/kloudkit/ws-cli/internals/log"
+	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -36,11 +36,11 @@ func init() {
 
 	cobra.OnInitialize(func() {
 		if _, exists := os.LookupEnv("WS_LOGGING_NO_COLOR"); exists {
-			ilog.ColorEnabled = false
+			styles.ColorEnabled = false
 		}
 
 		if noColor {
-			ilog.ColorEnabled = false
+			styles.ColorEnabled = false
 		}
 	})
 
