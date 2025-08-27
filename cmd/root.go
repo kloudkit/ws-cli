@@ -7,7 +7,7 @@ import (
 	"github.com/kloudkit/ws-cli/cmd/clip"
 	"github.com/kloudkit/ws-cli/cmd/config"
 	"github.com/kloudkit/ws-cli/cmd/feature"
-	"github.com/kloudkit/ws-cli/cmd/fonts"
+	"github.com/kloudkit/ws-cli/cmd/serve"
 	"github.com/kloudkit/ws-cli/cmd/get"
 	"github.com/kloudkit/ws-cli/cmd/info"
 	"github.com/kloudkit/ws-cli/cmd/log"
@@ -48,7 +48,7 @@ func init() {
 		clip.ClipCmd,
 		config.ConfigCmd,
 		feature.FeatureCmd,
-		fonts.FontsCmd,
+		serve.ServeCmd,
 		get.GetCmd,
 		info.InfoCmd,
 		log.LogCmd,
