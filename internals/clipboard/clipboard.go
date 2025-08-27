@@ -7,13 +7,7 @@ import (
 	"github.com/kloudkit/ws-cli/internals/net"
 )
 
-type Service struct{}
-
-func NewService() *Service {
-	return &Service{}
-}
-
-func (s *Service) Paste(writer io.Writer) error {
+func Paste(writer io.Writer) error {
 	client := net.GetIPCClient()
 
 	resp, err := client.Get("http://localhost/clipboard")
