@@ -3,7 +3,7 @@ package log
 import (
 	"fmt"
 
-	ilog "github.com/kloudkit/ws-cli/internals/log"
+	"github.com/kloudkit/ws-cli/internals/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -24,9 +24,9 @@ var stampCmd = &cobra.Command{
 		withPipe, _ := cmd.Flags().GetBool("pipe")
 
 		if withPipe {
-			ilog.Pipe(cmd.InOrStdin(), cmd.OutOrStdout(), "", 0, true)
+			logger.Pipe(cmd.InOrStdin(), cmd.OutOrStdout(), "", 0, true)
 		} else {
-			ilog.Log(cmd.OutOrStdout(), "", "", 0, true)
+			logger.Log(cmd.OutOrStdout(), "", "", 0, true)
 		}
 	},
 }
@@ -52,9 +52,9 @@ func execute(level string) func(*cobra.Command, []string) {
 		withStamp, _ := cmd.Flags().GetBool("stamp")
 
 		if withPipe {
-			ilog.Pipe(cmd.InOrStdin(), cmd.OutOrStdout(), level, indentation, withStamp)
+			logger.Pipe(cmd.InOrStdin(), cmd.OutOrStdout(), level, indentation, withStamp)
 		} else {
-			ilog.Log(cmd.OutOrStdout(), level, args[0], indentation, withStamp)
+			logger.Log(cmd.OutOrStdout(), level, args[0], indentation, withStamp)
 		}
 	}
 }

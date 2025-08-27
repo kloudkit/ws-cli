@@ -5,7 +5,7 @@ import (
 	"io"
 	"testing"
 
-	ilog "github.com/kloudkit/ws-cli/internals/log"
+	"github.com/kloudkit/ws-cli/internals/logger"
 	"gotest.tools/v3/assert"
 )
 
@@ -15,15 +15,15 @@ func TestWarnCommandInvokesLogWithFlags(t *testing.T) {
 	var gotStamp bool
 	called := 0
 
-	original := ilog.Log
-	ilog.Log = func(w io.Writer, level, message string, indent int, withStamp bool) {
+	original := logger.Log
+	logger.Log = func(w io.Writer, level, message string, indent int, withStamp bool) {
 		called++
 		gotLevel = level
 		gotMsg = message
 		gotIndent = indent
 		gotStamp = withStamp
 	}
-	defer func() { ilog.Log = original }()
+	defer func() { logger.Log = original }()
 
 	buffer := new(bytes.Buffer)
 	cmd := LogCmd
@@ -45,14 +45,14 @@ func TestInfoCommandUsesPipeWhenFlagged(t *testing.T) {
 	var gotStamp bool
 	called := 0
 
-	original := ilog.Pipe
-	ilog.Pipe = func(r io.Reader, w io.Writer, level string, indent int, withStamp bool) {
+	original := logger.Pipe
+	logger.Pipe = func(r io.Reader, w io.Writer, level string, indent int, withStamp bool) {
 		called++
 		gotLevel = level
 		gotIndent = indent
 		gotStamp = withStamp
 	}
-	defer func() { ilog.Pipe = original }()
+	defer func() { logger.Pipe = original }()
 
 	cmd := LogCmd
 	cmd.SetIn(bytes.NewBufferString("foo\n"))
@@ -73,15 +73,15 @@ func TestStampCommandInvokesLog(t *testing.T) {
 	var gotIndent int
 	var gotStamp bool
 
-	original := ilog.Log
-	ilog.Log = func(w io.Writer, level, message string, indent int, withStamp bool) {
+	original := logger.Log
+	logger.Log = func(w io.Writer, level, message string, indent int, withStamp bool) {
 		called++
 		gotLevel = level
 		gotMsg = message
 		gotIndent = indent
 		gotStamp = withStamp
 	}
-	defer func() { ilog.Log = original }()
+	defer func() { logger.Log = original }()
 
 	cmd := LogCmd
 	cmd.PersistentFlags().Set("pipe", "false")
