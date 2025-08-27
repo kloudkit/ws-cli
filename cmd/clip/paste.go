@@ -1,0 +1,20 @@
+package clip
+
+import (
+	"github.com/kloudkit/ws-cli/internals/clipboard"
+	"github.com/spf13/cobra"
+)
+
+var pasteCmd = &cobra.Command{
+	Use:   "paste",
+	Short: "Paste clipboard content to the terminal",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		service := clipboard.NewService()
+
+		return service.Paste(cmd.OutOrStdout())
+	},
+}
+
+func init() {
+	ClipCmd.AddCommand(pasteCmd)
+}

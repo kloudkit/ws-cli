@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kloudkit/ws-cli/cmd/clipboard"
+	"github.com/kloudkit/ws-cli/cmd/clip"
 	"github.com/kloudkit/ws-cli/cmd/config"
 	"github.com/kloudkit/ws-cli/cmd/feature"
 	"github.com/kloudkit/ws-cli/cmd/fonts"
@@ -45,8 +45,8 @@ func init() {
 	})
 
 	rootCmd.AddCommand(
+		clip.ClipCmd,
 		config.ConfigCmd,
-		clipboard.ClipboardCmd,
 		feature.FeatureCmd,
 		fonts.FontsCmd,
 		get.GetCmd,
