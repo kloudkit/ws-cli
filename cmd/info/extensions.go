@@ -20,7 +20,7 @@ func fetchExtensions() [][]string {
 	for scanner.Scan() {
 		line := scanner.Text()
 		parts := strings.Split(line, "@")
-    
+
 		if len(parts) == 2 {
 			extensions = append(extensions, []string{parts[0], parts[1]})
 		}
