@@ -22,13 +22,13 @@ func execute(cmd *cobra.Command, args []string) {
 	level, _ := cmd.Flags().GetString("level")
 
 	if level != "" && level != "info" && level != "warn" && level != "error" && level != "debug" {
-		fmt.Fprintln(cmd.ErrOrStderr(), styles.ErrorStyle().Render("Invalid log level. Must be one of: debug, info, warn, error"))
+		fmt.Fprintln(cmd.ErrOrStderr(), styles.Error().Render("Invalid log level. Must be one of: debug, info, warn, error"))
 		os.Exit(1)
 	}
 
 	reader, err := logger.NewReader(tail, level)
 	if err != nil {
-		fmt.Fprintln(cmd.ErrOrStderr(), styles.ErrorStyle().Render(fmt.Sprintf("Error: %s", err)))
+		fmt.Fprintln(cmd.ErrOrStderr(), styles.Error().Render(fmt.Sprintf("Error: %s", err)))
 		os.Exit(1)
 	}
 
@@ -39,7 +39,7 @@ func execute(cmd *cobra.Command, args []string) {
 	}
 
 	if err != nil {
-		fmt.Fprintln(cmd.ErrOrStderr(), styles.ErrorStyle().Render(fmt.Sprintf("Error reading logs: %s", err)))
+		fmt.Fprintln(cmd.ErrOrStderr(), styles.Error().Render(fmt.Sprintf("Error reading logs: %s", err)))
 		os.Exit(1)
 	}
 }

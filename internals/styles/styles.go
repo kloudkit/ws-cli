@@ -2,7 +2,7 @@ package styles
 
 import "github.com/charmbracelet/lipgloss"
 
-func HeaderStyle() lipgloss.Style {
+func Header() lipgloss.Style {
 	return WithColor(
 		lipgloss.NewStyle().
 			Foreground(lipgloss.Color(ColorHeader)).
@@ -10,7 +10,7 @@ func HeaderStyle() lipgloss.Style {
 	)
 }
 
-func SubHeaderStyle() lipgloss.Style {
+func SubHeader() lipgloss.Style {
 	return WithColor(
 		lipgloss.NewStyle().
 			Foreground(lipgloss.Color(ColorInfo)).
@@ -18,43 +18,43 @@ func SubHeaderStyle() lipgloss.Style {
 	)
 }
 
-func KeyStyle() lipgloss.Style {
+func Key() lipgloss.Style {
 	return WithColor(
 		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorAccent)),
 	)
 }
 
-func ValueStyle() lipgloss.Style {
+func Value() lipgloss.Style {
 	return WithColor(
 		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorText)),
 	)
 }
 
-func InfoStyle() lipgloss.Style {
+func Info() lipgloss.Style {
 	return WithColor(
 		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorInfo)),
 	)
 }
 
-func SuccessStyle() lipgloss.Style {
+func Success() lipgloss.Style {
 	return WithColor(
 		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorSuccess)),
 	)
 }
 
-func WarningStyle() lipgloss.Style {
+func Warning() lipgloss.Style {
 	return WithColor(
 		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorWarning)),
 	)
 }
 
-func ErrorStyle() lipgloss.Style {
+func Error() lipgloss.Style {
 	return WithColor(
 		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorError)),
 	)
 }
 
-func MutedStyle() lipgloss.Style {
+func Muted() lipgloss.Style {
 	return WithColor(
 		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorMuted)),
 	)

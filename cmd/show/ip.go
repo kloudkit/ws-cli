@@ -20,7 +20,7 @@ var ipInternalCmd = &cobra.Command{
 		ip, err := net.GetInternalIP()
 
 		if err == nil {
-			fmt.Fprintln(cmd.OutOrStdout(), styles.ValueStyle().Render(ip))
+			fmt.Fprintln(cmd.OutOrStdout(), styles.Value().Render(ip))
 		}
 
 		return err
@@ -34,7 +34,7 @@ var ipNodeCmd = &cobra.Command{
 		ip, err := net.GetNodeIP()
 
 		if err == nil {
-			fmt.Fprintln(cmd.OutOrStdout(), styles.ValueStyle().Render(ip))
+			fmt.Fprintln(cmd.OutOrStdout(), styles.Value().Render(ip))
 		}
 
 		return err
@@ -43,4 +43,6 @@ var ipNodeCmd = &cobra.Command{
 
 func init() {
 	ipCmd.AddCommand(ipInternalCmd, ipNodeCmd)
+
+	ShowCmd.AddCommand(ipCmd)
 }

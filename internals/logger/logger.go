@@ -19,10 +19,10 @@ var (
 	logRegex   = regexp.MustCompile(`^\[.*?\]\s+(\w+)\s*(.*)$`)
 	timeFormat = "[2006-01-02T15:04:05.000Z]"
 	styleMap   = map[string]lipgloss.Style{
-		"info":  styles.InfoStyle(),
-		"error": styles.ErrorStyle(),
-		"warn":  styles.WarningStyle(),
-		"debug": styles.MutedStyle(),
+		"info":  styles.Info(),
+		"error": styles.Error(),
+		"warn":  styles.Warning(),
+		"debug": styles.Muted(),
 	}
 )
 

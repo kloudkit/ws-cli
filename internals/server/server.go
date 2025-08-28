@@ -21,8 +21,8 @@ func ServeDirectory(config Config, directory string, description string) error {
 
 	handler := http.FileServer(http.Dir(directory))
 
-	fmt.Println(styles.SuccessStyle().Render(fmt.Sprintf("Serving %s at port %d", description, config.Port)))
-	fmt.Println(styles.InfoStyle().Render("To stop serving, press Ctrl+C"))
+	fmt.Println(styles.Success().Render(fmt.Sprintf("Serving %s at port %d", description, config.Port)))
+	fmt.Println(styles.Info().Render("To stop serving, press Ctrl+C"))
 
 	return http.ListenAndServe(host, handler)
 }
