@@ -12,7 +12,7 @@ import (
 )
 
 func showEnvironment(writer io.Writer) {
-	fmt.Fprintln(writer, styles.HeaderStyle().Render("Environment Variables"))
+	fmt.Fprintln(writer, styles.Header().Render("Environment Variables"))
 
 	var envVars [][]string
 	for key, value := range env.GetAll() {
@@ -22,7 +22,7 @@ func showEnvironment(writer io.Writer) {
 	}
 
 	if len(envVars) == 0 {
-		fmt.Fprintln(writer, styles.WarningStyle().Render("  No environment variables found"))
+		fmt.Fprintln(writer, styles.Warning().Render("  No environment variables found"))
 		return
 	}
 

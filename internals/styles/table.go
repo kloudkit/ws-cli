@@ -13,7 +13,7 @@ func TableBorderStyle() lipgloss.Style {
 
 func TableHeaderStyle() lipgloss.Style {
 	return WithColor(
-		HeaderStyle().
+		Header().
 			Align(lipgloss.Center).
 			PaddingLeft(1).
 			PaddingRight(1),
@@ -35,7 +35,7 @@ func TableCellStyle() lipgloss.Style {
 
 func TableKeyCellStyle() lipgloss.Style {
 	return WithColor(
-		KeyStyle().
+		Key().
 			PaddingLeft(1).
 			PaddingRight(1),
 		TableCellStyle(),

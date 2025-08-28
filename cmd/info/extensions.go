@@ -30,7 +30,7 @@ func fetchExtensions() [][]string {
 }
 
 func showExtensions(writer io.Writer) {
-	fmt.Fprintln(writer, styles.HeaderStyle().Render("Extensions"))
+	fmt.Fprintln(writer, styles.Header().Render("Extensions"))
 	fmt.Fprintln(writer)
 
 	t := styles.Table("Name", "Version").

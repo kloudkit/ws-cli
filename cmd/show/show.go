@@ -8,7 +8,3 @@ var ShowCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Show information about the current workspace instance",
 }
-
-func init() {
-	ShowCmd.AddCommand(pathCmd, ipCmd)
-}

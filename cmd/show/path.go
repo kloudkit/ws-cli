@@ -20,7 +20,7 @@ var pathHomeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Fprintln(
 			cmd.OutOrStdout(),
-			styles.ValueStyle().Render(env.String("WS_SERVER_ROOT", "/workspace")),
+			styles.Value().Render(env.String("WS_SERVER_ROOT", "/workspace")),
 		)
 	},
 }
@@ -37,7 +37,7 @@ var pathVscodeCmd = &cobra.Command{
 			settingsPath = path.GetHomeDirectory("/.local/share/code-server/User/settings.json")
 		}
 
-		fmt.Fprintln(cmd.OutOrStdout(), styles.ValueStyle().Render(settingsPath))
+		fmt.Fprintln(cmd.OutOrStdout(), styles.Value().Render(settingsPath))
 	},
 }
 
@@ -45,4 +45,6 @@ func init() {
 	pathVscodeCmd.Flags().Bool("workspace", false, "Get the workspace settings")
 
 	pathCmd.AddCommand(pathHomeCmd, pathVscodeCmd)
+
+	ShowCmd.AddCommand(pathCmd)
 }

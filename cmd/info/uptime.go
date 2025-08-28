@@ -54,7 +54,7 @@ func humanizeDuration(duration time.Duration) string {
 func showUptime(writer io.Writer) {
 	started, running, _ := readStartup()
 
-	fmt.Fprintln(writer, styles.HeaderStyle().Render("Uptime"))
+	fmt.Fprintln(writer, styles.Header().Render("Uptime"))
 	fmt.Fprintln(writer)
 
 	t := styles.Table("", "Value").
