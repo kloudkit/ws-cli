@@ -25,6 +25,14 @@ var rootCmd = &cobra.Command{
 
 var noColor bool
 
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Display installed workspace version",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Fprintln(cmd.OutOrStdout(), info.Version)
+	},
+}
+
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -54,5 +62,6 @@ func init() {
 		info.InfoCmd,
 		log.LogCmd,
 		logs.LogsCmd,
+		versionCmd,
 	)
 }

@@ -7,9 +7,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var fontCmd = &cobra.Command{
-	Use:   "font",
-	Short: "Serve fonts for local download",
+var currentCmd = &cobra.Command{
+	Use:   "current",
+	Short: "Serve current directory as a static site",
 	Run: func(cmd *cobra.Command, args []string) {
 		port, _ := cmd.Flags().GetInt("port")
 		bind, _ := cmd.Flags().GetString("bind")
@@ -19,7 +19,13 @@ var fontCmd = &cobra.Command{
 			Bind: bind,
 		}
 
-		if err := server.ServeDirectory(config, "/usr/share/fonts/", "fonts"); err != nil {
+		currentDir, err := os.Getwd()
+		if err != nil {
+			cmd.PrintErrf("Error getting current directory: %v\n", err)
+			os.Exit(1)
+		}
+
+		if err := server.ServeDirectory(config, currentDir, "current directory"); err != nil {
 			cmd.PrintErrf("Error starting server: %v\n", err)
 			os.Exit(1)
 		}
@@ -27,5 +33,5 @@ var fontCmd = &cobra.Command{
 }
 
 func init() {
-	ServeCmd.AddCommand(fontCmd)
+	ServeCmd.AddCommand(currentCmd)
 }

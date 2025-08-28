@@ -66,10 +66,16 @@ var showVersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Display installed workspace version",
 	Run: func(cmd *cobra.Command, args []string) {
-		showVersion(cmd.OutOrStdout())
+		if all, _ := cmd.Flags().GetBool("all"); all {
+			showVersion(cmd.OutOrStdout())
+		} else {
+			fmt.Fprintln(cmd.OutOrStdout(), Version)
+		}
 	},
 }
 
 func init() {
+	showVersionCmd.Flags().Bool("all", false, "Show all version information")
+
 	InfoCmd.AddCommand(showVersionCmd)
 }
