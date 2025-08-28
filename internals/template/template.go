@@ -2,10 +2,8 @@ package template
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/kloudkit/ws-cli/internals/path"
 )
@@ -36,14 +34,17 @@ var SupportedTemplates = map[string]Config{
 
 func GetTemplate(name string) (Config, bool) {
 	config, exists := SupportedTemplates[name]
+
 	return config, exists
 }
 
 func GetTemplateNames() []string {
 	names := make([]string, 0, len(SupportedTemplates))
+
 	for name := range SupportedTemplates {
 		names = append(names, name)
 	}
+
 	return names
 }
 
@@ -53,14 +54,9 @@ func ApplyTemplate(name, targetPath string, force bool) error {
 		return fmt.Errorf("template '%s' not found", name)
 	}
 
-	var sourcePath string
-	if strings.HasPrefix(config.SourcePath, "/") {
-		sourcePath = config.SourcePath
-	} else {
-		sourcePath = path.GetHomeDirectory(config.SourcePath)
-	}
+	sourcePath := path.ResolveConfigPath(config.SourcePath)
 
-	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+	if !path.FileExists(sourcePath) {
 		return fmt.Errorf("template source file not found: %s", sourcePath)
 	}
 
@@ -75,7 +71,7 @@ func ApplyTemplate(name, targetPath string, force bool) error {
 		return fmt.Errorf("file already exists: %s (use --force to overwrite)", destPath)
 	}
 
-	return copyFile(sourcePath, destPath)
+	return path.CopyFile(sourcePath, destPath)
 }
 
 func ShowTemplate(name string, local bool) (string, error) {
@@ -85,18 +81,14 @@ func ShowTemplate(name string, local bool) (string, error) {
 	}
 
 	var sourcePath string
+	var err error
 	if local {
-		cwd, err := os.Getwd()
+		sourcePath, err = path.GetCurrentWorkingDirectory(config.OutputName)
 		if err != nil {
-			return "", fmt.Errorf("failed to get current directory: %w", err)
+			return "", err
 		}
-		sourcePath = path.AppendSegments(cwd, config.OutputName)
 	} else {
-		if strings.HasPrefix(config.SourcePath, "/") {
-			sourcePath = config.SourcePath
-		} else {
-			sourcePath = path.GetHomeDirectory(config.SourcePath)
-		}
+		sourcePath = path.ResolveConfigPath(config.SourcePath)
 	}
 
 	content, err := os.ReadFile(sourcePath)
@@ -105,34 +97,4 @@ func ShowTemplate(name string, local bool) (string, error) {
 	}
 
 	return string(content), nil
-}
-
-func copyFile(source, dest string) error {
-	stats, err := os.Stat(source)
-	if err != nil {
-		return fmt.Errorf("failed to stat source file: %w", err)
-	}
-
-	if !stats.Mode().IsRegular() {
-		return fmt.Errorf("%s is not a regular file", source)
-	}
-
-	sourceFile, err := os.Open(source)
-	if err != nil {
-		return fmt.Errorf("failed to open source file: %w", err)
-	}
-	defer sourceFile.Close()
-
-	destFile, err := os.Create(dest)
-	if err != nil {
-		return fmt.Errorf("failed to create destination file: %w", err)
-	}
-	defer destFile.Close()
-
-	_, err = io.Copy(destFile, sourceFile)
-	if err != nil {
-		return fmt.Errorf("failed to copy file: %w", err)
-	}
-
-	return nil
 }
