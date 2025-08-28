@@ -7,14 +7,14 @@ import (
 
 var FeatureCmd = &cobra.Command{
 	Use:   "feature",
-	Short: "Install extra pre-configured features",
+	Short: "Install additional pre-configured features",
 }
 
 func init() {
 	FeatureCmd.PersistentFlags().String(
 		"root",
 		env.String("WS_FEATURES_DIR", "/features"),
-		"Root directory of extra features",
+		"Root directory of additional features",
 	)
 
 	FeatureCmd.AddCommand(installCmd, listCmd, infoCmd)
