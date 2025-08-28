@@ -6,5 +6,5 @@ import (
 
 var ShowCmd = &cobra.Command{
 	Use:   "show",
-	Short: "Show information about the current workspace instance",
+	Short: "Display information about the current workspace instance",
 }

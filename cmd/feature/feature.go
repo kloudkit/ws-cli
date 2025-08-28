@@ -1,7 +1,6 @@
 package feature
 
 import (
-	"github.com/kloudkit/ws-cli/cmd/feature/install"
 	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/spf13/cobra"
 )
@@ -18,5 +17,5 @@ func init() {
 		"Root directory of extra features",
 	)
 
-	FeatureCmd.AddCommand(install.InstallCmd)
+	FeatureCmd.AddCommand(installCmd, listCmd, infoCmd)
 }

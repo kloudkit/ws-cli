@@ -12,36 +12,29 @@ import (
 )
 
 func showEnvironment(writer io.Writer) {
-	fmt.Fprintln(writer, styles.Header().Render("Environment Variables"))
-
-	var envVars [][]string
-	for key, value := range env.GetAll() {
+	allVars := env.GetAll()
+	var wsVars [][]string
+	for key, value := range allVars {
 		if strings.HasPrefix(key, "WS_") {
-			envVars = append(envVars, []string{key, value})
+			wsVars = append(wsVars, []string{key, value})
 		}
 	}
 
-	if len(envVars) == 0 {
-		fmt.Fprintln(writer, styles.Warning().Render("  No environment variables found"))
-		return
-	}
+	fmt.Fprintf(writer, "\n%s\n\n", styles.InfoBadge().Render(fmt.Sprintf("%d WORKSPACE VARIABLES", len(wsVars))))
 
-	sort.Slice(envVars, func(i, j int) bool {
-		return envVars[i][0] < envVars[j][0]
+	sort.Slice(wsVars, func(i, j int) bool {
+		return wsVars[i][0] < wsVars[j][0]
 	})
 
-	t := styles.Table("Variable", "Value").
-		Rows(envVars...)
-
-	fmt.Fprintln(writer)
-	fmt.Fprintln(writer, t.Render())
+	fmt.Fprintf(writer, "%s\n\n", styles.Table().Rows(wsVars...).Render())
 }
 
 var envCmd = &cobra.Command{
 	Use:   "env",
 	Short: "Display effective workspace environment variables",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		showEnvironment(cmd.OutOrStdout())
+		return nil
 	},
 }
 

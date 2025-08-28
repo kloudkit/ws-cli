@@ -15,12 +15,10 @@ func TableHeaderStyle() lipgloss.Style {
 	return WithColor(
 		Header().
 			Align(lipgloss.Center).
-			PaddingLeft(1).
-			PaddingRight(1),
+			Padding(0, 1),
 		lipgloss.NewStyle().
 			Foreground(lipgloss.Color(ColorText)).
-			PaddingLeft(1).
-			PaddingRight(1),
+			Padding(0, 1),
 	)
 }
 
@@ -28,16 +26,15 @@ func TableCellStyle() lipgloss.Style {
 	return WithColor(
 		lipgloss.NewStyle().
 			Foreground(lipgloss.Color(ColorText)).
-			PaddingLeft(1).
-			PaddingRight(1),
+			Padding(0, 1),
 	)
 }
 
 func TableKeyCellStyle() lipgloss.Style {
 	return WithColor(
 		Key().
-			PaddingLeft(1).
-			PaddingRight(1),
+			Padding(0, 1).
+			Bold(true),
 		TableCellStyle(),
 	)
 }

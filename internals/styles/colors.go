@@ -16,4 +16,13 @@ var (
 	ColorAccent  = frappe.Teal().Hex
 	ColorHeader  = frappe.Mauve().Hex
 	ColorBorder  = frappe.Surface2().Hex
+
+	BgSuccess = frappe.Green().Hex
+	BgWarning = frappe.Yellow().Hex
+	BgError   = frappe.Red().Hex
+	BgInfo    = frappe.Blue().Hex
+	BgMuted   = frappe.Surface0().Hex
+	BgAccent  = frappe.Surface1().Hex
+
+	ColorBase = frappe.Base().Hex
 )

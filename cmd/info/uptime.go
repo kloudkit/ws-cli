@@ -52,25 +52,38 @@ func humanizeDuration(duration time.Duration) string {
 }
 
 func showUptime(writer io.Writer) {
-	started, running, _ := readStartup()
+	started, running, err := readStartup()
 
-	fmt.Fprintln(writer, styles.Header().Render("Uptime"))
-	fmt.Fprintln(writer)
+	if err != nil {
+		fmt.Fprintf(writer, "%s\n\n", styles.WarningBadge().Render("WARNING"))
+		fmt.Fprintf(writer, "%s\n", styles.Warning().Render("Could not read workspace startup time"))
+		return
+	}
 
-	t := styles.Table("", "Value").
-		Rows(
-			[]string{"started", started.String()},
-			[]string{"running", humanizeDuration(running)},
-		)
+	var statusBadge string
+	if running.Hours() < 1 {
+		statusBadge = styles.InfoBadge().Render("RECENTLY STARTED")
+	} else if running.Hours() < 36 {
+		statusBadge = styles.SuccessBadge().Render("ACTIVE")
+	} else {
+		statusBadge = styles.Highlighted().Render("LONG RUNNING")
+	}
+	fmt.Fprintf(writer, "\n%s\n\n", statusBadge)
 
-	fmt.Fprintln(writer, t.Render())
+	t := styles.Table().Rows(
+		[]string{"Started at", styles.Code().Render(started.Format("2006-01-02 15:04:05 MST"))},
+		[]string{"Running for", styles.Value().Render(humanizeDuration(running))},
+	)
+
+	fmt.Fprintf(writer, "%s\n\n", t.Render())
 }
 
 var uptimeCmd = &cobra.Command{
 	Use:   "uptime",
 	Short: "Display the workspace uptime",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		showUptime(cmd.OutOrStdout())
+		return nil
 	},
 }
 

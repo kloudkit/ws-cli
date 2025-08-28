@@ -7,7 +7,7 @@ import (
 
 var pasteCmd = &cobra.Command{
 	Use:   "paste",
-	Short: "Paste clipboard content to the terminal",
+	Short: "Paste clipboard content",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return clipboard.Paste(cmd.OutOrStdout())
 	},

@@ -1,8 +1,6 @@
 package serve
 
 import (
-	"os"
-
 	"github.com/kloudkit/ws-cli/internals/server"
 	"github.com/spf13/cobra"
 )
@@ -10,7 +8,7 @@ import (
 var fontCmd = &cobra.Command{
 	Use:   "font",
 	Short: "Serve fonts for local download",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		port, _ := cmd.Flags().GetInt("port")
 		bind, _ := cmd.Flags().GetString("bind")
 
@@ -19,10 +17,7 @@ var fontCmd = &cobra.Command{
 			Bind: bind,
 		}
 
-		if err := server.ServeDirectory(config, "/usr/share/fonts/", "fonts"); err != nil {
-			cmd.PrintErrf("Error starting server: %v\n", err)
-			os.Exit(1)
-		}
+		return server.ServeDirectory(config, "/usr/share/fonts/", "fonts")
 	},
 }
 

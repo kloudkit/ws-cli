@@ -9,7 +9,7 @@ import (
 
 var LogCmd = &cobra.Command{
 	Use:   "log",
-	Short: "Log messages to the console",
+	Short: "Log messages",
 }
 
 var debugCmd = createCommand("debug", "debugging")
@@ -18,9 +18,9 @@ var infoCmd = createCommand("info", "information")
 var warnCmd = createCommand("warn", "warning")
 var stampCmd = &cobra.Command{
 	Use:   "stamp",
-	Short: "Log the current timestamp to the console",
+	Short: "Log the current timestamp",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		withPipe, _ := cmd.Flags().GetBool("pipe")
 
 		if withPipe {
@@ -28,15 +28,16 @@ var stampCmd = &cobra.Command{
 		} else {
 			logger.Log(cmd.OutOrStdout(), "", "", 0, true)
 		}
+		return nil
 	},
 }
 
 func createCommand(short, long string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   fmt.Sprintf("%s message", short),
-		Short: fmt.Sprintf("Log a %s messages to the console", long),
+		Short: fmt.Sprintf("Log %s messages", long),
 		Args:  validate,
-		Run:   execute(short),
+		RunE:  execute(short),
 	}
 
 	cmd.Flags().IntP("indent", "i", 0, "Desired prefixed indentation")
@@ -45,8 +46,8 @@ func createCommand(short, long string) *cobra.Command {
 	return cmd
 }
 
-func execute(level string) func(*cobra.Command, []string) {
-	return func(cmd *cobra.Command, args []string) {
+func execute(level string) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
 		indentation, _ := cmd.Flags().GetInt("indent")
 		withPipe, _ := cmd.Flags().GetBool("pipe")
 		withStamp, _ := cmd.Flags().GetBool("stamp")
@@ -56,6 +57,7 @@ func execute(level string) func(*cobra.Command, []string) {
 		} else {
 			logger.Log(cmd.OutOrStdout(), level, args[0], indentation, withStamp)
 		}
+		return nil
 	}
 }
 

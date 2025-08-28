@@ -11,24 +11,25 @@ import (
 
 var pathCmd = &cobra.Command{
 	Use:   "path",
-	Short: "Show various paths",
+	Short: "Display various paths",
 }
 
 var pathHomeCmd = &cobra.Command{
 	Use:   "home",
-	Short: "Show workspace home path",
-	Run: func(cmd *cobra.Command, args []string) {
+	Short: "Display the workspace home path",
+	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(
 			cmd.OutOrStdout(),
 			styles.Value().Render(env.String("WS_SERVER_ROOT", "/workspace")),
 		)
+		return nil
 	},
 }
 
 var pathVscodeCmd = &cobra.Command{
 	Use:   "vscode-settings",
-	Short: "Show VS Code settings path",
-	Run: func(cmd *cobra.Command, args []string) {
+	Short: "Display the VS Code settings path",
+	RunE: func(cmd *cobra.Command, args []string) error {
 		useWorkspace, _ := cmd.Flags().GetBool("workspace")
 
 		var settingsPath = "/workspace/.vscode/settings.json"
@@ -38,6 +39,7 @@ var pathVscodeCmd = &cobra.Command{
 		}
 
 		fmt.Fprintln(cmd.OutOrStdout(), styles.Value().Render(settingsPath))
+		return nil
 	},
 }
 

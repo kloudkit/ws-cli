@@ -1,6 +1,7 @@
 package serve
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/kloudkit/ws-cli/internals/server"
@@ -10,7 +11,7 @@ import (
 var currentCmd = &cobra.Command{
 	Use:   "current",
 	Short: "Serve current directory as a static site",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		port, _ := cmd.Flags().GetInt("port")
 		bind, _ := cmd.Flags().GetString("bind")
 
@@ -21,14 +22,10 @@ var currentCmd = &cobra.Command{
 
 		currentDir, err := os.Getwd()
 		if err != nil {
-			cmd.PrintErrf("Error getting current directory: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error getting current directory: %v", err)
 		}
 
-		if err := server.ServeDirectory(config, currentDir, "current directory"); err != nil {
-			cmd.PrintErrf("Error starting server: %v\n", err)
-			os.Exit(1)
-		}
+		return server.ServeDirectory(config, currentDir, "current directory")
 	},
 }
 

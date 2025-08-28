@@ -30,11 +30,14 @@ func fetchExtensions() [][]string {
 }
 
 func showExtensions(writer io.Writer) {
-	fmt.Fprintln(writer, styles.Header().Render("Extensions"))
+	extensions := fetchExtensions()
+
+	fmt.Fprintf(writer, "\n%s\n\n", styles.InfoBadge().Render(fmt.Sprintf("%d EXTENSIONS", len(extensions))))
+
 	fmt.Fprintln(writer)
 
 	t := styles.Table("Name", "Version").
-		Rows(fetchExtensions()...)
+		Rows(extensions...)
 
 	fmt.Fprintln(writer, t.Render())
 }
@@ -42,8 +45,9 @@ func showExtensions(writer io.Writer) {
 var extensionsCmd = &cobra.Command{
 	Use:   "extensions",
 	Short: "Display installed extensions",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		showExtensions(cmd.OutOrStdout())
+		return nil
 	},
 }
 

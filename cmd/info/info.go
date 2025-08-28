@@ -44,15 +44,15 @@ func readJson(content map[string]any, key string) string {
 func showVersion(writer io.Writer) {
 	content := readJsonFile()
 
-	fmt.Fprintln(writer, styles.Header().Render("Versions"))
+	fmt.Fprintf(writer, "\n%s\n\n", styles.InfoBadge().Render("VERSIONS"))
+
 	fmt.Fprintln(writer)
 
-	t := styles.Table("", "Value").
-		Rows(
-			[]string{"workspace", readJson(content, "version")},
-			[]string{"ws-cli", Version},
-			[]string{"VSCode", readJson(content, "vscode.version")},
-		)
+	t := styles.Table().Rows(
+		[]string{"workspace", readJson(content, "version")},
+		[]string{"ws-cli", Version},
+		[]string{"VSCode", readJson(content, "vscode.version")},
+	)
 
 	fmt.Fprintln(writer, t.Render())
 }

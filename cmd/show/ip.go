@@ -10,12 +10,12 @@ import (
 
 var ipCmd = &cobra.Command{
 	Use:   "ip",
-	Short: "Show IP addresses",
+	Short: "Display IP addresses",
 }
 
 var ipInternalCmd = &cobra.Command{
 	Use:   "internal",
-	Short: "Show internal IP address",
+	Short: "Display the internal IP address",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ip, err := net.GetInternalIP()
 
@@ -29,7 +29,7 @@ var ipInternalCmd = &cobra.Command{
 
 var ipNodeCmd = &cobra.Command{
 	Use:   "node",
-	Short: "Show node/host IP address",
+	Short: "Display the node/host IP address",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ip, err := net.GetNodeIP()
 

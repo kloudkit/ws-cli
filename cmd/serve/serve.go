@@ -10,4 +10,6 @@ var ServeCmd = &cobra.Command{
 func init() {
 	ServeCmd.PersistentFlags().IntP("port", "p", 38080, "Port to serve assets on")
 	ServeCmd.PersistentFlags().String("bind", "0.0.0.0", "Bind address")
+
+	ServeCmd.AddCommand(fontCmd, currentCmd)
 }
