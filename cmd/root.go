@@ -7,11 +7,11 @@ import (
 	"github.com/kloudkit/ws-cli/cmd/clip"
 	"github.com/kloudkit/ws-cli/cmd/config"
 	"github.com/kloudkit/ws-cli/cmd/feature"
-	"github.com/kloudkit/ws-cli/cmd/get"
 	"github.com/kloudkit/ws-cli/cmd/info"
 	"github.com/kloudkit/ws-cli/cmd/log"
 	"github.com/kloudkit/ws-cli/cmd/logs"
 	"github.com/kloudkit/ws-cli/cmd/serve"
+	"github.com/kloudkit/ws-cli/cmd/show"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
@@ -58,7 +58,7 @@ func init() {
 		config.ConfigCmd,
 		feature.FeatureCmd,
 		serve.ServeCmd,
-		get.GetCmd,
+		show.ShowCmd,
 		info.InfoCmd,
 		log.LogCmd,
 		logs.LogsCmd,
