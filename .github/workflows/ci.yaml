@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: 📥 Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -54,9 +54,3 @@ jobs:
 
       - name: 👷‍♂️ Build for ${{ matrix.arch }}
         run: GOOS=linux GOARCH=${{ matrix.arch }} go build -o ws-cli-${{ matrix.arch }}
-
-      # - name: 🔼 Upload Artifact
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: ws-cli-${{ matrix.arch }}
-      #     path: ws-cli-${{ matrix.arch }}
