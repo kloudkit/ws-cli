@@ -26,7 +26,7 @@ func GetHomeDirectory(segments ...string) string {
 }
 
 func GetIPCSocket() string {
-	return env.String("WS_IPC_SOCKET", "/var/workspace/ipc.socket")
+	return env.String("WS__INTERNAL_IPC_SOCKET", "/var/workspace/ipc.socket")
 }
 
 func CanOverride(path_ string, force bool) bool {
