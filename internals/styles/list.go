@@ -6,19 +6,15 @@ import (
 )
 
 func ListStyle() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorText)),
-	)
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(Text))
 }
 
 func ListEnumeratorStyle() lipgloss.Style {
-	return WithColor(Muted()).PaddingRight(2)
+	return Muted().PaddingRight(2)
 }
 
 func ListItemStyle() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorText)),
-	)
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(Text))
 }
 
 func List(items ...any) *list.List {

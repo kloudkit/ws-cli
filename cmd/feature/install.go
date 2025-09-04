@@ -1,15 +1,14 @@
 package feature
 
 import (
-	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 
-	"github.com/apenella/go-ansible/v2/pkg/execute"
-	"github.com/apenella/go-ansible/v2/pkg/playbook"
 	"github.com/kloudkit/ws-cli/internals/features"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
@@ -42,16 +41,21 @@ var installCmd = &cobra.Command{
 }
 
 func runAnsiblePlaybook(featurePath string, vars map[string]any) error {
-	playbookCmd := &playbook.AnsiblePlaybookCmd{
-		Playbooks: []string{featurePath},
-		PlaybookOptions: &playbook.AnsiblePlaybookOptions{
-			ExtraVars: vars,
-		},
+	args := []string{featurePath}
+
+	if len(vars) > 0 {
+		var extraVars []string
+		for key, value := range vars {
+			extraVars = append(extraVars, fmt.Sprintf("%s=%v", key, value))
+		}
+		args = append(args, "--extra-vars", strings.Join(extraVars, " "))
 	}
 
-	exec := execute.NewDefaultExecute(execute.WithCmd(playbookCmd))
+	cmd := exec.Command("ansible-playbook", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-	return exec.Execute(context.Background())
+	return cmd.Run()
 }
 
 func installFeatureByName(cmd *cobra.Command, featureName, featuresDir string) error {
