@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/kloudkit/ws-cli/internals/styles"
 )

@@ -2,7 +2,6 @@ package feature
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/kloudkit/ws-cli/internals/features"
 	"github.com/kloudkit/ws-cli/internals/styles"
@@ -26,30 +25,25 @@ var listCmd = &cobra.Command{
 			return nil
 		}
 
-		fmt.Fprintf(
-			cmd.OutOrStdout(),
-			"\n%s\n\n",
-			styles.InfoBadge().Render(fmt.Sprintf("%d FEATURES AVAILABLE", len(availableFeatures))),
-		)
+		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.TitleWithCount("Features available", len(availableFeatures)))
 
-		featuresTable := styles.Table("NAME", "DESCRIPTION", "OPTIONS")
-
+		maxNameLen := 0
 		for _, feature := range availableFeatures {
-			var options string
-			if len(feature.Vars) > 0 {
-				var styledVars []string
-				for _, v := range feature.Vars {
-					styledVars = append(styledVars, styles.Key().UnsetBold().Render(v))
-				}
-				options = strings.Join(styledVars, ", ")
-			} else {
-				options = styles.Muted().Render("-")
+			if len(feature.Name) > maxNameLen {
+				maxNameLen = len(feature.Name)
 			}
-
-			featuresTable.Row(feature.Name, feature.Description, options)
 		}
 
-		fmt.Fprintln(cmd.OutOrStdout(), featuresTable.String())
+		var featureItems []any
+		for _, feature := range availableFeatures {
+			item := styles.Key().Width(maxNameLen).Render(feature.Name) +
+				styles.Muted().Render(" — ") +
+				styles.Value().Render(feature.Description)
+
+			featureItems = append(featureItems, item)
+		}
+
+		fmt.Fprintln(cmd.OutOrStdout(), styles.List(featureItems...))
 
 		return nil
 	},

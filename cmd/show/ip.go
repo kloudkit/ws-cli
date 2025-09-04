@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/kloudkit/ws-cli/internals/net"
-	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +19,7 @@ var ipInternalCmd = &cobra.Command{
 		ip, err := net.GetInternalIP()
 
 		if err == nil {
-			fmt.Fprintln(cmd.OutOrStdout(), styles.Value().Render(ip))
+			fmt.Fprintln(cmd.OutOrStdout(), ip)
 		}
 
 		return err
@@ -34,7 +33,7 @@ var ipNodeCmd = &cobra.Command{
 		ip, err := net.GetNodeIP()
 
 		if err == nil {
-			fmt.Fprintln(cmd.OutOrStdout(), styles.Value().Render(ip))
+			fmt.Fprintln(cmd.OutOrStdout(), ip)
 		}
 
 		return err

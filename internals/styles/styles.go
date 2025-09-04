@@ -1,114 +1,100 @@
 package styles
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/charmbracelet/lipgloss/v2"
+)
 
 func Header() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorHeader)).
-			Bold(true),
-	)
+	return lipgloss.NewStyle().
+		Foreground(Mauve).
+		Bold(true)
 }
 
 func SubHeader() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorInfo)).
-			Bold(true),
-	)
+	return lipgloss.NewStyle().
+		Foreground(Blue).
+		Bold(true)
 }
 
 func Key() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorAccent)).
-			Bold(true),
-	)
+	return lipgloss.NewStyle().
+		Foreground(Teal).
+		Bold(true)
 }
 
 func Value() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorText)),
-	)
+	return lipgloss.NewStyle().Foreground(Text)
 }
 
 func Info() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorInfo)),
-	)
+	return lipgloss.NewStyle().Foreground(Blue)
 }
 
 func Success() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorSuccess)),
-	)
+	return lipgloss.NewStyle().Foreground(Green)
 }
 
 func Warning() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorWarning)),
-	)
+	return lipgloss.NewStyle().Foreground(Yellow)
 }
 
 func Error() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorError)).
-			Bold(true),
-	)
+	return lipgloss.NewStyle().
+		Foreground(Red).
+		Bold(true)
 }
 
 func Muted() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorMuted)),
-	)
-}
-
-func Badge() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorBase)).
-			Background(lipgloss.Color(BgAccent)).
-			Align(lipgloss.Center).
-			Bold(true).
-			Padding(0, 2),
-	)
-}
-
-func SuccessBadge() lipgloss.Style {
-	return WithColor(Badge().Background(lipgloss.Color(BgSuccess)))
-}
-
-func WarningBadge() lipgloss.Style {
-	return WithColor(Badge().Background(lipgloss.Color(BgWarning)))
+	return lipgloss.NewStyle().Foreground(Overlay0)
 }
 
 func ErrorBadge() lipgloss.Style {
-	return WithColor(Badge().Background(lipgloss.Color(BgError)))
-}
-
-func InfoBadge() lipgloss.Style {
-	return WithColor(Badge().Background(lipgloss.Color(BgInfo)))
-}
-
-func TipBadge() lipgloss.Style {
-	return WithColor(Badge().Background(lipgloss.Color(ColorHeader)))
+	return lipgloss.NewStyle().
+		Foreground(Text).
+		Background(Red).
+		Align(lipgloss.Center).
+		Bold(true).
+		Padding(0, 2)
 }
 
 func Highlighted() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().
-			Background(lipgloss.Color(BgMuted)).
-			Padding(0, 1).
-			Margin(0, 0),
-	)
+	return lipgloss.NewStyle().
+		Background(Surface0).
+		Padding(0, 1).
+		Margin(0, 0)
 }
 
 func Code() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorAccent)).
-			Background(lipgloss.Color(BgAccent)).
-			Padding(0, 1),
-	)
+	return lipgloss.NewStyle().
+		Foreground(Teal).
+		Background(Surface1).
+		Padding(0, 1)
+}
+
+func Title() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(Mauve).
+		Bold(true).
+		Transform(strings.ToUpper).
+		Padding(1, 0).
+		Margin(0, 2)
+}
+
+func TitleWithCount(title string, count int) string {
+	titleStyle := Title().
+		UnsetMargins().
+		UnsetPadding()
+
+	countRendered := lipgloss.NewStyle().
+		Foreground(Overlay1).
+		Bold(false).
+		Render(fmt.Sprintf("(%d)", count))
+
+	return lipgloss.NewStyle().
+		Padding(1, 0).
+		Margin(0, 2).
+		Render(titleStyle.Render(title) + " " + countRendered)
 }

@@ -5,7 +5,6 @@ import (
 
 	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/kloudkit/ws-cli/internals/path"
-	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +19,7 @@ var pathHomeCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(
 			cmd.OutOrStdout(),
-			styles.Value().Render(env.String("WS_SERVER_ROOT", "/workspace")),
+			env.String("WS_SERVER_ROOT", "/workspace"),
 		)
 		return nil
 	},
@@ -35,10 +34,10 @@ var pathVscodeCmd = &cobra.Command{
 		var settingsPath = "/workspace/.vscode/settings.json"
 
 		if !useWorkspace {
-			settingsPath = path.GetHomeDirectory("/.local/share/code-server/User/settings.json")
+			settingsPath = path.GetHomeDirectory("/.local/share/workspace/User/settings.json")
 		}
 
-		fmt.Fprintln(cmd.OutOrStdout(), styles.Value().Render(settingsPath))
+		fmt.Fprintln(cmd.OutOrStdout(), settingsPath)
 		return nil
 	},
 }

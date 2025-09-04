@@ -44,9 +44,7 @@ func readJson(content map[string]any, key string) string {
 func showVersion(writer io.Writer) {
 	content := readJsonFile()
 
-	fmt.Fprintf(writer, "\n%s\n\n", styles.InfoBadge().Render("VERSIONS"))
-
-	fmt.Fprintln(writer)
+	fmt.Fprintf(writer, "%s\n", styles.Title().Render("Versions"))
 
 	t := styles.Table().Rows(
 		[]string{"workspace", readJson(content, "version")},

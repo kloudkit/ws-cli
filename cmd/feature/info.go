@@ -2,7 +2,6 @@ package feature
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/kloudkit/ws-cli/internals/features"
 	"github.com/kloudkit/ws-cli/internals/styles"
@@ -25,7 +24,7 @@ var infoCmd = &cobra.Command{
 		fmt.Fprintf(
 			cmd.OutOrStdout(),
 			"\n%s\n  %s\n\n",
-			styles.InfoBadge().Render(strings.ToUpper(feature.Name)),
+			styles.Title().Render(feature.Name),
 			feature.Description,
 		)
 
@@ -33,7 +32,7 @@ var infoCmd = &cobra.Command{
 			fmt.Fprintf(
 				cmd.OutOrStdout(),
 				"%s\n",
-				styles.Badge().Render("Options"),
+				styles.Header().Render("Options"),
 			)
 
 			listItems := make([]any, len(feature.Vars))
