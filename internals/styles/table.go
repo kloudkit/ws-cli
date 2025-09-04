@@ -1,50 +1,35 @@
 package styles
 
 import (
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/lipgloss/table"
+	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss/v2/table"
 )
 
 func TableBorderStyle() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorBorder)),
-	)
+	return lipgloss.NewStyle().Foreground(Surface2)
 }
 
 func TableHeaderStyle() lipgloss.Style {
-	return WithColor(
-		Header().
-			Align(lipgloss.Center).
-			Padding(0, 1),
-		lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorText)).
-			Padding(0, 1),
-	)
+	return Header().
+		Align(lipgloss.Center).
+		Padding(0, 1)
 }
 
 func TableCellStyle() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorText)).
-			Padding(0, 1),
-	)
+	return lipgloss.NewStyle().
+		Foreground(Text).
+		Padding(0, 1)
 }
 
 func TableKeyCellStyle() lipgloss.Style {
-	return WithColor(
-		Key().
-			Padding(0, 1).
-			Bold(true),
-		TableCellStyle(),
-	)
+	return Key().
+		Padding(0, 1).
+		Bold(true)
 }
 
 func TableRowTitleStyle() lipgloss.Style {
-	return WithColor(
-		TableKeyCellStyle().
-			Bold(true),
-		TableCellStyle(),
-	)
+	return TableKeyCellStyle().
+		Bold(true)
 }
 
 func Table(headers ...string) *table.Table {

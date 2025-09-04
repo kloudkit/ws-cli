@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/kloudkit/ws-cli/internals/server"
+	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -14,6 +15,8 @@ var currentCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		port, _ := cmd.Flags().GetInt("port")
 		bind, _ := cmd.Flags().GetString("bind")
+
+		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Title().Render("Static server"))
 
 		config := server.Config{
 			Port: port,

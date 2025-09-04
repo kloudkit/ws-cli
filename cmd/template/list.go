@@ -21,7 +21,7 @@ func runList(cmd *cobra.Command, args []string) error {
 	templates := template.SupportedTemplates
 	names := template.GetTemplateNames()
 
-	fmt.Fprintf(cmd.OutOrStdout(), "\n%s\n\n", styles.InfoBadge().Render(fmt.Sprintf("%d TEMPLATES AVAILABLE", len(names))))
+	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.TitleWithCount("Templates available", len(names)))
 
 	listItems := make([]any, len(names))
 	for i, name := range names {
@@ -31,7 +31,7 @@ func runList(cmd *cobra.Command, args []string) error {
 
 		localIndicator := ""
 		if _, err := os.Stat(config.OutputName); err == nil {
-			localIndicator = styles.InfoBadge().Render("APPLIED")
+			localIndicator = styles.Success().Render("(applied)")
 		}
 
 		listItems[i] = fmt.Sprintf("%s %s %s", styles.Key().Render(name), location, localIndicator)

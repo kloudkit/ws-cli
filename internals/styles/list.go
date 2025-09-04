@@ -1,33 +1,27 @@
 package styles
 
 import (
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/lipgloss/list"
+	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss/v2/list"
 )
 
 func ListStyle() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorText)),
-	)
+	return lipgloss.NewStyle().Foreground(Text)
 }
 
 func ListEnumeratorStyle() lipgloss.Style {
-	return WithColor(Muted()).PaddingRight(2)
+	return Muted().PaddingRight(2).MarginLeft(2)
 }
 
 func ListItemStyle() lipgloss.Style {
-	return WithColor(
-		lipgloss.NewStyle().Foreground(lipgloss.Color(ColorText)),
-	)
+	return lipgloss.NewStyle().Foreground(Text)
 }
 
 func List(items ...any) *list.List {
-	l := list.New(items...)
-	l.Enumerator(list.Bullet)
-	l.EnumeratorStyle(ListEnumeratorStyle())
-	l.ItemStyle(ListItemStyle())
-
-	return l
+	return list.New(items...).
+		Enumerator(list.Bullet).
+		EnumeratorStyle(ListEnumeratorStyle()).
+		ItemStyle(ListItemStyle())
 }
 
 func NumberedList(items ...any) *list.List {

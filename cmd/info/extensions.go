@@ -32,7 +32,7 @@ func fetchExtensions() [][]string {
 func showExtensions(writer io.Writer) {
 	extensions := fetchExtensions()
 
-	fmt.Fprintf(writer, "\n%s\n\n", styles.InfoBadge().Render(fmt.Sprintf("%d EXTENSIONS", len(extensions))))
+	fmt.Fprintf(writer, "%s\n", styles.TitleWithCount("Extensions", len(extensions)))
 
 	fmt.Fprintln(writer)
 

@@ -34,7 +34,7 @@ func runShow(cmd *cobra.Command, args []string) error {
 		headerText = "Local Template"
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "\n%s\n\n", styles.SuccessBadge().Render(fmt.Sprintf("%s '%s'", headerText, templateName)))
+	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Title().Render(fmt.Sprintf("%s '%s'", headerText, templateName)))
 	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Code().MarginLeft(2).Render(content))
 
 	return nil
