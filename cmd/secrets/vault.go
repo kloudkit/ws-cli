@@ -30,12 +30,11 @@ var vaultCmd = &cobra.Command{
 
 func init() {
 	vaultCmd.Flags().String("input", "", "Input plain YAML file")
-	vaultCmd.Flags().String("output", "", "Output encrypted vault file")
+	vaultCmd.Flags().String("output", "", "Output encrypted vault file (default stdout)")
 	vaultCmd.Flags().String("master", "", "Master key or path to key file")
 	vaultCmd.Flags().Bool("force", false, "Overwrite existing files")
 	vaultCmd.Flags().Bool("dry-run", false, "Perform encryption but do not write")
 	vaultCmd.Flags().Bool("verbose", false, "Enable verbose logging")
 
 	vaultCmd.MarkFlagRequired("input")
-	vaultCmd.MarkFlagRequired("output")
 }

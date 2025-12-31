@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(go doc:*)",
+      "Bash(go build:*)",
+      "Bash(./ws-cli template:*)",
+      "Bash(./ws-cli:*)",
+      "WebSearch",
+      "mcp__ide__getDiagnostics",
+      "Bash(go mod:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
