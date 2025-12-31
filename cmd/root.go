@@ -50,6 +50,6 @@ func init() {
 		info.InfoCmd,
 		log.LogCmd,
 		logs.LogsCmd,
-    secrets.SecretsCmd,
+		secrets.SecretsCmd,
 	)
 }
