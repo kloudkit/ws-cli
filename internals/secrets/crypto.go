@@ -27,16 +27,9 @@ func Encrypt(plainText []byte, masterKey []byte) (string, error) {
 		return "", fmt.Errorf("failed to generate salt: %w", err)
 	}
 
-	key := argon2.IDKey(masterKey, salt, Argon2Time, Argon2Memory, Argon2Threads, Argon2KeyLen)
-
-	block, err := aes.NewCipher(key)
+	aesGCM, err := deriveKeyAndGCM(masterKey, salt, Argon2Time, Argon2Memory, Argon2Threads, Argon2KeyLen)
 	if err != nil {
-		return "", fmt.Errorf("failed to create cipher: %w", err)
-	}
-
-	aesGCM, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", fmt.Errorf("failed to create GCM: %w", err)
+		return "", err
 	}
 
 	nonce := make([]byte, aesGCM.NonceSize())
@@ -45,11 +38,10 @@ func Encrypt(plainText []byte, masterKey []byte) (string, error) {
 	}
 
 	cipherText := aesGCM.Seal(nonce, nonce, plainText, nil)
-
-	encodedSalt := base64.RawStdEncoding.EncodeToString(salt)
-	encodedCipherText := base64.RawStdEncoding.EncodeToString(cipherText)
-
-	return fmt.Sprintf("argon2id$v=19$m=%d,t=%d,p=%d$%s$%s", Argon2Memory, Argon2Time, Argon2Threads, encodedSalt, encodedCipherText), nil
+	return fmt.Sprintf("argon2id$v=19$m=%d,t=%d,p=%d$%s$%s",
+		Argon2Memory, Argon2Time, Argon2Threads,
+		base64.RawStdEncoding.EncodeToString(salt),
+		base64.RawStdEncoding.EncodeToString(cipherText)), nil
 }
 
 func Decrypt(encodedValue string, masterKey []byte) ([]byte, error) {
@@ -62,29 +54,19 @@ func Decrypt(encodedValue string, masterKey []byte) ([]byte, error) {
 		return nil, fmt.Errorf("unsupported algorithm: %s", parts[0])
 	}
 
-	encodedSalt := parts[3]
-	encodedCipherText := parts[4]
-
-	salt, err := base64.RawStdEncoding.DecodeString(encodedSalt)
+	salt, err := base64.RawStdEncoding.DecodeString(parts[3])
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode salt: %w", err)
 	}
 
-	cipherTextWithNonce, err := base64.RawStdEncoding.DecodeString(encodedCipherText)
+	cipherTextWithNonce, err := base64.RawStdEncoding.DecodeString(parts[4])
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode ciphertext: %w", err)
 	}
 
-	key := argon2.IDKey(masterKey, salt, Argon2Time, Argon2Memory, Argon2Threads, Argon2KeyLen)
-
-	block, err := aes.NewCipher(key)
+	aesGCM, err := deriveKeyAndGCM(masterKey, salt, Argon2Time, Argon2Memory, Argon2Threads, Argon2KeyLen)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cipher: %w", err)
-	}
-
-	aesGCM, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create GCM: %w", err)
+		return nil, err
 	}
 
 	nonceSize := aesGCM.NonceSize()
@@ -92,11 +74,25 @@ func Decrypt(encodedValue string, masterKey []byte) ([]byte, error) {
 		return nil, fmt.Errorf("ciphertext too short")
 	}
 
-	nonce, cipherText := cipherTextWithNonce[:nonceSize], cipherTextWithNonce[nonceSize:]
-	plainText, err := aesGCM.Open(nil, nonce, cipherText, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt: %w", err)
-	}
+	return aesGCM.Open(nil, cipherTextWithNonce[:nonceSize], cipherTextWithNonce[nonceSize:], nil)
+}
 
-	return plainText, nil
+// deriveKeyAndGCM derives a key using Argon2id and creates a GCM cipher.
+// It ensures the derived key is zeroed out after use.
+func deriveKeyAndGCM(masterKey, salt []byte, time, memory uint32, threads uint8, keyLen uint32) (cipher.AEAD, error) {
+	key := argon2.IDKey(masterKey, salt, time, memory, threads, keyLen)
+	defer zeroBytes(key)
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cipher: %w", err)
+	}
+	return cipher.NewGCM(block)
+}
+
+// zeroBytes securely clears a byte slice by overwriting it with zeros.
+func zeroBytes(data []byte) {
+	for i := range data {
+		data[i] = 0
+	}
 }
