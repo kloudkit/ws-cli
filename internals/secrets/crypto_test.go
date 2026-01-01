@@ -8,7 +8,7 @@ import (
 )
 
 func TestEncryptDecrypt(t *testing.T) {
-	masterKey := make([]byte, 32) // Use a dummy 32-byte key
+	masterKey := make([]byte, 32)
 	plainText := "secret data"
 
 	encrypted, err := Encrypt([]byte(plainText), masterKey)
@@ -23,14 +23,15 @@ func TestEncryptDecrypt(t *testing.T) {
 func TestDecryptInvalidFormat(t *testing.T) {
 	masterKey := make([]byte, 32)
 	_, err := Decrypt("invalid", masterKey)
+
 	assert.ErrorContains(t, err, "invalid encoded format")
 }
 
 func TestDecryptUnsupportedAlgorithm(t *testing.T) {
 	masterKey := make([]byte, 32)
-	// parts needs to be 6
 	encoded := "sha256$v=1$m=1,t=1,p=1$salt$cipher"
 	_, err := Decrypt(encoded, masterKey)
+
 	assert.ErrorContains(t, err, "unsupported algorithm")
 }
 

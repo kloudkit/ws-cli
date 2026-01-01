@@ -77,8 +77,6 @@ func Decrypt(encodedValue string, masterKey []byte) ([]byte, error) {
 	return aesGCM.Open(nil, cipherTextWithNonce[:nonceSize], cipherTextWithNonce[nonceSize:], nil)
 }
 
-// deriveKeyAndGCM derives a key using Argon2id and creates a GCM cipher.
-// It ensures the derived key is zeroed out after use.
 func deriveKeyAndGCM(masterKey, salt []byte, time, memory uint32, threads uint8, keyLen uint32) (cipher.AEAD, error) {
 	key := argon2.IDKey(masterKey, salt, time, memory, threads, keyLen)
 	defer zeroBytes(key)
@@ -87,10 +85,10 @@ func deriveKeyAndGCM(masterKey, salt []byte, time, memory uint32, threads uint8,
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cipher: %w", err)
 	}
+
 	return cipher.NewGCM(block)
 }
 
-// zeroBytes securely clears a byte slice by overwriting it with zeros.
 func zeroBytes(data []byte) {
 	for i := range data {
 		data[i] = 0

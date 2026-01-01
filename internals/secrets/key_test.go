@@ -19,7 +19,7 @@ func TestResolveMasterKeyFromFlag(t *testing.T) {
 func TestResolveMasterKeyFromBase64Flag(t *testing.T) {
 	rawKey := []byte("12345678901234567890123456789012")
 
-	resolved, err := ResolveMasterKey("MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIK")
+	resolved, err := ResolveMasterKey("MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=")
 	assert.NilError(t, err)
 	assert.DeepEqual(t, rawKey, resolved)
 }
