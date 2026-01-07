@@ -61,6 +61,5 @@ var generateCmd = &cobra.Command{
 
 func init() {
 	generateCmd.Flags().String("output", "", "Output file (default stdout)")
-	generateCmd.Flags().Bool("raw", false, "Output without styling")
 	generateCmd.Flags().Int("length", 32, "Length in bytes")
 }

@@ -95,4 +95,3 @@ func zeroBytes(data []byte) {
 		data[i] = 0
 	}
 }
-
