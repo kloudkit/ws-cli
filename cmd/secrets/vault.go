@@ -3,7 +3,7 @@ package secrets
 import (
 	"fmt"
 
-	"github.com/kloudkit/ws-cli/internals/styles"
+	"github.com/kloudkit/ws-cli/internals/path"
 	"github.com/spf13/cobra"
 )
 
@@ -13,16 +13,17 @@ var vaultCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		input, _ := cmd.Flags().GetString("input")
 		output, _ := cmd.Flags().GetString("output")
-		masterKey, _ := cmd.Flags().GetString("master")
 		force, _ := cmd.Flags().GetBool("force")
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-		verbose, _ := cmd.Flags().GetBool("verbose")
 
-		// TODO: Implement vault creation logic
-		if verbose {
-			fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Title().Render("Vault"))
-			fmt.Fprintf(cmd.OutOrStdout(), "Input: %s, Output: %s, Key: %s, Force: %v, DryRun: %v\n", input, output, masterKey, force, dryRun)
+		if !path.FileExists(input) {
+			return fmt.Errorf("input file not found: %s", input)
 		}
+
+		if output != "" && !path.CanOverride(output, force) {
+			return fmt.Errorf("output file %s exists, use --force to overwrite", output)
+		}
+
+		fmt.Fprintln(cmd.OutOrStdout(), "Vault creation logic not yet implemented")
 
 		return nil
 	},

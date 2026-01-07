@@ -24,8 +24,7 @@ ws-cli secrets encrypt \
   [--vault <vault.yaml>] \
   [--master <key|path>] \
   [--force] \
-  [--dry-run] \
-  [--verbose]
+  [--dry-run]
 ```
 
 **Behavior**
@@ -47,8 +46,7 @@ ws-cli secrets decrypt \
   [--vault <vault.yaml>] \
   [--master <key|path>] \
   [--force] \
-  [--dry-run] \
-  [--verbose]
+  [--dry-run]
 ```
 
 **Behavior**
@@ -73,8 +71,7 @@ ws-cli secrets vault \
   [--output <file>] \
   [--master <key|path>] \
   [--force] \
-  [--dry-run] \
-  [--verbose]
+  [--dry-run]
 ```
 
 **Behavior**
@@ -109,7 +106,6 @@ ws-cli secrets generate \
 | `--master` | Literal key or path to key file               |
 | `--force`   | Global overwrite flag (takes precedence)      |
 | `--dry-run`    | Perform full decrypt/encrypt but do not write |
-| `--verbose`    | Detailed logging                              |
 
 ---
 
@@ -190,7 +186,7 @@ var allowedPaths = []string{
     ^[A-Z_][A-Z0-9_]*$
     ```
 
-Invalid destinations cause failure or skip (with `--verbose`).
+Invalid destinations cause failure or skip.
 
 ---
 
@@ -282,7 +278,7 @@ secrets:
 3. Output
   * If `--stdout` → print entire encrypted vault YAML to stdout
   * Else → write to --output file
-4. Respect `--force`, `--dry-run`, `--verbose`
+4. Respect `--force`, `--dry-run`
 
 ---
 
@@ -301,10 +297,7 @@ secrets:
 * Always use `~/.zshenv`
 * Only append
 * Do **not** overwrite existing entries
-* If variable already exists:
-
-  * skip
-  * log warning if `--verbose`
+* If variable already exists, skip
 
 ### Steps
 
@@ -355,4 +348,3 @@ secrets:
   * destination safety
   * file write permissions
 * Skip or abort behavior must be explicit
-* Verbose mode logs all decisions

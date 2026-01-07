@@ -13,13 +13,9 @@ var encryptCmd = &cobra.Command{
 	Short: "Encrypt a secret",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		value, _ := cmd.Flags().GetString("value")
-		secretType, _ := cmd.Flags().GetString("type")
-		dest, _ := cmd.Flags().GetString("dest")
 		vaultPath, _ := cmd.Flags().GetString("vault")
 		masterKey, _ := cmd.Flags().GetString("master")
-		force, _ := cmd.Flags().GetBool("force")
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-		verbose, _ := cmd.Flags().GetBool("verbose")
+		raw, _ := cmd.Flags().GetBool("raw")
 
 		if value == "" {
 			return fmt.Errorf("value is required")
@@ -35,16 +31,13 @@ var encryptCmd = &cobra.Command{
 			return fmt.Errorf("encryption failed: %w", err)
 		}
 
-		if verbose {
-			fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Title().Render("Encrypt"))
-			fmt.Fprintf(cmd.OutOrStdout(), "Value: %s, Type: %s, Dest: %s, Vault: %s, Force: %v, DryRun: %v\n", value, secretType, dest, vaultPath, force, dryRun)
-		}
-
-		// If no vault is specified, print to stdout
 		if vaultPath == "" {
-			fmt.Fprintln(cmd.OutOrStdout(), encrypted)
+			if raw {
+				fmt.Fprintln(cmd.OutOrStdout(), encrypted)
+			} else {
+				fmt.Fprintln(cmd.OutOrStdout(), styles.Code().Render(encrypted))
+			}
 		} else {
-			// TODO: Implement vault updating logic
 			fmt.Fprintln(cmd.OutOrStdout(), "Vault updating logic not yet implemented")
 		}
 
@@ -57,4 +50,5 @@ func init() {
 	encryptCmd.Flags().String("type", "", "Type of secret (kubeconfig, ssh, env, etc.)")
 	encryptCmd.Flags().String("dest", "", "Destination file or environment variable")
 	encryptCmd.Flags().String("vault", "", "Path to vault file")
+	encryptCmd.Flags().Bool("raw", false, "Output without styling")
 }
