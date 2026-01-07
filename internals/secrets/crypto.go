@@ -7,9 +7,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -93,4 +95,70 @@ func zeroBytes(data []byte) {
 	for i := range data {
 		data[i] = 0
 	}
+}
+
+func LoadVaultFromFile(filePath string) (*Vault, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read vault file: %w", err)
+	}
+
+	var vault Vault
+	if err := yaml.Unmarshal(data, &vault); err != nil {
+		return nil, fmt.Errorf("failed to parse vault YAML: %w", err)
+	}
+
+	return &vault, nil
+}
+
+func (v *Vault) EncryptAll(masterKey []byte) error {
+	for i := range v.Secrets {
+		secret := &v.Secrets[i]
+
+		plaintext, err := secret.ReadPlaintextValue()
+		if err != nil {
+			return fmt.Errorf("failed to read secret value for %s: %w", secret.Destination, err)
+		}
+
+		encrypted, err := Encrypt(plaintext, masterKey)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt secret for %s: %w", secret.Destination, err)
+		}
+
+		secret.Value = encrypted
+	}
+
+	return nil
+}
+
+func (v *Vault) DecryptAll(masterKey []byte, opts WriteOptions) error {
+	for i := range v.Secrets {
+		secret := &v.Secrets[i]
+
+		if secret.Value == "" {
+			return fmt.Errorf("secret for %s has empty value", secret.Destination)
+		}
+
+		decrypted, err := Decrypt(secret.Value, masterKey)
+		if err != nil {
+			return fmt.Errorf("failed to decrypt secret for %s: %w", secret.Destination, err)
+		}
+
+		effectiveForce := opts.Force || secret.Force
+
+		writeOpts := WriteOptions{
+			Force:  effectiveForce,
+			DryRun: opts.DryRun,
+		}
+
+		if err := WriteSecret(secret, decrypted, writeOpts); err != nil {
+			return fmt.Errorf("failed to write secret for %s: %w", secret.Destination, err)
+		}
+	}
+
+	return nil
+}
+
+func (v *Vault) ToYAML() ([]byte, error) {
+	return yaml.Marshal(v)
 }

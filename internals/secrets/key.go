@@ -10,12 +10,6 @@ import (
 	"github.com/kloudkit/ws-cli/internals/path"
 )
 
-const (
-	EnvMasterKey      = "WS_SECRETS_MASTER_KEY"
-	EnvMasterKeyFile  = "WS_SECRETS_MASTER_KEY_FILE"
-	DefaultMasterPath = "/etc/workspace/master.key"
-)
-
 func ResolveMasterKey(flagValue string) ([]byte, error) {
 	if flagValue != "" {
 		if path.FileExists(flagValue) {
