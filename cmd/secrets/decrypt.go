@@ -33,10 +33,6 @@ func init() {
 	decryptCmd.Flags().String("encrypted", "", "Encrypted value to decrypt")
 	decryptCmd.Flags().String("dest", "", "Destination (file, env, or stdout)")
 	decryptCmd.Flags().String("vault", "", "Path to vault file")
-	decryptCmd.Flags().String("master", "", "Master key or path to key file")
-	decryptCmd.Flags().Bool("force", false, "Overwrite existing files")
-	decryptCmd.Flags().Bool("dry-run", false, "Perform decryption but do not write")
-	decryptCmd.Flags().Bool("verbose", false, "Enable verbose logging")
 
 	decryptCmd.MarkFlagsMutuallyExclusive("encrypted", "vault")
 }

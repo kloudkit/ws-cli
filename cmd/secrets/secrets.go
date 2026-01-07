@@ -10,5 +10,10 @@ var SecretsCmd = &cobra.Command{
 }
 
 func init() {
+	SecretsCmd.PersistentFlags().String("master", "", "Master key or path to key file")
+	SecretsCmd.PersistentFlags().Bool("force", false, "Overwrite existing files/values")
+	SecretsCmd.PersistentFlags().Bool("dry-run", false, "Perform operation without writing changes")
+	SecretsCmd.PersistentFlags().Bool("verbose", false, "Enable verbose logging")
+
 	SecretsCmd.AddCommand(encryptCmd, decryptCmd, generateCmd, vaultCmd)
 }

@@ -57,8 +57,4 @@ func init() {
 	encryptCmd.Flags().String("type", "", "Type of secret (kubeconfig, ssh, env, etc.)")
 	encryptCmd.Flags().String("dest", "", "Destination file or environment variable")
 	encryptCmd.Flags().String("vault", "", "Path to vault file")
-	encryptCmd.Flags().String("master", "", "Master key or path to key file")
-	encryptCmd.Flags().Bool("force", false, "Overwrite existing values")
-	encryptCmd.Flags().Bool("dry-run", false, "Perform encryption but do not write")
-	encryptCmd.Flags().Bool("verbose", false, "Enable verbose logging")
 }
