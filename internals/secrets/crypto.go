@@ -162,3 +162,86 @@ func (v *Vault) DecryptAll(masterKey []byte, opts WriteOptions) error {
 func (v *Vault) ToYAML() ([]byte, error) {
 	return yaml.Marshal(v)
 }
+
+func (v *Vault) AddSecret(value, dest, secretType string, force bool) {
+	v.Secrets = append(v.Secrets, Secret{
+		Type:        secretType,
+		Value:       value,
+		Destination: dest,
+		Force:       force,
+	})
+}
+
+func (v *Vault) SaveToFile(path string) error {
+	yamlData, err := v.ToYAML()
+	if err != nil {
+		return fmt.Errorf("failed to marshal vault: %w", err)
+	}
+
+	if err := os.WriteFile(path, yamlData, 0644); err != nil {
+		return fmt.Errorf("failed to write vault file: %w", err)
+	}
+
+	return nil
+}
+
+func EncryptToVault(value []byte, vaultPath, dest, secretType string, masterKey []byte, force, dryRun bool) error {
+	var vault *Vault
+
+	if _, err := os.Stat(vaultPath); err == nil {
+		loadedVault, err := LoadVaultFromFile(vaultPath)
+		if err != nil {
+			return err
+		}
+		vault = loadedVault
+	} else {
+		vault = &Vault{Secrets: []Secret{}}
+	}
+
+	encrypted, err := Encrypt(value, masterKey)
+	if err != nil {
+		return fmt.Errorf("encryption failed: %w", err)
+	}
+
+	vault.AddSecret(encrypted, dest, secretType, force)
+
+	if dryRun {
+		return nil
+	}
+
+	return vault.SaveToFile(vaultPath)
+}
+
+func DecryptVault(vaultPath string, masterKey []byte, force, dryRun bool) error {
+	vault, err := LoadVaultFromFile(vaultPath)
+	if err != nil {
+		return err
+	}
+
+	opts := WriteOptions{
+		Force:  force,
+		DryRun: dryRun,
+	}
+
+	return vault.DecryptAll(masterKey, opts)
+}
+
+func DecryptSingle(encrypted, dest string, masterKey []byte, force, dryRun bool) ([]byte, error) {
+	decrypted, err := Decrypt(encrypted, masterKey)
+	if err != nil {
+		return nil, fmt.Errorf("decryption failed: %w", err)
+	}
+
+	if dest == "" || dest == "stdout" {
+		return decrypted, nil
+	}
+
+	secret := &Secret{Destination: dest}
+	opts := WriteOptions{Force: force, DryRun: dryRun}
+
+	if err := WriteSecret(secret, decrypted, opts); err != nil {
+		return nil, err
+	}
+
+	return decrypted, nil
+}

@@ -17,10 +17,9 @@ var generateCmd = &cobra.Command{
 	Short: "Generate a master key",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		keyLength, _ := cmd.Flags().GetInt("length")
-		outputFile, _ := cmd.Flags().GetString("output")
-		force, _ := cmd.Flags().GetBool("force")
-		raw, _ := cmd.Flags().GetBool("raw")
+		ctx := newContext(cmd)
+		keyLength := getInt(cmd, "length")
+		outputFile := getString(cmd, "output")
 
 		if keyLength <= 0 {
 			return errors.New("invalid key length")
@@ -34,16 +33,16 @@ var generateCmd = &cobra.Command{
 		encodedKey := base64.StdEncoding.EncodeToString(key)
 
 		if outputFile == "" {
-			if raw {
+			if ctx.raw {
 				fmt.Fprintln(cmd.OutOrStdout(), encodedKey)
 			} else {
 				fmt.Fprintln(cmd.OutOrStdout(), styles.Title().Render("Master key"))
-				fmt.Fprintln(cmd.OutOrStdout(), styles.Code().Render(encodedKey))
+				ctx.print(encodedKey)
 			}
 			return nil
 		}
 
-		if !path.CanOverride(outputFile, force) {
+		if !path.CanOverride(outputFile, ctx.force) {
 			return fmt.Errorf("file %s exists, use --force to overwrite", outputFile)
 		}
 
@@ -51,10 +50,7 @@ var generateCmd = &cobra.Command{
 			return fmt.Errorf("failed to write key to file: %w", err)
 		}
 
-		fmt.Fprintf(
-			cmd.OutOrStdout(),
-			"%s\n", styles.Success().Render(fmt.Sprintf("Master key written to %s", outputFile)),
-		)
+		ctx.success(fmt.Sprintf("Master key written to %s", outputFile))
 
 		return nil
 	},

@@ -2,11 +2,8 @@ package secrets
 
 import (
 	"fmt"
-	"os"
 
 	internalSecrets "github.com/kloudkit/ws-cli/internals/secrets"
-	"github.com/kloudkit/ws-cli/internals/path"
-	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -14,89 +11,46 @@ var encryptCmd = &cobra.Command{
 	Use:   "encrypt",
 	Short: "Encrypt a secret",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		value, _ := cmd.Flags().GetString("value")
-		vaultPath, _ := cmd.Flags().GetString("vault")
-		secretType, _ := cmd.Flags().GetString("type")
-		dest, _ := cmd.Flags().GetString("dest")
-		masterKey, _ := cmd.Flags().GetString("master")
-		force, _ := cmd.Flags().GetBool("force")
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-		raw, _ := cmd.Flags().GetBool("raw")
+		ctx := newContext(cmd)
+		value := getString(cmd, "value")
+		vaultPath := getString(cmd, "vault")
+		dest := getString(cmd, "dest")
+		secretType := getString(cmd, "type")
 
 		if value == "" {
 			return fmt.Errorf("value is required")
 		}
 
-		key, err := internalSecrets.ResolveMasterKey(masterKey)
+		masterKey, err := ctx.resolveMasterKey()
 		if err != nil {
 			return err
-		}
-
-		encrypted, err := internalSecrets.Encrypt([]byte(value), key)
-		if err != nil {
-			return fmt.Errorf("encryption failed: %w", err)
 		}
 
 		if vaultPath == "" {
-			if raw {
-				fmt.Fprintln(cmd.OutOrStdout(), encrypted)
-			} else {
-				fmt.Fprintln(cmd.OutOrStdout(), styles.Code().Render(encrypted))
+			encrypted, err := internalSecrets.Encrypt([]byte(value), masterKey)
+			if err != nil {
+				return fmt.Errorf("encryption failed: %w", err)
 			}
+			ctx.print(encrypted)
 			return nil
 		}
 
-		return addToVault(cmd, vaultPath, encrypted, secretType, dest, force, dryRun)
-	},
-}
+		if dest == "" {
+			return fmt.Errorf("--dest is required when using --vault")
+		}
 
-func addToVault(cmd *cobra.Command, vaultPath, encrypted, secretType, dest string, force, dryRun bool) error {
-	if dest == "" {
-		return fmt.Errorf("--dest is required when using --vault")
-	}
-
-	var vault *internalSecrets.Vault
-
-	if path.FileExists(vaultPath) {
-		loadedVault, err := internalSecrets.LoadVaultFromFile(vaultPath)
-		if err != nil {
+		if err := internalSecrets.EncryptToVault([]byte(value), vaultPath, dest, secretType, masterKey, ctx.force, ctx.dryRun); err != nil {
 			return err
 		}
-		vault = loadedVault
-	} else {
-		vault = &internalSecrets.Vault{
-			Secrets: []internalSecrets.Secret{},
+
+		if ctx.dryRun {
+			ctx.dryRunMsg("[DRY-RUN] Would add secret to vault " + vaultPath)
+		} else {
+			ctx.success(fmt.Sprintf("Secret added to vault %s", vaultPath))
 		}
-	}
 
-	newSecret := internalSecrets.Secret{
-		Type:        secretType,
-		Value:       encrypted,
-		Destination: dest,
-		Force:       force,
-	}
-
-	vault.Secrets = append(vault.Secrets, newSecret)
-
-	yamlData, err := vault.ToYAML()
-	if err != nil {
-		return fmt.Errorf("failed to marshal vault: %w", err)
-	}
-
-	if dryRun {
-		fmt.Fprintln(cmd.OutOrStdout(), styles.Warning().Render("[DRY-RUN] Would update vault:"))
-		fmt.Fprintln(cmd.OutOrStdout(), string(yamlData))
 		return nil
-	}
-
-	if err := os.WriteFile(vaultPath, yamlData, 0644); err != nil {
-		return fmt.Errorf("failed to write vault file: %w", err)
-	}
-
-	fmt.Fprintf(cmd.OutOrStdout(), "%s\n",
-		styles.Success().Render(fmt.Sprintf("Secret added to vault %s", vaultPath)))
-
-	return nil
+	},
 }
 
 func init() {

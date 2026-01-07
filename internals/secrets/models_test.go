@@ -37,7 +37,10 @@ func TestExpandedDestination(t *testing.T) {
 	os.Setenv("TEST_VAR", "/test/path")
 	defer os.Unsetenv("TEST_VAR")
 
-	homeDir := os.Getenv("HOME")
+	os.Setenv("HOME", "/home/testuser")
+	defer os.Unsetenv("HOME")
+
+	homeDir := "/home/testuser"
 
 	tests := []struct {
 		name        string

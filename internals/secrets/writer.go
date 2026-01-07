@@ -37,13 +37,13 @@ func WriteSecret(secret *Secret, decryptedValue []byte, opts WriteOptions) error
 }
 
 func writeFile(filePath string, content []byte, mode os.FileMode, opts WriteOptions) error {
-	if !opts.Force && path.FileExists(filePath) {
-		return fmt.Errorf("file %s already exists, use --force to overwrite", filePath)
-	}
-
 	if opts.DryRun {
 		fmt.Printf("[DRY-RUN] Would write to file: %s (mode: %04o)\n", filePath, mode)
 		return nil
+	}
+
+	if !opts.Force && path.FileExists(filePath) {
+		return fmt.Errorf("file %s already exists, use --force to overwrite", filePath)
 	}
 
 	dir := filepath.Dir(filePath)
