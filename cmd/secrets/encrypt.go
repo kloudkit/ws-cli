@@ -1,62 +1,61 @@
 package secrets
 
 import (
+	"encoding/base64"
 	"fmt"
+	"os"
 
+	"github.com/kloudkit/ws-cli/internals/path"
 	internalSecrets "github.com/kloudkit/ws-cli/internals/secrets"
+	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
 
 var encryptCmd = &cobra.Command{
-	Use:   "encrypt",
-	Short: "Encrypt a secret",
+	Use:   "encrypt <plaintext>",
+	Short: "Encrypt a plaintext value",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := newContext(cmd)
-		value := getString(cmd, "value")
-		vaultPath := getString(cmd, "vault")
-		dest := getString(cmd, "dest")
-		secretType := getString(cmd, "type")
+		plaintext := args[0]
+		outputFile, _ := cmd.Flags().GetString("output")
+		masterKeyFlag, _ := cmd.Flags().GetString("master")
+		force, _ := cmd.Flags().GetBool("force")
+		raw, _ := cmd.Flags().GetBool("raw")
 
-		if value == "" {
-			return fmt.Errorf("value is required")
-		}
-
-		masterKey, err := ctx.resolveMasterKey()
+		masterKey, err := internalSecrets.ResolveMasterKey(masterKeyFlag)
 		if err != nil {
 			return err
 		}
 
-		if vaultPath == "" {
-			encrypted, err := internalSecrets.Encrypt([]byte(value), masterKey)
-			if err != nil {
-				return fmt.Errorf("encryption failed: %w", err)
-			}
-			ctx.print(encrypted)
+		encrypted, err := internalSecrets.Encrypt([]byte(plaintext), masterKey)
+		if err != nil {
+			return fmt.Errorf("encryption failed: %w", err)
+		}
+
+		// Requirement: Output encoded as Base64 with base64: prefix
+		finalOutput := "base64:" + base64.StdEncoding.EncodeToString([]byte(encrypted))
+
+		if outputFile == "" {
+			fmt.Fprintln(cmd.OutOrStdout(), finalOutput)
 			return nil
 		}
 
-		if dest == "" {
-			return fmt.Errorf("--dest is required when using --vault")
+		// Write to file
+		if !path.CanOverride(outputFile, force) {
+			return fmt.Errorf("file %s exists, use --force to overwrite", outputFile)
 		}
 
-		if err := internalSecrets.EncryptToVault([]byte(value), vaultPath, dest, secretType, masterKey, ctx.force, ctx.dryRun); err != nil {
-			return err
+		if err := os.WriteFile(outputFile, []byte(finalOutput+"\n"), 0644); err != nil {
+			return fmt.Errorf("failed to write to output file: %w", err)
 		}
 
-		if ctx.dryRun {
-			ctx.dryRunMsg("[DRY-RUN] Would add secret to vault " + vaultPath)
-		} else {
-			ctx.success(fmt.Sprintf("Secret added to vault %s", vaultPath))
+		if !raw {
+			fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render(fmt.Sprintf("Encrypted value written to %s", outputFile)))
 		}
-
 		return nil
 	},
 }
 
 func init() {
-	encryptCmd.Flags().String("value", "", "Value to encrypt")
-	encryptCmd.Flags().String("type", "", "Type of secret (kubeconfig, ssh, env, etc.)")
-	encryptCmd.Flags().String("dest", "", "Destination file or environment variable")
-	encryptCmd.Flags().String("vault", "", "Path to vault file")
-	encryptCmd.Flags().Bool("raw", false, "Output without styling")
+	encryptCmd.Flags().String("output", "", "Write output to file instead of stdout")
 }

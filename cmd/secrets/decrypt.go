@@ -1,66 +1,73 @@
 package secrets
 
 import (
+	"encoding/base64"
 	"fmt"
+	"os"
+	"strings"
 
+	"github.com/kloudkit/ws-cli/internals/path"
 	internalSecrets "github.com/kloudkit/ws-cli/internals/secrets"
+	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
 
 var decryptCmd = &cobra.Command{
-	Use:   "decrypt",
-	Short: "Decrypt secrets",
+	Use:   "decrypt <encrypted>",
+	Short: "Decrypt an encrypted value",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := newContext(cmd)
-		encrypted := getString(cmd, "encrypted")
-		dest := getString(cmd, "dest")
-		vaultPath := getString(cmd, "vault")
+		input := args[0]
+		outputFile, _ := cmd.Flags().GetString("output")
+		masterKeyFlag, _ := cmd.Flags().GetString("master")
+		force, _ := cmd.Flags().GetBool("force")
+		raw, _ := cmd.Flags().GetBool("raw")
 
-		if encrypted == "" && vaultPath == "" {
-			return fmt.Errorf("either --encrypted or --vault is required")
-		}
-
-		masterKey, err := ctx.resolveMasterKey()
+		masterKey, err := internalSecrets.ResolveMasterKey(masterKeyFlag)
 		if err != nil {
 			return err
 		}
 
-		if encrypted != "" {
-			decrypted, err := internalSecrets.DecryptSingle(encrypted, dest, masterKey, ctx.force, ctx.dryRun)
+		// Handle base64: prefix
+		var encryptedString string
+		if strings.HasPrefix(input, "base64:") {
+			encoded := strings.TrimPrefix(input, "base64:")
+			decodedBytes, err := base64.StdEncoding.DecodeString(encoded)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to decode base64 input: %w", err)
 			}
-
-			if dest == "" || dest == "stdout" {
-				ctx.print(string(decrypted))
-				if !ctx.raw {
-					ctx.success("Secret decrypted successfully")
-				}
-			} else if !ctx.dryRun {
-				ctx.success(fmt.Sprintf("Secret written to %s", dest))
-			}
-
-			return nil
+			encryptedString = string(decodedBytes)
+		} else {
+			encryptedString = input
 		}
 
-		if err := internalSecrets.DecryptVault(vaultPath, masterKey, ctx.force, ctx.dryRun); err != nil {
+		decrypted, err := internalSecrets.Decrypt(encryptedString, masterKey)
+		if err != nil {
 			return err
 		}
 
-		if !ctx.dryRun {
-			vault, _ := internalSecrets.LoadVaultFromFile(vaultPath)
-			ctx.success(fmt.Sprintf("Successfully decrypted %d secret(s) from vault", len(vault.Secrets)))
+		if outputFile == "" {
+			fmt.Fprint(cmd.OutOrStdout(), string(decrypted))
+			return nil
 		}
 
+		// Write to file
+		if !path.CanOverride(outputFile, force) {
+			return fmt.Errorf("file %s exists, use --force to overwrite", outputFile)
+		}
+
+		// Determine file mode - if we knew the type we could set it, but for generic decrypt use 0600 for safety
+		if err := os.WriteFile(outputFile, decrypted, 0600); err != nil {
+			return fmt.Errorf("failed to write to output file: %w", err)
+		}
+
+		if !raw {
+			fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render(fmt.Sprintf("Decrypted value written to %s", outputFile)))
+		}
 		return nil
 	},
 }
 
 func init() {
-	decryptCmd.Flags().String("encrypted", "", "Encrypted value to decrypt")
-	decryptCmd.Flags().String("dest", "", "Destination (file, env, or stdout)")
-	decryptCmd.Flags().String("vault", "", "Path to vault file")
-	decryptCmd.Flags().Bool("raw", false, "Output without styling")
-
-	decryptCmd.MarkFlagsMutuallyExclusive("encrypted", "vault")
+	decryptCmd.Flags().String("output", "", "Write output to file instead of stdout")
 }
