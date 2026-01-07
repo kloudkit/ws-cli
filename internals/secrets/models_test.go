@@ -57,7 +57,7 @@ func TestExpandedDestination(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Secret{Destination: tt.destination}
 			result, err := s.ExpandedDestination()
-      
+
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})

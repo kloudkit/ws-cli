@@ -40,6 +40,7 @@ func Encrypt(plainText []byte, masterKey []byte) (string, error) {
 	}
 
 	cipherText := aesGCM.Seal(nonce, nonce, plainText, nil)
+
 	return fmt.Sprintf("argon2id$v=19$m=%d,t=%d,p=%d$%s$%s",
 		Argon2Memory, Argon2Time, Argon2Threads,
 		base64.RawStdEncoding.EncodeToString(salt),

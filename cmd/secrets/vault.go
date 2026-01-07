@@ -3,8 +3,8 @@ package secrets
 import (
 	"fmt"
 
-	internalSecrets "github.com/kloudkit/ws-cli/internals/secrets"
 	"github.com/kloudkit/ws-cli/internals/path"
+	internalSecrets "github.com/kloudkit/ws-cli/internals/secrets"
 	"github.com/spf13/cobra"
 )
 
