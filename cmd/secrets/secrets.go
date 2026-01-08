@@ -11,9 +11,9 @@ var SecretsCmd = &cobra.Command{
 
 func init() {
 	SecretsCmd.PersistentFlags().String("master", "", "Master key or path to key file")
-	SecretsCmd.PersistentFlags().String("mode", "", "File permissions (e.g., 0o600, 384) - only when --output is used")
-	SecretsCmd.PersistentFlags().Bool("force", false, "Overwrite existing files/values")
+	SecretsCmd.PersistentFlags().String("mode", "", "File permissions (e.g., 0o600, 384), only when --output is used")
+	SecretsCmd.PersistentFlags().Bool("force", false, "Overwrite existing files")
 	SecretsCmd.PersistentFlags().Bool("raw", false, "Output without styling")
 
-	SecretsCmd.AddCommand(encryptCmd, decryptCmd, generateCmd)
+	SecretsCmd.AddCommand(encryptCmd, decryptCmd, generateCmd, vaultCmd)
 }

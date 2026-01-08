@@ -22,19 +22,18 @@ func execute(cmd *cobra.Command, args []string) error {
 	level, _ := cmd.Flags().GetString("level")
 
 	if level != "" && level != "info" && level != "warn" && level != "error" && level != "debug" {
-		fmt.Fprintf(cmd.ErrOrStderr(), "%s\n\n", styles.ErrorBadge().Render("ERROR"))
-		fmt.Fprintln(cmd.ErrOrStderr(), styles.Error().Render("Invalid log level. Must be one of:"))
-		fmt.Fprintf(cmd.ErrOrStderr(), "  %s %s\n", styles.Code().Render("debug"), styles.Muted().Render("- Debug information"))
-		fmt.Fprintf(cmd.ErrOrStderr(), "  %s %s\n", styles.Code().Render("info"), styles.Muted().Render("- General information"))
-		fmt.Fprintf(cmd.ErrOrStderr(), "  %s %s\n", styles.Code().Render("warn"), styles.Muted().Render("- Warning messages"))
-		fmt.Fprintf(cmd.ErrOrStderr(), "  %s %s\n", styles.Code().Render("error"), styles.Muted().Render("- Error messages only"))
+		styles.PrintErrorWithOptions(cmd.ErrOrStderr(), "Invalid log level. Must be one of:", [][]string{
+			{"debug", "Debug information"},
+			{"info", "General information"},
+			{"warn", "Warning messages"},
+			{"error", "Error messages only"},
+		})
 		os.Exit(1)
 	}
 
 	reader, err := logger.NewReader(tail, level)
 	if err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "%s\n\n", styles.ErrorBadge().Render("ERROR"))
-		fmt.Fprintln(cmd.ErrOrStderr(), styles.Error().Render(fmt.Sprintf("Failed to initialize log reader: %s", err)))
+		styles.PrintError(cmd.ErrOrStderr(), fmt.Sprintf("Failed to initialize log reader: %s", err))
 		os.Exit(1)
 	}
 
@@ -45,8 +44,7 @@ func execute(cmd *cobra.Command, args []string) error {
 	}
 
 	if err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "%s\n\n", styles.ErrorBadge().Render("ERROR"))
-		fmt.Fprintln(cmd.ErrOrStderr(), styles.Error().Render(fmt.Sprintf("Error reading logs: %s", err)))
+		styles.PrintError(cmd.ErrOrStderr(), fmt.Sprintf("Error reading logs: %s", err))
 		os.Exit(1)
 	}
 

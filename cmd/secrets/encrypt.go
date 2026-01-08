@@ -42,8 +42,8 @@ var encryptCmd = &cobra.Command{
 			if raw {
 				fmt.Fprintln(cmd.OutOrStdout(), encrypted)
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Header().Render("Encrypted Value"))
-				fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", styles.Code().Render(encrypted))
+				styles.PrintTitle(cmd.OutOrStdout(), "Encrypted Value")
+				styles.PrintKeyCode(cmd.OutOrStdout(), "Value", encrypted)
 			}
 			return nil
 		}
@@ -53,7 +53,9 @@ var encryptCmd = &cobra.Command{
 		}
 
 		if !raw {
-			fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render(fmt.Sprintf("✓ Encrypted value written to %s", outputFile)))
+			styles.PrintSuccessWithDetailsCode(cmd.OutOrStdout(), "Secret encrypted successfully", [][]string{
+				{"Output", outputFile},
+			})
 		}
 		return nil
 	},

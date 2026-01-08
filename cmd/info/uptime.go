@@ -55,7 +55,7 @@ func showUptime(writer io.Writer) {
 	started, running, err := readStartup()
 
 	if err != nil {
-		fmt.Fprintf(writer, "%s\n", styles.Warning().Render("⚠ Could not read workspace startup time"))
+		styles.PrintWarning(writer, "Could not read workspace startup time")
 		return
 	}
 

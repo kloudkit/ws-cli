@@ -3,6 +3,7 @@ package path
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -35,6 +36,21 @@ func ResolveConfigPath(configPath string) string {
 	}
 
 	return GetHomeDirectory(configPath)
+}
+
+func Expand(path string) (string, error) {
+	path = os.ExpandEnv(path)
+	path = filepath.Clean(path)
+
+	if strings.HasPrefix(path, "~") {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to get home directory: %w", err)
+		}
+		path = filepath.Join(homeDir, path[1:])
+	}
+
+	return path, nil
 }
 
 func GetCurrentWorkingDirectory(segments ...string) (string, error) {

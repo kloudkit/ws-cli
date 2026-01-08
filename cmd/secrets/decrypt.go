@@ -2,7 +2,6 @@ package secrets
 
 import (
 	"fmt"
-	"strings"
 
 	internalIO "github.com/kloudkit/ws-cli/internals/io"
 	internalSecrets "github.com/kloudkit/ws-cli/internals/secrets"
@@ -31,10 +30,7 @@ var decryptCmd = &cobra.Command{
 			return err
 		}
 
-		input = strings.ReplaceAll(input, "\r", "")
-		input = strings.ReplaceAll(input, "\n", "")
-		input = strings.ReplaceAll(input, " ", "")
-		input = strings.ReplaceAll(input, "\t", "")
+		input = internalSecrets.NormalizeEncrypted(input)
 
 		decrypted, err := internalSecrets.Decrypt(input, masterKey)
 		if err != nil {
@@ -45,8 +41,8 @@ var decryptCmd = &cobra.Command{
 			if raw {
 				fmt.Fprint(cmd.OutOrStdout(), string(decrypted))
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Header().Render("Decrypted Value"))
-				fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", styles.Code().Render(string(decrypted)))
+				styles.PrintTitle(cmd.OutOrStdout(), "Decrypted Value")
+				styles.PrintKeyCode(cmd.OutOrStdout(), "Value", string(decrypted))
 			}
 			return nil
 		}
@@ -56,7 +52,9 @@ var decryptCmd = &cobra.Command{
 		}
 
 		if !raw {
-			fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render(fmt.Sprintf("✓ Decrypted value written to %s", outputFile)))
+			styles.PrintSuccessWithDetailsCode(cmd.OutOrStdout(), "Secret decrypted successfully", [][]string{
+				{"Output", outputFile},
+			})
 		}
 		return nil
 	},
