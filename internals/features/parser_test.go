@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"gotest.tools/v3/assert"
 )
 
 func TestParseFeatureFile(t *testing.T) {
@@ -26,27 +26,25 @@ func TestParseFeatureFile(t *testing.T) {
           - test-package
 `
 
-	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+	err := os.WriteFile(testFile, []byte(content), 0644)
+	assert.NilError(t, err)
 
 	feature, err := ParseFeatureFile(testFile)
-	assert.NoError(t, err)
+	assert.NilError(t, err)
 
 	assert.Equal(t, "test-feature", feature.Name)
 	assert.Equal(t, "Install Test Feature", feature.Description)
 
 	expectedVars := []string{"gpg", "repo"}
-	assert.Len(t, feature.Vars, len(expectedVars))
+	assert.Equal(t, len(expectedVars), len(feature.Vars))
 
-	// Check that vars contain expected keys (order may vary due to map iteration)
 	varMap := make(map[string]bool)
 	for _, v := range feature.Vars {
 		varMap[v] = true
 	}
 
 	for _, expected := range expectedVars {
-		assert.True(t, varMap[expected], "Expected var '%s' not found", expected)
+		assert.Assert(t, varMap[expected])
 	}
 }
 
@@ -65,15 +63,14 @@ func TestParseFeatureFileNoVars(t *testing.T) {
           - test-package
 `
 
-	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+	err := os.WriteFile(testFile, []byte(content), 0644)
+	assert.NilError(t, err)
 
 	feature, err := ParseFeatureFile(testFile)
-	assert.NoError(t, err)
+	assert.NilError(t, err)
 
 	assert.Equal(t, "no-vars", feature.Name)
-	assert.Empty(t, feature.Vars)
+	assert.Equal(t, 0, len(feature.Vars))
 }
 
 func TestParseFeatureFileInvalid(t *testing.T) {
@@ -82,18 +79,16 @@ func TestParseFeatureFileInvalid(t *testing.T) {
 
 	content := `invalid yaml content [[[`
 
-	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+	err := os.WriteFile(testFile, []byte(content), 0644)
+	assert.NilError(t, err)
 
-	_, err := ParseFeatureFile(testFile)
-	assert.Error(t, err)
+	_, err = ParseFeatureFile(testFile)
+	assert.Assert(t, err != nil)
 }
 
 func TestListFeatures(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create test feature files
 	testFiles := map[string]string{
 		"feature1.yaml": `---
 - name: First Feature
@@ -112,23 +107,21 @@ func TestListFeatures(t *testing.T) {
 
 	for filename, content := range testFiles {
 		testFile := filepath.Join(tmpDir, filename)
-		if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
-			t.Fatalf("Failed to create test file %s: %v", filename, err)
-		}
+		err := os.WriteFile(testFile, []byte(content), 0644)
+		assert.NilError(t, err)
 	}
 
 	features, err := ListFeatures(tmpDir)
-	assert.NoError(t, err)
-	assert.Len(t, features, 2)
+	assert.NilError(t, err)
+	assert.Equal(t, 2, len(features))
 
-	// Check that we got both features
 	featureNames := make(map[string]bool)
 	for _, feature := range features {
 		featureNames[feature.Name] = true
 	}
 
-	assert.True(t, featureNames["feature1"], "Expected 'feature1' not found")
-	assert.True(t, featureNames["feature2"], "Expected 'feature2' not found")
+	assert.Assert(t, featureNames["feature1"])
+	assert.Assert(t, featureNames["feature2"])
 }
 
 func TestInfoFeature(t *testing.T) {
@@ -149,30 +142,28 @@ func TestInfoFeature(t *testing.T) {
           - test-package
 `
 
-	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+	err := os.WriteFile(testFile, []byte(content), 0644)
+	assert.NilError(t, err)
 
 	feature, err := InfoFeature(tmpDir, "test-feature")
-	assert.NoError(t, err)
+	assert.NilError(t, err)
 
 	assert.Equal(t, "test-feature", feature.Name)
 	assert.Equal(t, "Install Test Feature", feature.Description)
-	assert.Len(t, feature.Vars, 2)
+	assert.Equal(t, 2, len(feature.Vars))
 
 	varMap := make(map[string]bool)
 	for _, v := range feature.Vars {
 		varMap[v] = true
 	}
 
-	assert.True(t, varMap["option1"], "Expected var 'option1' not found")
-	assert.True(t, varMap["option2"], "Expected var 'option2' not found")
+	assert.Assert(t, varMap["option1"])
+	assert.Assert(t, varMap["option2"])
 }
 
 func TestInfoFeatureNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	_, err := InfoFeature(tmpDir, "nonexistent")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "feature 'nonexistent' not found")
+	assert.ErrorContains(t, err, "feature 'nonexistent' not found")
 }

@@ -5,9 +5,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"os"
 
-	"github.com/kloudkit/ws-cli/internals/path"
+	"github.com/kloudkit/ws-cli/internals/io"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
@@ -19,6 +18,7 @@ var generateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		keyLength, _ := cmd.Flags().GetInt("length")
 		outputFile, _ := cmd.Flags().GetString("output")
+		modeStr, _ := cmd.Flags().GetString("mode")
 		force, _ := cmd.Flags().GetBool("force")
 		raw, _ := cmd.Flags().GetBool("raw")
 
@@ -43,12 +43,8 @@ var generateCmd = &cobra.Command{
 			return nil
 		}
 
-		if !path.CanOverride(outputFile, force) {
-			return fmt.Errorf("file %s exists, use --force to overwrite", outputFile)
-		}
-
-		if err := os.WriteFile(outputFile, []byte(encodedKey+"\n"), 0600); err != nil {
-			return fmt.Errorf("failed to write key to file: %w", err)
+		if err := io.WriteSecureFile(outputFile, []byte(encodedKey+"\n"), modeStr, force); err != nil {
+			return err
 		}
 
 		if !raw {

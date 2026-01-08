@@ -3,6 +3,7 @@ package show
 import (
 	"fmt"
 
+	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/kloudkit/ws-cli/internals/path"
 	"github.com/spf13/cobra"
@@ -19,7 +20,7 @@ var pathHomeCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(
 			cmd.OutOrStdout(),
-			env.String("WS_SERVER_ROOT", "/workspace"),
+			env.String(config.EnvServerRoot, config.DefaultServerRoot),
 		)
 		return nil
 	},

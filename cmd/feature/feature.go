@@ -1,6 +1,7 @@
 package feature
 
 import (
+	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/spf13/cobra"
 )
@@ -13,7 +14,7 @@ var FeatureCmd = &cobra.Command{
 func init() {
 	FeatureCmd.PersistentFlags().String(
 		"root",
-		env.String("WS_FEATURES_DIR", "/features"),
+		env.String(config.EnvFeaturesDir, config.DefaultFeaturesDir),
 		"Root directory of additional features",
 	)
 

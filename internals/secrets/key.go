@@ -6,46 +6,41 @@ import (
 	"os"
 	"strings"
 
+	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/kloudkit/ws-cli/internals/env"
-	"github.com/kloudkit/ws-cli/internals/path"
-)
-
-const (
-	EnvMasterKey      = "WS_SECRETS_MASTER_KEY"
-	EnvMasterKeyFile  = "WS_SECRETS_MASTER_KEY_FILE"
-	DefaultMasterPath = "/etc/workspace/master.key"
+	"github.com/kloudkit/ws-cli/internals/io"
 )
 
 func ResolveMasterKey(flagValue string) ([]byte, error) {
 	if flagValue != "" {
-		if path.FileExists(flagValue) {
+		if io.FileExists(flagValue) {
 			return readKeyFile(flagValue)
 		}
 
 		return parseKey(flagValue)
 	}
 
-	if val := env.String(EnvMasterKey); val != "" {
+	if val := env.String(config.EnvSecretsKey); val != "" {
 		return parseKey(val)
 	}
 
-	if filePath := env.String(EnvMasterKeyFile); filePath != "" {
-		if !path.FileExists(filePath) {
-			return nil, fmt.Errorf("master key file not found at %s: %s", EnvMasterKeyFile, filePath)
+	if filePath := env.String(config.EnvSecretsKeyFile); filePath != "" {
+		if !io.FileExists(filePath) {
+			return nil, fmt.Errorf("master key file not found at %s: %s", config.EnvSecretsKeyFile, filePath)
 		}
 
 		return readKeyFile(filePath)
 	}
 
-	if path.FileExists(DefaultMasterPath) {
-		return readKeyFile(DefaultMasterPath)
+	if io.FileExists(config.DefaultSecretsKeyPath) {
+		return readKeyFile(config.DefaultSecretsKeyPath)
 	}
 
 	return nil, fmt.Errorf(
 		"master key not found (use --master, %s, %s, or check %s)",
-		EnvMasterKey,
-		EnvMasterKeyFile,
-		DefaultMasterPath,
+		config.EnvSecretsKey,
+		config.EnvSecretsKeyFile,
+		config.DefaultSecretsKeyPath,
 	)
 }
 

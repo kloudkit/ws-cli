@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/kloudkit/ws-cli/internals/styles"
 )
@@ -72,7 +73,7 @@ var Log = func(writer io.Writer, level, message string, indent int, withStamp bo
 }
 
 func NewReader(tailLines int, levelFilter string) (*Reader, error) {
-	logPath := filepath.Join(env.String("WS_LOGGING_DIR", "/var/log/workspace"), env.String("WS_LOGGING_MAIN_FILE", "workspace.log"))
+	logPath := filepath.Join(env.String(config.EnvLoggingDir, config.DefaultLoggingDir), env.String(config.EnvLoggingFile, config.DefaultLoggingFile))
 
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("log file not found at %s", logPath)

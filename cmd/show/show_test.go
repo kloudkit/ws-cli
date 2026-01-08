@@ -6,18 +6,19 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kloudkit/ws-cli/internals/config"
 	"gotest.tools/v3/assert"
 )
 
 func TestPathHome(t *testing.T) {
 	t.Run("WithEnv", func(t *testing.T) {
-		t.Setenv("WS_SERVER_ROOT", "/app")
+		t.Setenv(config.EnvServerRoot, "/app")
 
 		assertOutputContains(t, []string{"path", "home"}, "/app")
 	})
 
 	t.Run("WithoutEnv", func(t *testing.T) {
-		os.Unsetenv("WS_SERVER_ROOT")
+		os.Unsetenv(config.EnvServerRoot)
 
 		assertOutputContains(t, []string{"path", "home"}, "/workspace")
 	})
