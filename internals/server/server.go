@@ -9,13 +9,11 @@ import (
 	"github.com/kloudkit/ws-cli/internals/styles"
 )
 
-// Config holds the server configuration
 type Config struct {
 	Port int
 	Bind string
 }
 
-// ServeDirectory serves a directory with HTTP file server
 func ServeDirectory(config Config, directory string, description string) error {
 	host := strings.Join([]string{config.Bind, ":", strconv.Itoa(config.Port)}, "")
 
