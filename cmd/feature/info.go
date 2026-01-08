@@ -21,29 +21,20 @@ var infoCmd = &cobra.Command{
 			return fmt.Errorf("failed to get feature info: %w", err)
 		}
 
-		fmt.Fprintf(
-			cmd.OutOrStdout(),
-			"\n%s\n  %s\n\n",
-			styles.Title().Render(feature.Name),
-			feature.Description,
-		)
+		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Title().Render(feature.Name))
+		fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", styles.Value().Render(feature.Description))
 
 		if len(feature.Vars) > 0 {
-			fmt.Fprintf(
-				cmd.OutOrStdout(),
-				"%s\n",
-				styles.Header().Render("Options"),
-			)
+			fmt.Fprintf(cmd.OutOrStdout(), "\n%s\n", styles.Header().Render("Options"))
 
 			listItems := make([]any, len(feature.Vars))
 			for i, v := range feature.Vars {
 				listItems[i] = styles.Key().UnsetBold().Render(v)
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), styles.List(listItems...))
+			fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.List(listItems...))
 		}
 
-		fmt.Fprintln(cmd.OutOrStdout())
 		return nil
 	},
 }

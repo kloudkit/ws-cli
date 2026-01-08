@@ -46,7 +46,7 @@ var decryptCmd = &cobra.Command{
 		}
 
 		if !raw {
-			fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render(fmt.Sprintf("Decrypted value written to %s", outputFile)))
+			fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render(fmt.Sprintf("✓ Decrypted value written to %s", outputFile)))
 		}
 		return nil
 	},

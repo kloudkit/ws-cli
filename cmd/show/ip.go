@@ -1,9 +1,8 @@
 package show
 
 import (
-	"fmt"
-
 	"github.com/kloudkit/ws-cli/internals/net"
+	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -17,12 +16,18 @@ var ipInternalCmd = &cobra.Command{
 	Short: "Display the internal IP address",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ip, err := net.GetInternalIP()
-
-		if err == nil {
-			fmt.Fprintln(cmd.OutOrStdout(), ip)
+		if err != nil {
+			return err
 		}
 
-		return err
+		if styles.OutputRaw(cmd, ip) {
+			return nil
+		}
+
+		styles.PrintTitle(cmd.OutOrStdout(), "Internal IP Address")
+		styles.PrintKeyCode(cmd.OutOrStdout(), "Address", ip)
+
+		return nil
 	},
 }
 
@@ -31,12 +36,18 @@ var ipNodeCmd = &cobra.Command{
 	Short: "Display the node/host IP address",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ip, err := net.GetNodeIP()
-
-		if err == nil {
-			fmt.Fprintln(cmd.OutOrStdout(), ip)
+		if err != nil {
+			return err
 		}
 
-		return err
+		if styles.OutputRaw(cmd, ip) {
+			return nil
+		}
+
+		styles.PrintTitle(cmd.OutOrStdout(), "Node IP Address")
+		styles.PrintKeyCode(cmd.OutOrStdout(), "Address", ip)
+
+		return nil
 	},
 }
 

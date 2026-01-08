@@ -34,12 +34,10 @@ func showExtensions(writer io.Writer) {
 
 	fmt.Fprintf(writer, "%s\n", styles.TitleWithCount("Extensions", len(extensions)))
 
-	fmt.Fprintln(writer)
-
 	t := styles.Table("Name", "Version").
 		Rows(extensions...)
 
-	fmt.Fprintln(writer, t.Render())
+	fmt.Fprintf(writer, "%s\n", t.Render())
 }
 
 var extensionsCmd = &cobra.Command{

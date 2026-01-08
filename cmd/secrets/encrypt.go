@@ -43,7 +43,7 @@ var encryptCmd = &cobra.Command{
 		}
 
 		if !raw {
-			fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render(fmt.Sprintf("Encrypted value written to %s", outputFile)))
+			fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render(fmt.Sprintf("✓ Encrypted value written to %s", outputFile)))
 		}
 		return nil
 	},

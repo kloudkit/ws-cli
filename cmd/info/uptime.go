@@ -55,8 +55,7 @@ func showUptime(writer io.Writer) {
 	started, running, err := readStartup()
 
 	if err != nil {
-		fmt.Fprintf(writer, "%s\n", styles.Title().Render("Warning"))
-		fmt.Fprintf(writer, "%s\n", styles.Warning().Render("Could not read workspace startup time"))
+		fmt.Fprintf(writer, "%s\n", styles.Warning().Render("⚠ Could not read workspace startup time"))
 		return
 	}
 
@@ -77,7 +76,7 @@ func showUptime(writer io.Writer) {
 		[]string{"Status", styles.Value().Render(statusValue)},
 	)
 
-	fmt.Fprintf(writer, "%s\n\n", t.Render())
+	fmt.Fprintf(writer, "%s\n", t.Render())
 }
 
 var uptimeCmd = &cobra.Command{

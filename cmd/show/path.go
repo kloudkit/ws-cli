@@ -1,11 +1,10 @@
 package show
 
 import (
-	"fmt"
-
 	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/kloudkit/ws-cli/internals/path"
+	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -18,10 +17,15 @@ var pathHomeCmd = &cobra.Command{
 	Use:   "home",
 	Short: "Display the workspace home path",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Fprintln(
-			cmd.OutOrStdout(),
-			env.String(config.EnvServerRoot, config.DefaultServerRoot),
-		)
+		homePath := env.String(config.EnvServerRoot, config.DefaultServerRoot)
+
+		if styles.OutputRaw(cmd, homePath) {
+			return nil
+		}
+
+		styles.PrintTitle(cmd.OutOrStdout(), "Workspace Home Path")
+		styles.PrintKeyCode(cmd.OutOrStdout(), "Path", homePath)
+
 		return nil
 	},
 }
@@ -38,7 +42,19 @@ var pathVscodeCmd = &cobra.Command{
 			settingsPath = path.GetHomeDirectory("/.local/share/workspace/User/settings.json")
 		}
 
-		fmt.Fprintln(cmd.OutOrStdout(), settingsPath)
+		if styles.OutputRaw(cmd, settingsPath) {
+			return nil
+		}
+
+		settingsType := "User"
+		if useWorkspace {
+			settingsType = "Workspace"
+		}
+
+		styles.PrintTitle(cmd.OutOrStdout(), "VS Code Settings Path")
+		styles.PrintKeyValue(cmd.OutOrStdout(), "Type", settingsType)
+		styles.PrintKeyCode(cmd.OutOrStdout(), "Path", settingsPath)
+
 		return nil
 	},
 }

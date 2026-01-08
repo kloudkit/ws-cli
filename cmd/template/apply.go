@@ -28,11 +28,11 @@ func runApply(cmd *cobra.Command, args []string) error {
 	config, _ := template.GetTemplate(templateName)
 	sourcePath := template.SupportedTemplates[templateName].SourcePath
 
-	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Title().Render("Success"))
-	fmt.Fprintf(cmd.OutOrStdout(), "%s\n\n", styles.Success().Render("Template applied successfully"))
+	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Success().Render("✓ Template applied successfully"))
+	fmt.Fprintf(cmd.OutOrStdout(), "  %s %s\n", styles.Key().Render("Template:"), styles.Value().Render(templateName))
 	fmt.Fprintf(cmd.OutOrStdout(), "  %s %s\n", styles.Key().Render("Source:"), styles.Code().Render(sourcePath))
 	fmt.Fprintf(cmd.OutOrStdout(), "  %s %s\n", styles.Key().Render("Target:"), styles.Code().Render(fmt.Sprintf("%s/%s", targetPath, config.OutputName)))
-	fmt.Fprintf(cmd.OutOrStdout(), "\n%s\n", styles.Muted().Render("💡 Use 'ws-cli template show --local "+templateName+"' to view the applied template"))
+	fmt.Fprintf(cmd.OutOrStdout(), "\n%s\n", styles.Muted().Render("Use 'ws-cli template show --local "+templateName+"' to view the applied template"))
 
 	return nil
 }

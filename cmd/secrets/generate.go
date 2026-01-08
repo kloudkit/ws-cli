@@ -37,8 +37,8 @@ var generateCmd = &cobra.Command{
 			if raw {
 				fmt.Fprintln(cmd.OutOrStdout(), encodedKey)
 			} else {
-				fmt.Fprintln(cmd.OutOrStdout(), styles.Title().Render("Master key"))
-				fmt.Fprintln(cmd.OutOrStdout(), styles.Code().Render(encodedKey))
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Title().Render("Master Key"))
+				fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", styles.Code().Render(encodedKey))
 			}
 			return nil
 		}
@@ -48,7 +48,7 @@ var generateCmd = &cobra.Command{
 		}
 
 		if !raw {
-			fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render(fmt.Sprintf("Master key written to %s", outputFile)))
+			fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render(fmt.Sprintf("✓ Master key written to %s", outputFile)))
 		}
 
 		return nil
