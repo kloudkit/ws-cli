@@ -13,7 +13,7 @@ func TestEncryptDecrypt(t *testing.T) {
 
 	encrypted, err := Encrypt([]byte(plainText), masterKey)
 	assert.NilError(t, err)
-	assert.Assert(t, strings.HasPrefix(encrypted, "argon2id$"))
+	assert.Assert(t, strings.Count(encrypted, "$") == 1)
 
 	decrypted, err := Decrypt(encrypted, masterKey)
 	assert.NilError(t, err)
@@ -31,13 +31,7 @@ func TestDecryptErrors(t *testing.T) {
 			name:          "invalid format",
 			encoded:       "invalid",
 			masterKey:     make([]byte, 32),
-			errorContains: "invalid encoded format",
-		},
-		{
-			name:          "unsupported algorithm",
-			encoded:       "sha256$v=1$m=1,t=1,p=1$salt$cipher",
-			masterKey:     make([]byte, 32),
-			errorContains: "unsupported algorithm",
+			errorContains: "invalid encrypted format",
 		},
 		{
 			name: "wrong key",

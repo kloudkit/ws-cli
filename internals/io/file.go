@@ -20,6 +20,7 @@ func CanOverride(path string, force bool) bool {
 	if _, err := os.Stat(path); os.IsNotExist(err) || force {
 		return true
 	}
+
 	return false
 }
 
@@ -94,4 +95,17 @@ func WriteSecureFile(filePath string, content []byte, modeStr string, force bool
 	}
 
 	return nil
+}
+
+func ReadInput(arg string, reader io.Reader) (string, error) {
+	if arg == "-" {
+		data, err := io.ReadAll(reader)
+		if err != nil {
+			return "", fmt.Errorf("failed to read from stdin: %w", err)
+		}
+
+		return string(data), nil
+	}
+
+	return arg, nil
 }

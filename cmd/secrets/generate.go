@@ -37,8 +37,9 @@ var generateCmd = &cobra.Command{
 			if raw {
 				fmt.Fprintln(cmd.OutOrStdout(), encodedKey)
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Title().Render("Master Key"))
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Header().Render("Master Key"))
 				fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", styles.Code().Render(encodedKey))
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Muted().Render("💡 Store this key securely - you'll need it to encrypt/decrypt secrets"))
 			}
 			return nil
 		}

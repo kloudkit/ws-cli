@@ -57,7 +57,7 @@ func TestSecretsCommand(t *testing.T) {
 		assert.NilError(t, err)
 
 		output := strings.TrimSpace(buffer.String())
-		assert.Assert(t, strings.HasPrefix(output, "base64:"))
+		assert.Assert(t, strings.Count(output, "$") == 1)
 		assert.Assert(t, !strings.Contains(output, "Encrypted"))
 	})
 
@@ -92,5 +92,43 @@ func TestSecretsCommand(t *testing.T) {
 		output := decryptBuffer.String()
 		assert.Equal(t, "test-secret", output)
 		assert.Assert(t, !strings.Contains(output, "Decrypted"))
+	})
+
+	t.Run("DecryptMultiline", func(t *testing.T) {
+		resetCommandFlags(SecretsCmd)
+
+		keyFile := filepath.Join(t.TempDir(), "master.key")
+		masterKey := base64.StdEncoding.EncodeToString([]byte("12345678901234567890123456789012"))
+		err := os.WriteFile(keyFile, []byte(masterKey), 0600)
+		assert.NilError(t, err)
+
+		encryptBuffer := new(bytes.Buffer)
+		SecretsCmd.SetOut(encryptBuffer)
+		SecretsCmd.SetErr(encryptBuffer)
+		SecretsCmd.SetArgs([]string{"encrypt", "test-secret", "--master", keyFile, "--raw"})
+
+		err = SecretsCmd.Execute()
+		assert.NilError(t, err)
+
+		encrypted := strings.TrimSpace(encryptBuffer.String())
+		parts := strings.Split(encrypted, "$")
+		assert.Equal(t, 2, len(parts))
+
+		multilineEncrypted := parts[0] + "\n  \t$" + parts[1] + "\n"
+
+		resetCommandFlags(SecretsCmd)
+
+		decryptBuffer := new(bytes.Buffer)
+		decryptInputBuffer := bytes.NewBufferString(multilineEncrypted)
+		SecretsCmd.SetIn(decryptInputBuffer)
+		SecretsCmd.SetOut(decryptBuffer)
+		SecretsCmd.SetErr(decryptBuffer)
+		SecretsCmd.SetArgs([]string{"decrypt", "-", "--master", keyFile, "--raw"})
+
+		err = SecretsCmd.Execute()
+		assert.NilError(t, err)
+
+		output := decryptBuffer.String()
+		assert.Equal(t, "test-secret", output)
 	})
 }

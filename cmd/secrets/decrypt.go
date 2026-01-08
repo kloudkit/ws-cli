@@ -2,19 +2,19 @@ package secrets
 
 import (
 	"fmt"
+	"strings"
 
-	"github.com/kloudkit/ws-cli/internals/io"
+	internalIO "github.com/kloudkit/ws-cli/internals/io"
 	internalSecrets "github.com/kloudkit/ws-cli/internals/secrets"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
 
 var decryptCmd = &cobra.Command{
-	Use:   "decrypt <encrypted>",
+	Use:   "decrypt <encrypted|->",
 	Short: "Decrypt an encrypted value",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		input := args[0]
 		outputFile, _ := cmd.Flags().GetString("output")
 		masterKeyFlag, _ := cmd.Flags().GetString("master")
 		modeStr, _ := cmd.Flags().GetString("mode")
@@ -26,22 +26,32 @@ var decryptCmd = &cobra.Command{
 			return err
 		}
 
-		encryptedBytes, err := internalSecrets.DecodeWithPrefix(input)
+		input, err := internalIO.ReadInput(args[0], cmd.InOrStdin())
 		if err != nil {
 			return err
 		}
 
-		decrypted, err := internalSecrets.Decrypt(string(encryptedBytes), masterKey)
+		input = strings.ReplaceAll(input, "\r", "")
+		input = strings.ReplaceAll(input, "\n", "")
+		input = strings.ReplaceAll(input, " ", "")
+		input = strings.ReplaceAll(input, "\t", "")
+
+		decrypted, err := internalSecrets.Decrypt(input, masterKey)
 		if err != nil {
 			return err
 		}
 
 		if outputFile == "" {
-			fmt.Fprint(cmd.OutOrStdout(), string(decrypted))
+			if raw {
+				fmt.Fprint(cmd.OutOrStdout(), string(decrypted))
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Header().Render("Decrypted Value"))
+				fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", styles.Code().Render(string(decrypted)))
+			}
 			return nil
 		}
 
-		if err := io.WriteSecureFile(outputFile, decrypted, modeStr, force); err != nil {
+		if err := internalIO.WriteSecureFile(outputFile, decrypted, modeStr, force); err != nil {
 			return err
 		}
 

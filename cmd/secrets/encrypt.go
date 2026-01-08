@@ -2,19 +2,19 @@ package secrets
 
 import (
 	"fmt"
+	"strings"
 
-	"github.com/kloudkit/ws-cli/internals/io"
+	internalIO "github.com/kloudkit/ws-cli/internals/io"
 	internalSecrets "github.com/kloudkit/ws-cli/internals/secrets"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
 
 var encryptCmd = &cobra.Command{
-	Use:   "encrypt <plaintext>",
+	Use:   "encrypt <plaintext|->",
 	Short: "Encrypt a plaintext value",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		plaintext := args[0]
 		outputFile, _ := cmd.Flags().GetString("output")
 		masterKeyFlag, _ := cmd.Flags().GetString("master")
 		modeStr, _ := cmd.Flags().GetString("mode")
@@ -26,19 +26,29 @@ var encryptCmd = &cobra.Command{
 			return err
 		}
 
+		plaintext, err := internalIO.ReadInput(args[0], cmd.InOrStdin())
+		if err != nil {
+			return err
+		}
+
+		plaintext = strings.TrimSpace(plaintext)
+
 		encrypted, err := internalSecrets.Encrypt([]byte(plaintext), masterKey)
 		if err != nil {
 			return fmt.Errorf("encryption failed: %w", err)
 		}
 
-		finalOutput := internalSecrets.EncodeWithPrefix([]byte(encrypted))
-
 		if outputFile == "" {
-			fmt.Fprintln(cmd.OutOrStdout(), finalOutput)
+			if raw {
+				fmt.Fprintln(cmd.OutOrStdout(), encrypted)
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Header().Render("Encrypted Value"))
+				fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", styles.Code().Render(encrypted))
+			}
 			return nil
 		}
 
-		if err := io.WriteSecureFile(outputFile, []byte(finalOutput+"\n"), modeStr, force); err != nil {
+		if err := internalIO.WriteSecureFile(outputFile, []byte(encrypted+"\n"), modeStr, force); err != nil {
 			return err
 		}
 
