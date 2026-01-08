@@ -82,13 +82,15 @@ func installFeatureByName(cmd *cobra.Command, featureName, featuresDir string) e
 	}
 
 	if err := runAnsiblePlaybook(featurePath, vars); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "\n%s\n", styles.ErrorBadge().Render("ERROR"))
-		fmt.Fprintf(cmd.ErrOrStderr(), "%s\n", styles.Error().Render(err.Error()))
+		fmt.Fprintln(cmd.ErrOrStderr())
+		styles.PrintError(cmd.ErrOrStderr(), err.Error())
 		os.Exit(1)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "\n%s\n", styles.Success().Render("✓ Feature installed successfully"))
-	fmt.Fprintf(cmd.OutOrStdout(), "  %s %s\n", styles.Key().Render("Feature:"), styles.Value().Render(featureName))
+	fmt.Fprintln(cmd.OutOrStdout())
+	styles.PrintSuccessWithDetails(cmd.OutOrStdout(), "Feature installed successfully", [][]string{
+		{"Feature", featureName},
+	})
 
 	return nil
 }

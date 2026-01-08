@@ -9,6 +9,7 @@ import (
 func TestConstants(t *testing.T) {
 	assert.Equal(t, "WS_SECRETS_MASTER_KEY", EnvSecretsKey)
 	assert.Equal(t, "WS_SECRETS_MASTER_KEY_FILE", EnvSecretsKeyFile)
+	assert.Equal(t, "WS_SECRETS_VAULT", EnvSecretsVault)
 	assert.Equal(t, "WS_LOGGING_DIR", EnvLoggingDir)
 	assert.Equal(t, "WS_LOGGING_MAIN_FILE", EnvLoggingFile)
 	assert.Equal(t, "WS_SERVER_ROOT", EnvServerRoot)

@@ -21,11 +21,11 @@ var listCmd = &cobra.Command{
 		}
 
 		if len(availableFeatures) == 0 {
-			fmt.Fprintln(cmd.OutOrStdout(), styles.Warning().Render("No features found"))
+			fmt.Fprintln(cmd.OutOrStdout(), styles.Warning().Render("⚠ No features found"))
 			return nil
 		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.TitleWithCount("Features available", len(availableFeatures)))
+		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.TitleWithCount("Features Available", len(availableFeatures)))
 
 		maxNameLen := 0
 		for _, feature := range availableFeatures {
@@ -44,6 +44,11 @@ var listCmd = &cobra.Command{
 		}
 
 		fmt.Fprintln(cmd.OutOrStdout(), styles.List(featureItems...))
+
+		styles.PrintHints(cmd.OutOrStdout(), [][]string{
+			{"ws-cli feature install <name>", "Install a feature"},
+			{"ws-cli feature info <name>", "View feature details"},
+		})
 
 		return nil
 	},

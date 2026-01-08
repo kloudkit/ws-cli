@@ -2,7 +2,6 @@ package show
 
 import (
 	"bytes"
-	"os"
 	"strings"
 	"testing"
 
@@ -18,7 +17,7 @@ func TestPathHome(t *testing.T) {
 	})
 
 	t.Run("WithoutEnv", func(t *testing.T) {
-		os.Unsetenv(config.EnvServerRoot)
+		t.Setenv(config.EnvServerRoot, "")
 
 		assertOutputContains(t, []string{"path", "home"}, "/workspace")
 	})
@@ -32,7 +31,7 @@ func TestPathVscode(t *testing.T) {
 	})
 
 	t.Run("WithoutEnv", func(t *testing.T) {
-		os.Unsetenv("HOME")
+		t.Setenv("HOME", "")
 
 		assertOutputContains(t, []string{"path", "vscode-settings"}, "/home/kloud/.local/share/workspace/User/settings.json")
 	})

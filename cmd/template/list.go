@@ -21,7 +21,7 @@ func runList(cmd *cobra.Command, args []string) error {
 	templates := template.SupportedTemplates
 	names := template.GetTemplateNames()
 
-	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.TitleWithCount("Templates available", len(names)))
+	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.TitleWithCount("Templates Available", len(names)))
 
 	listItems := make([]any, len(names))
 	for i, name := range names {

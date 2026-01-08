@@ -20,7 +20,7 @@ func showEnvironment(writer io.Writer) {
 		}
 	}
 
-	fmt.Fprintf(writer, "%s\n", styles.TitleWithCount("Workspace variables", len(wsVars)))
+	fmt.Fprintf(writer, "%s\n", styles.TitleWithCount("Workspace Variables", len(wsVars)))
 
 	sort.Slice(wsVars, func(i, j int) bool {
 		return wsVars[i][0] < wsVars[j][0]

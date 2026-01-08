@@ -44,6 +44,15 @@ func Encrypt(plainText []byte, masterKey []byte) (string, error) {
 		base64.RawStdEncoding.EncodeToString(cipherText)), nil
 }
 
+func NormalizeEncrypted(encrypted string) string {
+	encrypted = strings.TrimSpace(encrypted)
+	encrypted = strings.ReplaceAll(encrypted, "\r", "")
+	encrypted = strings.ReplaceAll(encrypted, "\n", "")
+	encrypted = strings.ReplaceAll(encrypted, " ", "")
+	encrypted = strings.ReplaceAll(encrypted, "\t", "")
+	return encrypted
+}
+
 func Decrypt(encodedValue string, masterKey []byte) ([]byte, error) {
 	parts := strings.Split(encodedValue, "$")
 	if len(parts) != 2 {

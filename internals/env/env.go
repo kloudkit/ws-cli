@@ -2,6 +2,7 @@ package env
 
 import (
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -42,4 +43,10 @@ func GetAll() map[string]string {
 	}
 
 	return result
+}
+
+func IsValidName(name string) bool {
+	return regexp.
+		MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`).
+		MatchString(name)
 }
