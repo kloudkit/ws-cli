@@ -25,7 +25,7 @@ var (
 	Peach    = color.RGBA{239, 159, 118, 255}
 )
 
-func FrappeColorScheme(c lipgloss.LightDarkFunc) fang.ColorScheme {
+func FrappeColorScheme(lipgloss.LightDarkFunc) fang.ColorScheme {
 	return fang.ColorScheme{
 		Base:           Base,
 		Title:          Mauve,

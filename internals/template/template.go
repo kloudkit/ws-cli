@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/kloudkit/ws-cli/internals/io"
 	"github.com/kloudkit/ws-cli/internals/path"
 )
 
@@ -56,7 +57,7 @@ func ApplyTemplate(name, targetPath string, force bool) error {
 
 	sourcePath := path.ResolveConfigPath(config.SourcePath)
 
-	if !path.FileExists(sourcePath) {
+	if !io.FileExists(sourcePath) {
 		return fmt.Errorf("template source file not found: %s", sourcePath)
 	}
 
@@ -67,11 +68,11 @@ func ApplyTemplate(name, targetPath string, force bool) error {
 
 	destPath := path.AppendSegments(targetPath, config.OutputName)
 
-	if !path.CanOverride(destPath, force) {
+	if !io.CanOverride(destPath, force) {
 		return fmt.Errorf("file already exists: %s (use --force to overwrite)", destPath)
 	}
 
-	return path.CopyFile(sourcePath, destPath)
+	return io.CopyFile(sourcePath, destPath)
 }
 
 func ShowTemplate(name string, local bool) (string, error) {

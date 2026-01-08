@@ -4,19 +4,27 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/kloudkit/ws-cli/internals/config"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
 )
+
+func stripAnsi(s string) string {
+	re := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+	return re.ReplaceAllString(s, "")
+}
 
 func TestLog(t *testing.T) {
 	buffer := new(bytes.Buffer)
 
 	Log(buffer, "info", "This is my message", 0, false)
 
-	assert.Equal(t, "info  This is my message\n", buffer.String())
+	assert.Equal(t, "info  This is my message\n", stripAnsi(buffer.String()))
 }
 
 func TestLogWithStamp(t *testing.T) {
@@ -24,7 +32,10 @@ func TestLogWithStamp(t *testing.T) {
 
 	Log(buffer, "info", "This has a stamp", 0, true)
 
-	assert.Assert(t, cmp.Regexp(`^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] info  This has a stamp\n$`, buffer.String()))
+	assert.Assert(
+		t,
+		cmp.Regexp(`^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] info  This has a stamp\n$`, stripAnsi(buffer.String())),
+	)
 }
 
 func TestLogWithIndent(t *testing.T) {
@@ -32,7 +43,7 @@ func TestLogWithIndent(t *testing.T) {
 
 	Log(buffer, "info", "This is indented", 1, false)
 
-	assert.Equal(t, "info    - This is indented\n", buffer.String())
+	assert.Equal(t, "info    - This is indented\n", stripAnsi(buffer.String()))
 }
 
 func TestLogWithStampAndIndent(t *testing.T) {
@@ -40,7 +51,10 @@ func TestLogWithStampAndIndent(t *testing.T) {
 
 	Log(buffer, "info", "Stamped and indented", 2, true)
 
-	assert.Assert(t, cmp.Regexp(`^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] info      - Stamped and indented\n$`, buffer.String()))
+	assert.Assert(
+		t,
+		cmp.Regexp(`^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] info      - Stamped and indented\n$`, stripAnsi(buffer.String())),
+	)
 }
 
 func TestPipe(t *testing.T) {
@@ -50,7 +64,7 @@ func TestPipe(t *testing.T) {
 
 	assert.Assert(t, cmp.Regexp(`^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] debug     - foo\n`+
 		`\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] debug     - bar\n`+
-		`\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] debug     - baz\n$`, buffer.String()))
+		`\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] debug     - baz\n$`, stripAnsi(buffer.String())))
 }
 
 func TestReaderFiltering(t *testing.T) {
@@ -68,12 +82,8 @@ Plain text error message`
 	err := os.WriteFile(logFile, []byte(logContent), 0644)
 	assert.NilError(t, err)
 
-	os.Setenv("WS_LOGGING_DIR", tempDir)
-	os.Setenv("WS_LOGGING_MAIN_FILE", "test.log")
-	defer func() {
-		os.Unsetenv("WS_LOGGING_DIR")
-		os.Unsetenv("WS_LOGGING_MAIN_FILE")
-	}()
+	t.Setenv(config.EnvLoggingDir, tempDir)
+	t.Setenv(config.EnvLoggingFile, "test.log")
 
 	tests := []struct {
 		name        string

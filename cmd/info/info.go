@@ -1,20 +1,21 @@
 package info
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
-
-	"encoding/json"
-	"github.com/kloudkit/ws-cli/internals/styles"
-	"github.com/spf13/cobra"
 	"os"
 	"strings"
+
+	"github.com/kloudkit/ws-cli/internals/config"
+	"github.com/kloudkit/ws-cli/internals/styles"
+	"github.com/spf13/cobra"
 )
 
 func readJsonFile() map[string]any {
 	var content map[string]any
 
-	data, _ := os.ReadFile("/var/lib/workspace/manifest.json")
+	data, _ := os.ReadFile(config.DefaultManifestPath)
 
 	_ = json.Unmarshal(data, &content)
 
