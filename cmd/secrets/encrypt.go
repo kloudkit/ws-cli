@@ -37,4 +37,3 @@ var encryptCmd = &cobra.Command{
 		return handleOutput(cmd, cfg, encrypted, "Encrypted Value", "Secret encrypted successfully", true)
 	},
 }
-

@@ -1,0 +1,5 @@
+- add a vault.yaml `version: v1`
+- remove WS_SECRET_* during startup
+- document the removal of WS_SECRET_* and WS_PASS during startup
+- create a WS_PASSWORD_*_FILE
+- create WS_PASSWORD from ws-cli secrets generate
