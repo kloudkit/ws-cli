@@ -34,7 +34,3 @@ var decryptCmd = &cobra.Command{
 		return handleOutput(cmd, cfg, string(decrypted), "Decrypted Value", "Secret decrypted successfully", false)
 	},
 }
-
-func init() {
-	decryptCmd.Flags().String("output", "", "Write output to file instead of stdout")
-}

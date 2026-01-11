@@ -105,3 +105,18 @@ func zeroBytes(data []byte) {
 		data[i] = 0
 	}
 }
+
+func HashPasswordForWorkspace(password string) (string, error) {
+	salt := make([]byte, SaltLen)
+	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
+		return "", fmt.Errorf("failed to generate salt: %w", err)
+	}
+
+	hash := argon2.IDKey([]byte(password), salt, Argon2Time, Argon2Memory, Argon2Threads, Argon2KeyLen)
+
+	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
+		argon2.Version, Argon2Memory, Argon2Time, Argon2Threads,
+		base64.RawStdEncoding.EncodeToString(salt),
+		base64.RawStdEncoding.EncodeToString(hash),
+	), nil
+}

@@ -61,3 +61,12 @@ func TestDecryptUnsupportedVersion(t *testing.T) {
 	_, err := Decrypt(encryptedValue, masterKey)
 	assert.ErrorContains(t, err, "unsupported algorithm version")
 }
+
+func TestHashPasswordForWorkspace(t *testing.T) {
+	hash, err := HashPasswordForWorkspace("testpassword123")
+	assert.NilError(t, err)
+	assert.Assert(t, strings.HasPrefix(hash, "$argon2id$v=19$m=4096,t=3,p=1$"))
+
+	hash2, _ := HashPasswordForWorkspace("testpassword123")
+	assert.Assert(t, hash != hash2)
+}

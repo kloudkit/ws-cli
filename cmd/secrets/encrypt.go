@@ -38,6 +38,3 @@ var encryptCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	encryptCmd.Flags().String("output", "", "Write output to file instead of stdout")
-}

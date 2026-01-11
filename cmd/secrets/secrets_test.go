@@ -25,13 +25,13 @@ func resetCommandFlags(cmd *cobra.Command) {
 }
 
 func TestSecretsCommand(t *testing.T) {
-	t.Run("Generate", func(t *testing.T) {
+	t.Run("GenerateMaster", func(t *testing.T) {
 		resetCommandFlags(SecretsCmd)
 
 		buffer := new(bytes.Buffer)
 		SecretsCmd.SetOut(buffer)
 		SecretsCmd.SetErr(buffer)
-		SecretsCmd.SetArgs([]string{"generate", "--length", "16", "--raw"})
+		SecretsCmd.SetArgs([]string{"generate", "master", "--length", "16", "--raw"})
 
 		err := SecretsCmd.Execute()
 		assert.NilError(t, err)
@@ -131,4 +131,23 @@ func TestSecretsCommand(t *testing.T) {
 		output := decryptBuffer.String()
 		assert.Equal(t, "test-secret", output)
 	})
+
+	t.Run("GenerateLogin", func(t *testing.T) {
+		resetCommandFlags(SecretsCmd)
+
+		buffer := new(bytes.Buffer)
+		inputBuffer := bytes.NewBufferString("testpassword123")
+
+		SecretsCmd.SetIn(inputBuffer)
+		SecretsCmd.SetOut(buffer)
+		SecretsCmd.SetErr(buffer)
+		SecretsCmd.SetArgs([]string{"generate", "login", "--raw"})
+
+		err := SecretsCmd.Execute()
+		assert.NilError(t, err)
+
+		output := strings.TrimSpace(buffer.String())
+		assert.Assert(t, strings.HasPrefix(output, "$argon2id$v=19$m=65536,t=3,p=4$"))
+	})
+
 }
