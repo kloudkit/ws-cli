@@ -52,29 +52,15 @@ var vaultCmd = &cobra.Command{
 		}
 
 		if stdout {
-			for key, value := range results {
-				output := internalSecrets.FormatSecretForStdout(key, value, raw)
-				fmt.Fprint(cmd.OutOrStdout(), output)
-			}
+			printStdoutResults(cmd, results, raw)
 			return nil
 		}
 
-		if !raw {
-			fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render("✓ Vault processed successfully"))
-			for key, dest := range results {
-				if after, ok := strings.CutPrefix(dest, "env:"); ok {
-					envVar := after
-					fmt.Fprintf(cmd.OutOrStdout(), "  %s → %s\n",
-						styles.Code().Render(key),
-						styles.Muted().Render(fmt.Sprintf("env:%s", envVar)))
-				} else {
-					fmt.Fprintf(cmd.OutOrStdout(), "  %s → %s\n",
-						styles.Code().Render(key),
-						styles.Muted().Render(dest))
-				}
-			}
+		if raw {
+			return nil
 		}
 
+		printVaultSuccess(cmd, results)
 		return nil
 	},
 }
@@ -83,4 +69,24 @@ func init() {
 	vaultCmd.Flags().String("input", "", "Path to vault file")
 	vaultCmd.Flags().StringArray("key", []string{}, "Decrypt only specified key")
 	vaultCmd.Flags().Bool("stdout", false, "Output decrypted values to stdout")
+}
+
+func printStdoutResults(cmd *cobra.Command, results map[string]string, raw bool) {
+	for key, value := range results {
+		output := internalSecrets.FormatSecretForStdout(key, value, raw)
+		fmt.Fprint(cmd.OutOrStdout(), output)
+	}
+}
+
+func printVaultSuccess(cmd *cobra.Command, results map[string]string) {
+	fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render("✓ Vault processed successfully"))
+	for key, dest := range results {
+		displayDest := dest
+		if after, ok := strings.CutPrefix(dest, "env:"); ok {
+			displayDest = fmt.Sprintf("env:%s", after)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "  %s → %s\n",
+			styles.Code().Render(key),
+			styles.Muted().Render(displayDest))
+	}
 }

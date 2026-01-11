@@ -5,8 +5,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 
-	"github.com/kloudkit/ws-cli/internals/io"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
@@ -16,11 +16,8 @@ var generateCmd = &cobra.Command{
 	Short: "Generate a master key",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg := getOutputConfig(cmd)
 		keyLength, _ := cmd.Flags().GetInt("length")
-		outputFile, _ := cmd.Flags().GetString("output")
-		modeStr, _ := cmd.Flags().GetString("mode")
-		force, _ := cmd.Flags().GetBool("force")
-		raw, _ := cmd.Flags().GetBool("raw")
 
 		if keyLength <= 0 {
 			return errors.New("invalid key length")
@@ -33,26 +30,11 @@ var generateCmd = &cobra.Command{
 
 		encodedKey := base64.StdEncoding.EncodeToString(key)
 
-		if outputFile == "" {
-			if raw {
-				fmt.Fprintln(cmd.OutOrStdout(), encodedKey)
-			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Header().Render("Master Key"))
-				fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", styles.Code().Render(encodedKey))
-				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Muted().Render("💡 Store this key securely - you'll need it to encrypt/decrypt secrets"))
-			}
-			return nil
-		}
-
-		if err := io.WriteSecureFile(outputFile, []byte(encodedKey+"\n"), modeStr, force); err != nil {
-			return err
-		}
-
-		if !raw {
-			fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render(fmt.Sprintf("✓ Master key written to %s", outputFile)))
-		}
-
-		return nil
+		return handleCustomOutput(cmd, cfg, encodedKey, fmt.Sprintf("✓ Master key written to %s", cfg.file), func(out io.Writer) {
+			fmt.Fprintf(out, "%s\n", styles.Header().Render("Master Key"))
+			fmt.Fprintf(out, "  %s\n", styles.Code().Render(encodedKey))
+			fmt.Fprintf(out, "%s\n", styles.Muted().Render("💡 Store this key securely - you'll need it to encrypt/decrypt secrets"))
+		})
 	},
 }
 
