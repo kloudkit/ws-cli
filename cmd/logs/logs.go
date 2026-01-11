@@ -2,7 +2,6 @@ package logs
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/kloudkit/ws-cli/internals/logger"
 	"github.com/kloudkit/ws-cli/internals/styles"
@@ -28,13 +27,13 @@ func execute(cmd *cobra.Command, args []string) error {
 			{"warn", "Warning messages"},
 			{"error", "Error messages only"},
 		})
-		os.Exit(1)
+		return fmt.Errorf("invalid log level")
 	}
 
 	reader, err := logger.NewReader(tail, level)
 	if err != nil {
 		styles.PrintError(cmd.ErrOrStderr(), fmt.Sprintf("Failed to initialize log reader: %s", err))
-		os.Exit(1)
+		return err
 	}
 
 	if follow {
@@ -45,7 +44,7 @@ func execute(cmd *cobra.Command, args []string) error {
 
 	if err != nil {
 		styles.PrintError(cmd.ErrOrStderr(), fmt.Sprintf("Error reading logs: %s", err))
-		os.Exit(1)
+		return err
 	}
 
 	return nil

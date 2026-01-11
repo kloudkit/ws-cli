@@ -1,12 +1,12 @@
-package generate
+package secrets
 
 import "github.com/spf13/cobra"
 
-var GenerateCmd = &cobra.Command{
+var generateCmd = &cobra.Command{
 	Use:   "generate",
 	Short: "Generate master keys or login password hashes",
 }
 
 func init() {
-	GenerateCmd.AddCommand(masterCmd, loginCmd)
+	generateCmd.AddCommand(masterCmd, loginCmd)
 }
