@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -88,6 +89,13 @@ func WriteSecureFile(filePath string, content []byte, modeStr string, force bool
 	fileMode, err := ParseFileMode(modeStr)
 	if err != nil {
 		return err
+	}
+
+	parentDir := filepath.Dir(filePath)
+	dirMode := fileMode&0o077 | 0o700
+
+	if err := os.MkdirAll(parentDir, dirMode); err != nil {
+		return fmt.Errorf("failed to create parent directory: %w", err)
 	}
 
 	if err := os.WriteFile(filePath, content, fileMode); err != nil {

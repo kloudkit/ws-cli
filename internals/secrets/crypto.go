@@ -39,7 +39,8 @@ func Encrypt(plainText []byte, masterKey []byte) (string, error) {
 
 	cipherText := aesGCM.Seal(nonce, nonce, plainText, nil)
 
-	return fmt.Sprintf("%s$%s",
+	return fmt.Sprintf("%d$%s$%s",
+		argon2.Version,
 		base64.RawStdEncoding.EncodeToString(salt),
 		base64.RawStdEncoding.EncodeToString(cipherText)), nil
 }
@@ -55,16 +56,21 @@ func NormalizeEncrypted(encrypted string) string {
 
 func Decrypt(encodedValue string, masterKey []byte) ([]byte, error) {
 	parts := strings.Split(encodedValue, "$")
-	if len(parts) != 2 {
+	if len(parts) != 3 {
 		return nil, fmt.Errorf("invalid encrypted format")
 	}
 
-	salt, err := base64.RawStdEncoding.DecodeString(parts[0])
+	expectedVersion := fmt.Sprintf("%d", argon2.Version)
+	if parts[0] != expectedVersion {
+		return nil, fmt.Errorf("unsupported algorithm version: %s (expected %s)", parts[0], expectedVersion)
+	}
+
+	salt, err := base64.RawStdEncoding.DecodeString(parts[1])
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode salt: %w", err)
 	}
 
-	cipherTextWithNonce, err := base64.RawStdEncoding.DecodeString(parts[1])
+	cipherTextWithNonce, err := base64.RawStdEncoding.DecodeString(parts[2])
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode ciphertext: %w", err)
 	}

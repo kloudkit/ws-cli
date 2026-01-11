@@ -78,6 +78,51 @@ func TestWriteSecureFile(t *testing.T) {
 		assert.NilError(t, err)
 		assert.DeepEqual(t, []byte(""), data)
 	})
+
+	t.Run("creates nested directories", func(t *testing.T) {
+		nestedPath := filepath.Join(tempDir, "nested", "deep", "dirs", "file.txt")
+		content := []byte("nested content")
+
+		err := WriteSecureFile(nestedPath, content, "0o600", false)
+		assert.NilError(t, err)
+
+		data, err := os.ReadFile(nestedPath)
+		assert.NilError(t, err)
+		assert.DeepEqual(t, content, data)
+	})
+
+	t.Run("directory mode derived from file mode 0o600", func(t *testing.T) {
+		nestedPath := filepath.Join(tempDir, "dir600", "subdir", "file.txt")
+
+		err := WriteSecureFile(nestedPath, []byte("test"), "0o600", false)
+		assert.NilError(t, err)
+
+		dirInfo, err := os.Stat(filepath.Join(tempDir, "dir600"))
+		assert.NilError(t, err)
+		assert.Equal(t, os.FileMode(0o700), dirInfo.Mode().Perm())
+	})
+
+	t.Run("directory mode derived from file mode 0o644", func(t *testing.T) {
+		nestedPath := filepath.Join(tempDir, "dir644", "subdir", "file.txt")
+
+		err := WriteSecureFile(nestedPath, []byte("test"), "0o644", false)
+		assert.NilError(t, err)
+
+		dirInfo, err := os.Stat(filepath.Join(tempDir, "dir644"))
+		assert.NilError(t, err)
+		assert.Equal(t, os.FileMode(0o744), dirInfo.Mode().Perm())
+	})
+
+	t.Run("directory mode derived from file mode 0o400", func(t *testing.T) {
+		nestedPath := filepath.Join(tempDir, "dir400", "file.txt")
+
+		err := WriteSecureFile(nestedPath, []byte("test"), "0o400", false)
+		assert.NilError(t, err)
+
+		dirInfo, err := os.Stat(filepath.Join(tempDir, "dir400"))
+		assert.NilError(t, err)
+		assert.Equal(t, os.FileMode(0o700), dirInfo.Mode().Perm())
+	})
 }
 
 func TestFileExists(t *testing.T) {

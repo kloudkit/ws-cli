@@ -62,8 +62,8 @@ var vaultCmd = &cobra.Command{
 		if !raw {
 			fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render("✓ Vault processed successfully"))
 			for key, dest := range results {
-				if strings.HasPrefix(dest, "env:") {
-					envVar := strings.TrimPrefix(dest, "env:")
+				if after, ok := strings.CutPrefix(dest, "env:"); ok {
+					envVar := after
 					fmt.Fprintf(cmd.OutOrStdout(), "  %s → %s\n",
 						styles.Code().Render(key),
 						styles.Muted().Render(fmt.Sprintf("env:%s", envVar)))

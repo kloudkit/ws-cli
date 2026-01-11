@@ -34,12 +34,32 @@ const (
 	TypeDockerConfigJSON = "dockerconfigjson"
 )
 
-var DefaultModeByType = map[string]string{
-	TypeGeneric:          "0o600",
-	TypeSSH:              "0o600",
-	TypeEnv:              "0o644",
-	TypeKubeconfig:       "0o600",
-	TypeDockerConfigJSON: "0o600",
+type SecretTypeConfig struct {
+	DefaultMode      string
+	DefaultDirectory string
+}
+
+var SecretTypeConfigs = map[string]SecretTypeConfig{
+	TypeGeneric: {
+		DefaultMode:      "0o600",
+		DefaultDirectory: "",
+	},
+	TypeSSH: {
+		DefaultMode:      "0o600",
+		DefaultDirectory: "~/.ssh",
+	},
+	TypeEnv: {
+		DefaultMode:      "0o644",
+		DefaultDirectory: "",
+	},
+	TypeKubeconfig: {
+		DefaultMode:      "0o600",
+		DefaultDirectory: "~/.kube",
+	},
+	TypeDockerConfigJSON: {
+		DefaultMode:      "0o600",
+		DefaultDirectory: "~/.docker",
+	},
 }
 
 func LoadVault(path string) (*Vault, error) {
@@ -63,15 +83,51 @@ func LoadVault(path string) (*Vault, error) {
 		}
 
 		if secret.Mode == "" {
-			if mode, ok := DefaultModeByType[secret.Type]; ok {
-				secret.Mode = mode
+			if config, ok := SecretTypeConfigs[secret.Type]; ok {
+				secret.Mode = config.DefaultMode
 			}
 		}
+
+		resolvedDest, err := ResolveDestination(secret)
+		if err != nil {
+			return nil, fmt.Errorf("secret %q: %w", name, err)
+		}
+		secret.Destination = resolvedDest
 
 		vault.Secrets[name] = secret
 	}
 
 	return &vault, nil
+}
+
+func ResolveDestination(secret VaultSecret) (string, error) {
+	if secret.Type == TypeEnv {
+		return secret.Destination, nil
+	}
+
+	config, ok := SecretTypeConfigs[secret.Type]
+	if !ok {
+		return "", fmt.Errorf("unknown type %q", secret.Type)
+	}
+
+	if filepath.IsAbs(secret.Destination) || strings.HasPrefix(secret.Destination, "~") {
+		resolved, err := path.Expand(secret.Destination)
+		if err != nil {
+			return "", fmt.Errorf("failed to expand path: %w", err)
+		}
+		return resolved, nil
+	}
+
+	if config.DefaultDirectory == "" {
+		return "", fmt.Errorf("type %q requires an absolute path", secret.Type)
+	}
+
+	fullPath := filepath.Join(config.DefaultDirectory, secret.Destination)
+	resolved, err := path.Expand(fullPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to expand path: %w", err)
+	}
+	return resolved, nil
 }
 
 func ResolveVaultPath(inputFlag string) (string, error) {
@@ -112,7 +168,7 @@ func ValidateSecret(name string, secret VaultSecret) error {
 			return fmt.Errorf("secret %q: invalid environment variable name %q (must start with letter/underscore and contain only alphanumerics and underscores)", name, secret.Destination)
 		}
 	} else if !filepath.IsAbs(secret.Destination) {
-		return fmt.Errorf("secret %q: destination must be an absolute path for type %q", name, secret.Type)
+		return fmt.Errorf("secret %q: invalid destination path", name)
 	}
 
 	return nil

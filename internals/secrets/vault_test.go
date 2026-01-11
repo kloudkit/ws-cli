@@ -14,11 +14,11 @@ func TestLoadVault(t *testing.T) {
 		vaultContent := `
 secrets:
   db_password:
-    encrypted: "test$encrypted"
+    encrypted: "19$test$encrypted"
     destination: "/etc/db/password"
   ssh_key:
     type: "ssh"
-    encrypted: "test$encrypted"
+    encrypted: "19$test$encrypted"
     destination: "/home/user/.ssh/id_rsa"
 `
 		vaultFile := filepath.Join(t.TempDir(), "vault.yaml")
@@ -58,6 +58,48 @@ secrets:
 		_, err := LoadVault("/nonexistent/vault.yaml")
 		assert.ErrorContains(t, err, "failed to read vault file")
 	})
+
+	t.Run("RelativePathResolution", func(t *testing.T) {
+		homeDir, err := os.UserHomeDir()
+		assert.NilError(t, err)
+
+		vaultContent := `
+secrets:
+  ssh_key:
+    type: "ssh"
+    encrypted: "19$test$encrypted"
+    destination: "github.com/id_ed25519"
+  kubeconfig:
+    type: "kubeconfig"
+    encrypted: "19$test$encrypted"
+    destination: "config"
+`
+		vaultFile := filepath.Join(t.TempDir(), "vault.yaml")
+		err = os.WriteFile(vaultFile, []byte(vaultContent), 0600)
+		assert.NilError(t, err)
+
+		vault, err := LoadVault(vaultFile)
+		assert.NilError(t, err)
+		assert.Equal(t, 2, len(vault.Secrets))
+		assert.Equal(t, filepath.Join(homeDir, ".ssh/github.com/id_ed25519"), vault.Secrets["ssh_key"].Destination)
+		assert.Equal(t, filepath.Join(homeDir, ".kube/config"), vault.Secrets["kubeconfig"].Destination)
+	})
+
+	t.Run("GenericTypeRequiresAbsolute", func(t *testing.T) {
+		vaultContent := `
+secrets:
+  generic_secret:
+    type: "generic"
+    encrypted: "19$test$encrypted"
+    destination: "relative/path"
+`
+		vaultFile := filepath.Join(t.TempDir(), "vault.yaml")
+		err := os.WriteFile(vaultFile, []byte(vaultContent), 0600)
+		assert.NilError(t, err)
+
+		_, err = LoadVault(vaultFile)
+		assert.ErrorContains(t, err, "requires an absolute path")
+	})
 }
 
 func TestValidateSecret(t *testing.T) {
@@ -72,7 +114,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeGeneric,
-				Encrypted:   "encrypted$value",
+				Encrypted:   "19$encrypted$value",
 				Destination: "/etc/test",
 			},
 			errorContains: "",
@@ -100,27 +142,27 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        "invalid",
-				Encrypted:   "encrypted$value",
+				Encrypted:   "19$encrypted$value",
 				Destination: "/etc/test",
 			},
 			errorContains: "invalid type",
 		},
 		{
-			name:       "RelativePathNonEnv",
+			name:       "RelativePathGenericType",
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeGeneric,
-				Encrypted:   "encrypted$value",
+				Encrypted:   "19$encrypted$value",
 				Destination: "relative/path",
 			},
-			errorContains: "must be an absolute path",
+			errorContains: "invalid destination path",
 		},
 		{
 			name:       "EnvTypeValid",
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeEnv,
-				Encrypted:   "encrypted$value",
+				Encrypted:   "19$encrypted$value",
 				Destination: "MY_VAR",
 			},
 			errorContains: "",
@@ -130,7 +172,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeEnv,
-				Encrypted:   "encrypted$value",
+				Encrypted:   "19$encrypted$value",
 				Destination: "_MY_VAR",
 			},
 			errorContains: "",
@@ -140,7 +182,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeEnv,
-				Encrypted:   "encrypted$value",
+				Encrypted:   "19$encrypted$value",
 				Destination: "MY_VAR_123",
 			},
 			errorContains: "",
@@ -150,7 +192,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeEnv,
-				Encrypted:   "encrypted$value",
+				Encrypted:   "19$encrypted$value",
 				Destination: "123_VAR",
 			},
 			errorContains: "invalid environment variable name",
@@ -160,7 +202,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeEnv,
-				Encrypted:   "encrypted$value",
+				Encrypted:   "19$encrypted$value",
 				Destination: "MY-VAR",
 			},
 			errorContains: "invalid environment variable name",
@@ -170,7 +212,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeEnv,
-				Encrypted:   "encrypted$value",
+				Encrypted:   "19$encrypted$value",
 				Destination: "MY.VAR",
 			},
 			errorContains: "invalid environment variable name",
@@ -180,7 +222,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeEnv,
-				Encrypted:   "encrypted$value",
+				Encrypted:   "19$encrypted$value",
 				Destination: "MY VAR",
 			},
 			errorContains: "invalid environment variable name",
@@ -252,6 +294,103 @@ func TestFormatSecretForStdout(t *testing.T) {
 		output := FormatSecretForStdout("key", "value", false)
 		assert.Equal(t, "[key]\nvalue\n", output)
 	})
+}
+
+func TestResolveDestination(t *testing.T) {
+	homeDir, err := os.UserHomeDir()
+	assert.NilError(t, err)
+
+	tests := []struct {
+		name          string
+		secret        VaultSecret
+		expected      string
+		errorContains string
+	}{
+		{
+			name: "EnvType",
+			secret: VaultSecret{
+				Type:        TypeEnv,
+				Destination: "MY_VAR",
+			},
+			expected: "MY_VAR",
+		},
+		{
+			name: "SSHRelativePath",
+			secret: VaultSecret{
+				Type:        TypeSSH,
+				Destination: "github.com/id_ed25519",
+			},
+			expected: filepath.Join(homeDir, ".ssh", "github.com/id_ed25519"),
+		},
+		{
+			name: "SSHAbsolutePath",
+			secret: VaultSecret{
+				Type:        TypeSSH,
+				Destination: "/custom/path/key",
+			},
+			expected: "/custom/path/key",
+		},
+		{
+			name: "SSHTildePath",
+			secret: VaultSecret{
+				Type:        TypeSSH,
+				Destination: "~/.ssh/custom/key",
+			},
+			expected: filepath.Join(homeDir, ".ssh/custom/key"),
+		},
+		{
+			name: "KubeconfigRelativePath",
+			secret: VaultSecret{
+				Type:        TypeKubeconfig,
+				Destination: "config",
+			},
+			expected: filepath.Join(homeDir, ".kube/config"),
+		},
+		{
+			name: "DockerConfigJSONRelativePath",
+			secret: VaultSecret{
+				Type:        TypeDockerConfigJSON,
+				Destination: "config.json",
+			},
+			expected: filepath.Join(homeDir, ".docker/config.json"),
+		},
+		{
+			name: "GenericAbsolutePath",
+			secret: VaultSecret{
+				Type:        TypeGeneric,
+				Destination: "/etc/secret",
+			},
+			expected: "/etc/secret",
+		},
+		{
+			name: "GenericRelativePath",
+			secret: VaultSecret{
+				Type:        TypeGeneric,
+				Destination: "relative",
+			},
+			errorContains: "requires an absolute path",
+		},
+		{
+			name: "UnknownType",
+			secret: VaultSecret{
+				Type:        "unknown",
+				Destination: "/etc/secret",
+			},
+			errorContains: "unknown type",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ResolveDestination(tt.secret)
+			if tt.errorContains != "" {
+				assert.ErrorContains(t, err, tt.errorContains)
+			} else {
+				assert.NilError(t, err)
+				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
 }
 
 func TestProcessEnvSecret(t *testing.T) {

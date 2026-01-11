@@ -57,7 +57,7 @@ func TestSecretsCommand(t *testing.T) {
 		assert.NilError(t, err)
 
 		output := strings.TrimSpace(buffer.String())
-		assert.Assert(t, strings.Count(output, "$") == 1)
+		assert.Assert(t, strings.Count(output, "$") == 2)
 		assert.Assert(t, !strings.Contains(output, "Encrypted"))
 	})
 
@@ -112,9 +112,9 @@ func TestSecretsCommand(t *testing.T) {
 
 		encrypted := strings.TrimSpace(encryptBuffer.String())
 		parts := strings.Split(encrypted, "$")
-		assert.Equal(t, 2, len(parts))
+		assert.Equal(t, 3, len(parts))
 
-		multilineEncrypted := parts[0] + "\n  \t$" + parts[1] + "\n"
+		multilineEncrypted := parts[0] + "\n  \t$" + parts[1] + "\n  \t$" + parts[2] + "\n"
 
 		resetCommandFlags(SecretsCmd)
 
