@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	internalSecrets "github.com/kloudkit/ws-cli/internals/secrets"
@@ -71,8 +72,18 @@ func init() {
 	vaultCmd.Flags().Bool("stdout", false, "Output decrypted values to stdout")
 }
 
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
 func printStdoutResults(cmd *cobra.Command, results map[string]string, raw bool) {
-	for key, value := range results {
+	for _, key := range sortedKeys(results) {
+		value := results[key]
 		output := internalSecrets.FormatSecretForStdout(key, value, raw)
 		fmt.Fprint(cmd.OutOrStdout(), output)
 	}
@@ -80,7 +91,8 @@ func printStdoutResults(cmd *cobra.Command, results map[string]string, raw bool)
 
 func printVaultSuccess(cmd *cobra.Command, results map[string]string) {
 	fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render("✓ Vault processed successfully"))
-	for key, dest := range results {
+	for _, key := range sortedKeys(results) {
+		dest := results[key]
 		displayDest := dest
 		if after, ok := strings.CutPrefix(dest, "env:"); ok {
 			displayDest = fmt.Sprintf("env:%s", after)

@@ -14,11 +14,11 @@ func TestLoadVault(t *testing.T) {
 		vaultContent := `
 secrets:
   db_password:
-    encrypted: "19$test$encrypted"
+    encrypted: "test$encrypted"
     destination: "/etc/db/password"
   ssh_key:
     type: "ssh"
-    encrypted: "19$test$encrypted"
+    encrypted: "test$encrypted"
     destination: "/home/user/.ssh/id_rsa"
 `
 		vaultFile := filepath.Join(t.TempDir(), "vault.yaml")
@@ -67,11 +67,11 @@ secrets:
 secrets:
   ssh_key:
     type: "ssh"
-    encrypted: "19$test$encrypted"
+    encrypted: "test$encrypted"
     destination: "github.com/id_ed25519"
   kubeconfig:
     type: "kubeconfig"
-    encrypted: "19$test$encrypted"
+    encrypted: "test$encrypted"
     destination: "config"
 `
 		vaultFile := filepath.Join(t.TempDir(), "vault.yaml")
@@ -90,7 +90,7 @@ secrets:
 secrets:
   generic_secret:
     type: "generic"
-    encrypted: "19$test$encrypted"
+    encrypted: "test$encrypted"
     destination: "relative/path"
 `
 		vaultFile := filepath.Join(t.TempDir(), "vault.yaml")
@@ -114,7 +114,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeGeneric,
-				Encrypted:   "19$encrypted$value",
+				Encrypted:   "encrypted$value",
 				Destination: "/etc/test",
 			},
 			errorContains: "",
@@ -142,7 +142,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        "invalid",
-				Encrypted:   "19$encrypted$value",
+				Encrypted:   "encrypted$value",
 				Destination: "/etc/test",
 			},
 			errorContains: "invalid type",
@@ -152,7 +152,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeGeneric,
-				Encrypted:   "19$encrypted$value",
+				Encrypted:   "encrypted$value",
 				Destination: "relative/path",
 			},
 			errorContains: "invalid destination path",
@@ -162,7 +162,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeEnv,
-				Encrypted:   "19$encrypted$value",
+				Encrypted:   "encrypted$value",
 				Destination: "MY_VAR",
 			},
 			errorContains: "",
@@ -172,7 +172,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeEnv,
-				Encrypted:   "19$encrypted$value",
+				Encrypted:   "encrypted$value",
 				Destination: "_MY_VAR",
 			},
 			errorContains: "",
@@ -182,7 +182,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeEnv,
-				Encrypted:   "19$encrypted$value",
+				Encrypted:   "encrypted$value",
 				Destination: "MY_VAR_123",
 			},
 			errorContains: "",
@@ -192,7 +192,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeEnv,
-				Encrypted:   "19$encrypted$value",
+				Encrypted:   "encrypted$value",
 				Destination: "123_VAR",
 			},
 			errorContains: "invalid environment variable name",
@@ -202,7 +202,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeEnv,
-				Encrypted:   "19$encrypted$value",
+				Encrypted:   "encrypted$value",
 				Destination: "MY-VAR",
 			},
 			errorContains: "invalid environment variable name",
@@ -212,7 +212,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeEnv,
-				Encrypted:   "19$encrypted$value",
+				Encrypted:   "encrypted$value",
 				Destination: "MY.VAR",
 			},
 			errorContains: "invalid environment variable name",
@@ -222,7 +222,7 @@ func TestValidateSecret(t *testing.T) {
 			secretName: "test",
 			secret: VaultSecret{
 				Type:        TypeEnv,
-				Encrypted:   "19$encrypted$value",
+				Encrypted:   "encrypted$value",
 				Destination: "MY VAR",
 			},
 			errorContains: "invalid environment variable name",
@@ -253,6 +253,9 @@ func TestGetSecretKeys(t *testing.T) {
 	t.Run("AllKeys", func(t *testing.T) {
 		keys := GetSecretKeys(vault, []string{})
 		assert.Equal(t, 3, len(keys))
+		for i := 1; i < len(keys); i++ {
+			assert.Assert(t, keys[i-1] < keys[i], "keys should be sorted alphabetically")
+		}
 	})
 
 	t.Run("SpecificKeys", func(t *testing.T) {
@@ -501,5 +504,118 @@ func TestProcessEnvSecret(t *testing.T) {
 
 		lines := strings.Split(strings.TrimSpace(contentStr), "\n")
 		assert.Equal(t, 1, len(lines))
+	})
+}
+
+func TestDeterministicOrdering(t *testing.T) {
+	t.Run("GetSecretKeysReturnsSorted", func(t *testing.T) {
+		vault := &Vault{
+			Secrets: map[string]VaultSecret{
+				"zebra":   {},
+				"alpha":   {},
+				"charlie": {},
+				"bravo":   {},
+			},
+		}
+
+		keys := GetSecretKeys(vault, []string{})
+		assert.Equal(t, 4, len(keys))
+		assert.Equal(t, "alpha", keys[0])
+		assert.Equal(t, "bravo", keys[1])
+		assert.Equal(t, "charlie", keys[2])
+		assert.Equal(t, "zebra", keys[3])
+	})
+
+	t.Run("MultipleRunsProduceSameOrder", func(t *testing.T) {
+		vault := &Vault{
+			Secrets: map[string]VaultSecret{
+				"secret3": {},
+				"secret1": {},
+				"secret2": {},
+			},
+		}
+
+		firstRun := GetSecretKeys(vault, []string{})
+		secondRun := GetSecretKeys(vault, []string{})
+		thirdRun := GetSecretKeys(vault, []string{})
+
+		assert.DeepEqual(t, firstRun, secondRun)
+		assert.DeepEqual(t, secondRun, thirdRun)
+	})
+
+	t.Run("RequestedKeysPreserveOrder", func(t *testing.T) {
+		vault := &Vault{
+			Secrets: map[string]VaultSecret{
+				"zebra":   {},
+				"alpha":   {},
+				"charlie": {},
+			},
+		}
+
+		requested := []string{"zebra", "alpha"}
+		keys := GetSecretKeys(vault, requested)
+		assert.DeepEqual(t, requested, keys)
+	})
+}
+
+func TestPerSecretForce(t *testing.T) {
+	t.Run("SecretForceOverwritesEnv", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envFile := filepath.Join(tmpDir, ".zshenv")
+		t.Setenv("HOME", tmpDir)
+
+		existingContent := `export TEST_VAR="old_value"
+`
+		err := os.WriteFile(envFile, []byte(existingContent), 0644)
+		assert.NilError(t, err)
+
+		err = ProcessEnvSecret("TEST_VAR", []byte("new_value"), true)
+		assert.NilError(t, err)
+
+		content, err := os.ReadFile(envFile)
+		assert.NilError(t, err)
+
+		contentStr := string(content)
+		assert.Assert(t, strings.Contains(contentStr, `export TEST_VAR="new_value"`))
+		assert.Assert(t, !strings.Contains(contentStr, "old_value"))
+	})
+
+	t.Run("SecretWithoutForceFailsOnExisting", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envFile := filepath.Join(tmpDir, ".zshenv")
+		t.Setenv("HOME", tmpDir)
+
+		existingContent := `export TEST_VAR="old_value"
+`
+		err := os.WriteFile(envFile, []byte(existingContent), 0644)
+		assert.NilError(t, err)
+
+		err = ProcessEnvSecret("TEST_VAR", []byte("new_value"), false)
+		assert.ErrorContains(t, err, `environment variable "TEST_VAR" already exists, use --force to overwrite`)
+	})
+
+	t.Run("MixedForceInVault", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envFile := filepath.Join(tmpDir, ".zshenv")
+		t.Setenv("HOME", tmpDir)
+
+		existingContent := `export VAR1="old1"
+export VAR2="old2"
+`
+		err := os.WriteFile(envFile, []byte(existingContent), 0644)
+		assert.NilError(t, err)
+
+		err = ProcessEnvSecret("VAR1", []byte("new1"), true)
+		assert.NilError(t, err)
+
+		err = ProcessEnvSecret("VAR2", []byte("new2"), false)
+		assert.ErrorContains(t, err, `environment variable "VAR2" already exists, use --force to overwrite`)
+
+		content, err := os.ReadFile(envFile)
+		assert.NilError(t, err)
+
+		contentStr := string(content)
+		assert.Assert(t, strings.Contains(contentStr, `export VAR1="new1"`))
+		assert.Assert(t, strings.Contains(contentStr, `export VAR2="old2"`))
 	})
 }

@@ -13,7 +13,7 @@ func TestEncryptDecrypt(t *testing.T) {
 
 	encrypted, err := Encrypt([]byte(plainText), masterKey)
 	assert.NilError(t, err)
-	assert.Assert(t, strings.Count(encrypted, "$") == 2)
+	assert.Assert(t, strings.Count(encrypted, "$") == 1)
 
 	decrypted, err := Decrypt(encrypted, masterKey)
 	assert.NilError(t, err)
@@ -51,15 +51,6 @@ func TestDecryptErrors(t *testing.T) {
 			assert.ErrorContains(t, err, tt.errorContains)
 		})
 	}
-}
-
-func TestDecryptUnsupportedVersion(t *testing.T) {
-	masterKey := make([]byte, 32)
-
-	encryptedValue := "999$dGVzdA$dGVzdA"
-
-	_, err := Decrypt(encryptedValue, masterKey)
-	assert.ErrorContains(t, err, "unsupported algorithm version")
 }
 
 func TestHashPasswordForWorkspace(t *testing.T) {
