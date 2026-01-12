@@ -183,6 +183,7 @@ func GetSecretKeys(vault *Vault, requestedKeys []string) []string {
 	for key := range vault.Secrets {
 		keys = append(keys, key)
 	}
+	slices.Sort(keys)
 
 	return keys
 }
@@ -210,6 +211,8 @@ func ProcessVault(vault *Vault, opts ProcessOptions) (map[string]string, error) 
 			return nil, err
 		}
 
+		effectiveForce := opts.Force || secret.Force
+
 		encryptedValue := NormalizeEncrypted(secret.Encrypted)
 
 		decrypted, err := Decrypt(encryptedValue, opts.MasterKey)
@@ -228,12 +231,12 @@ func ProcessVault(vault *Vault, opts ProcessOptions) (map[string]string, error) 
 		}
 
 		if secret.Type == TypeEnv {
-			if err := ProcessEnvSecret(secret.Destination, decrypted, opts.Force); err != nil {
+			if err := ProcessEnvSecret(secret.Destination, decrypted, effectiveForce); err != nil {
 				return nil, fmt.Errorf("failed to process env secret %q: %w", key, err)
 			}
 			results[key] = fmt.Sprintf("env:%s", secret.Destination)
 		} else {
-			if err := internalIO.WriteSecureFile(secret.Destination, decrypted, mode, opts.Force); err != nil {
+			if err := internalIO.WriteSecureFile(secret.Destination, decrypted, mode, effectiveForce); err != nil {
 				return nil, fmt.Errorf("failed to write secret %q: %w", key, err)
 			}
 			results[key] = secret.Destination
