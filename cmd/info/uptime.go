@@ -3,12 +3,13 @@ package info
 import (
 	"fmt"
 	"io"
-
-	"github.com/kloudkit/ws-cli/internals/styles"
-	"github.com/spf13/cobra"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/spf13/cobra"
+
+	"github.com/kloudkit/ws-cli/internals/styles"
 )
 
 func readStartup() (time.Time, time.Duration, error) {
@@ -60,11 +61,12 @@ func showUptime(writer io.Writer) {
 	}
 
 	var statusValue string
-	if running.Hours() < 1 {
+	switch {
+	case running.Hours() < 1:
 		statusValue = "Recently started"
-	} else if running.Hours() < 36 {
+	case running.Hours() < 36:
 		statusValue = "Active"
-	} else {
+	default:
 		statusValue = "Long running"
 	}
 

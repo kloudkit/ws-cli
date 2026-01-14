@@ -213,7 +213,10 @@ func ProcessVault(vault *Vault, opts ProcessOptions) (map[string]string, error) 
 
 		effectiveForce := opts.Force || secret.Force
 
-		encryptedValue := NormalizeEncrypted(secret.Encrypted)
+		encryptedValue, err := ResolveEncryptedValue(secret.Encrypted)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve encrypted value for %q: %w", key, err)
+		}
 
 		decrypted, err := Decrypt(encryptedValue, opts.MasterKey)
 		if err != nil {

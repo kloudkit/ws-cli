@@ -6,9 +6,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/kloudkit/ws-cli/internals/styles"
-	"github.com/spf13/cobra"
 )
 
 func showEnvironment(writer io.Writer) {

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
@@ -51,6 +52,20 @@ func NormalizeEncrypted(encrypted string) string {
 	encrypted = strings.ReplaceAll(encrypted, " ", "")
 	encrypted = strings.ReplaceAll(encrypted, "\t", "")
 	return encrypted
+}
+
+func ResolveEncryptedValue(encrypted string) (string, error) {
+	if !strings.HasPrefix(encrypted, "file:") {
+		return encrypted, nil
+	}
+
+	filePath := strings.TrimPrefix(encrypted, "file:")
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read encrypted file %s: %w", filePath, err)
+	}
+
+	return NormalizeEncrypted(string(content)), nil
 }
 
 func Decrypt(encodedValue string, masterKey []byte) ([]byte, error) {

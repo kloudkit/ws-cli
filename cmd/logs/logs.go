@@ -2,11 +2,15 @@ package logs
 
 import (
 	"fmt"
+	"slices"
+
+	"github.com/spf13/cobra"
 
 	"github.com/kloudkit/ws-cli/internals/logger"
 	"github.com/kloudkit/ws-cli/internals/styles"
-	"github.com/spf13/cobra"
 )
+
+var validLogLevels = []string{"debug", "info", "warn", "error"}
 
 var LogsCmd = &cobra.Command{
 	Use:   "logs",
@@ -20,7 +24,7 @@ func execute(cmd *cobra.Command, args []string) error {
 	tail, _ := cmd.Flags().GetInt("tail")
 	level, _ := cmd.Flags().GetString("level")
 
-	if level != "" && level != "info" && level != "warn" && level != "error" && level != "debug" {
+	if level != "" && !slices.Contains(validLogLevels, level) {
 		styles.PrintErrorWithOptions(cmd.ErrOrStderr(), "Invalid log level. Must be one of:", [][]string{
 			{"debug", "Debug information"},
 			{"info", "General information"},

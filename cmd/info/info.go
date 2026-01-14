@@ -6,10 +6,11 @@ import (
 	"io"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/kloudkit/ws-cli/internals/config"
 	internalIO "github.com/kloudkit/ws-cli/internals/io"
 	"github.com/kloudkit/ws-cli/internals/styles"
-	"github.com/spf13/cobra"
 )
 
 type Manifest struct {

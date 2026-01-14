@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/kloudkit/ws-cli/internals/styles"
-	"github.com/spf13/cobra"
 	"io"
 	"os/exec"
 	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/kloudkit/ws-cli/internals/styles"
 )
 
 func fetchExtensions() [][]string {
