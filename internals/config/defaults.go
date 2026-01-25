@@ -9,6 +9,8 @@ const (
 	EnvServerRoot     = "WS_SERVER_ROOT"
 	EnvFeaturesDir    = "WS_FEATURES_DIR"
 	EnvIPCSocket      = "WS__INTERNAL_IPC_SOCKET"
+	EnvMetricsPort    = "WS_METRICS_PORT"
+	EnvMetricsGPU     = "WS_METRICS_ENABLE_GPU"
 
 	DefaultSecretsKeyPath = "/etc/workspace/master.key"
 	DefaultEnvFilePath    = "~/.zshenv"
@@ -18,4 +20,6 @@ const (
 	DefaultFeaturesDir    = "/features"
 	DefaultIPCSocket      = "/var/workspace/ipc.socket"
 	DefaultManifestPath   = "/var/lib/workspace/manifest.json"
+	DefaultStatePath      = "/var/lib/workspace/state"
+	DefaultMetricsPort    = 9100
 )

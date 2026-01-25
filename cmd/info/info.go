@@ -1,45 +1,17 @@
 package info
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/kloudkit/ws-cli/internals/config"
-	internalIO "github.com/kloudkit/ws-cli/internals/io"
 	"github.com/kloudkit/ws-cli/internals/styles"
 )
 
-type Manifest struct {
-	Version string `json:"version"`
-	VSCode  struct {
-		Version string `json:"version"`
-	} `json:"vscode"`
-}
-
-func readManifest() (*Manifest, error) {
-	if !internalIO.FileExists(config.DefaultManifestPath) {
-		return nil, fmt.Errorf("manifest not found at %s", config.DefaultManifestPath)
-	}
-
-	data, err := os.ReadFile(config.DefaultManifestPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read manifest: %w", err)
-	}
-
-	var m Manifest
-	if err := json.Unmarshal(data, &m); err != nil {
-		return nil, fmt.Errorf("failed to parse manifest: %w", err)
-	}
-
-	return &m, nil
-}
-
 func showVersion(writer io.Writer) {
-	manifest, err := readManifest()
+	manifest, err := config.ReadManifest()
 	if err != nil {
 		styles.PrintWarning(writer, fmt.Sprintf("Could not read workspace version: %v", err))
 		fmt.Fprintf(writer, "%s\n", styles.Title().Render("Versions"))
