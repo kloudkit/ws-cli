@@ -16,6 +16,22 @@ import (
 
 const metricsNamespace = "workspace"
 
+func newDesc(subsystem, name, description string) *prometheus.Desc {
+	return prometheus.NewDesc(
+		prometheus.BuildFQName(metricsNamespace, subsystem, name),
+		description,
+		nil, nil,
+	)
+}
+
+func newContainerDesc(name, description string) *prometheus.Desc {
+	return newDesc("container", name, description)
+}
+
+func newGPUDesc(name, description string) *prometheus.Desc {
+	return newDesc("gpu", name, description)
+}
+
 type workspaceCollector struct {
 	info                     *prometheus.Desc
 	initializedTimestamp     *prometheus.Desc
@@ -33,22 +49,10 @@ func newWorkspaceCollector() *workspaceCollector {
 			[]string{"version", "vscode_version"},
 			nil,
 		),
-		initializedTimestamp: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "session", "initialized_timestamp_seconds"),
-			"Unix timestamp when workspace was initialized",
-			nil, nil,
-		),
-		uptimeSeconds: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "session", "uptime_seconds"),
-			"Seconds since workspace was initialized",
-			nil, nil,
-		),
-		extensionsInstalledTotal: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "", "extensions_installed_total"),
-			"Number of VS Code extensions installed",
-			nil, nil,
-		),
-		infoLabels: prometheus.Labels{"version": "", "vscode_version": ""},
+		initializedTimestamp:     newDesc("session", "initialized_timestamp_seconds", "Unix timestamp when workspace was initialized"),
+		uptimeSeconds:            newDesc("session", "uptime_seconds", "Seconds since workspace was initialized"),
+		extensionsInstalledTotal: newDesc("", "extensions_installed_total", "Number of VS Code extensions installed"),
+		infoLabels:               prometheus.Labels{"version": "", "vscode_version": ""},
 	}
 
 	if manifest, err := config.ReadManifest(); err == nil {
@@ -106,56 +110,16 @@ type containerCollector struct {
 
 func newContainerCollector() *containerCollector {
 	return &containerCollector{
-		cpuUsageSeconds: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "container", "cpu_usage_seconds_total"),
-			"Total CPU time consumed by the container",
-			nil, nil,
-		),
-		cpuUserSeconds: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "container", "cpu_user_seconds_total"),
-			"CPU time consumed in user mode",
-			nil, nil,
-		),
-		cpuSystemSeconds: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "container", "cpu_system_seconds_total"),
-			"CPU time consumed in system mode",
-			nil, nil,
-		),
-		memoryUsageBytes: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "container", "memory_usage_bytes"),
-			"Current memory usage in bytes",
-			nil, nil,
-		),
-		memoryLimitBytes: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "container", "memory_limit_bytes"),
-			"Memory limit in bytes",
-			nil, nil,
-		),
-		memoryRSSBytes: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "container", "memory_rss_bytes"),
-			"Resident set size in bytes",
-			nil, nil,
-		),
-		fsUsageBytes: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "container", "fs_usage_bytes"),
-			"Filesystem usage in bytes on /workspace",
-			nil, nil,
-		),
-		fsLimitBytes: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "container", "fs_limit_bytes"),
-			"Filesystem capacity in bytes on /workspace",
-			nil, nil,
-		),
-		fdOpen: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "container", "file_descriptors_open"),
-			"Number of open file descriptors",
-			nil, nil,
-		),
-		fdLimit: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "container", "file_descriptors_limit"),
-			"File descriptor limit",
-			nil, nil,
-		),
+		cpuUsageSeconds:  newContainerDesc("cpu_usage_seconds_total", "Total CPU time consumed by the container"),
+		cpuUserSeconds:   newContainerDesc("cpu_user_seconds_total", "CPU time consumed in user mode"),
+		cpuSystemSeconds: newContainerDesc("cpu_system_seconds_total", "CPU time consumed in system mode"),
+		memoryUsageBytes: newContainerDesc("memory_usage_bytes", "Current memory usage in bytes"),
+		memoryLimitBytes: newContainerDesc("memory_limit_bytes", "Memory limit in bytes"),
+		memoryRSSBytes:   newContainerDesc("memory_rss_bytes", "Resident set size in bytes"),
+		fsUsageBytes:     newContainerDesc("fs_usage_bytes", "Filesystem usage in bytes on /workspace"),
+		fsLimitBytes:     newContainerDesc("fs_limit_bytes", "Filesystem capacity in bytes on /workspace"),
+		fdOpen:           newContainerDesc("file_descriptors_open", "Number of open file descriptors"),
+		fdLimit:          newContainerDesc("file_descriptors_limit", "File descriptor limit"),
 	}
 }
 
@@ -206,31 +170,11 @@ type gpuCollector struct {
 
 func newGPUCollector() *gpuCollector {
 	return &gpuCollector{
-		utilizationRatio: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "gpu", "utilization_ratio"),
-			"GPU utilization ratio (0-1)",
-			nil, nil,
-		),
-		memoryUsedBytes: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "gpu", "memory_used_bytes"),
-			"GPU memory used in bytes",
-			nil, nil,
-		),
-		memoryTotalBytes: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "gpu", "memory_total_bytes"),
-			"GPU memory total in bytes",
-			nil, nil,
-		),
-		temperatureCelsius: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "gpu", "temperature_celsius"),
-			"GPU temperature in Celsius",
-			nil, nil,
-		),
-		powerWatts: prometheus.NewDesc(
-			prometheus.BuildFQName(metricsNamespace, "gpu", "power_watts"),
-			"GPU power consumption in watts",
-			nil, nil,
-		),
+		utilizationRatio:   newGPUDesc("utilization_ratio", "GPU utilization ratio (0-1)"),
+		memoryUsedBytes:    newGPUDesc("memory_used_bytes", "GPU memory used in bytes"),
+		memoryTotalBytes:   newGPUDesc("memory_total_bytes", "GPU memory total in bytes"),
+		temperatureCelsius: newGPUDesc("temperature_celsius", "GPU temperature in Celsius"),
+		powerWatts:         newGPUDesc("power_watts", "GPU power consumption in watts"),
 	}
 }
 
@@ -262,11 +206,10 @@ var metricsCmd = &cobra.Command{
 		port, _ := cmd.Flags().GetInt("port")
 		gpu, _ := cmd.Flags().GetBool("gpu")
 
-		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Title().Render("Metrics Server"))
+		fmt.Fprintln(cmd.OutOrStdout(), styles.Title().Render("Metrics Server"))
 
 		registry := prometheus.NewRegistry()
-		registry.MustRegister(newWorkspaceCollector())
-		registry.MustRegister(newContainerCollector())
+		registry.MustRegister(newWorkspaceCollector(), newContainerCollector())
 
 		if gpu && internalIO.IsGPUAvailable() {
 			registry.MustRegister(newGPUCollector())
@@ -275,9 +218,9 @@ var metricsCmd = &cobra.Command{
 
 		addr := fmt.Sprintf(":%d", port)
 
-		http.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+		http.Handle("/", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 
-		fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render(fmt.Sprintf("Serving metrics at http://0.0.0.0%s/metrics", addr)))
+		fmt.Fprintln(cmd.OutOrStdout(), styles.Success().Render(fmt.Sprintf("Serving metrics at http://0.0.0.0%s", addr)))
 		fmt.Fprintln(cmd.OutOrStdout(), styles.Info().Render("Press Ctrl+C to stop"))
 
 		return http.ListenAndServe(addr, nil)
