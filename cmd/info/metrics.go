@@ -23,15 +23,14 @@ type metrics struct {
 }
 
 func formatCPUTime(seconds float64) string {
-	if seconds < 60 {
+	switch {
+	case seconds < 60:
 		return fmt.Sprintf("%.1fs", seconds)
-	}
-
-	if seconds < 3600 {
+	case seconds < 3600:
 		return fmt.Sprintf("%.1fm", seconds/60)
+	default:
+		return fmt.Sprintf("%.1fh", seconds/3600)
 	}
-
-	return fmt.Sprintf("%.1fh", seconds/3600)
 }
 
 func getMetrics(includeGPU bool) (*metrics, error) {
@@ -70,8 +69,7 @@ func getMetrics(includeGPU bool) (*metrics, error) {
 	}
 
 	if includeGPU {
-		gpuStats, err := internalIO.GetGPUStats()
-		if err == nil {
+		if gpuStats, err := internalIO.GetGPUStats(); err == nil {
 			m.gpu = gpuStats
 		}
 	}

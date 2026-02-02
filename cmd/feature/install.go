@@ -52,6 +52,13 @@ func runAnsiblePlaybook(featurePath string, vars map[string]any) error {
 	}
 
 	cmd := exec.Command("ansible-playbook", args...)
+	cmd.Env = append(os.Environ(),
+		"ANSIBLE_DISPLAY_OK_HOSTS=0",
+		"ANSIBLE_DISPLAY_FAILED_STDERR=0",
+		"ANSIBLE_DISPLAY_SKIPPED_HOSTS=0",
+		"ANSIBLE_SHOW_CUSTOM_STATS=0",
+		"ANSIBLE_STDOUT_CALLBACK=community.general.unixy",
+	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
