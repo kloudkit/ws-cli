@@ -1,25 +1,14 @@
-package io
+package metrics
 
 import (
-	"bufio"
 	"fmt"
 	"os"
-	"strconv"
+	"os/exec"
 	"strings"
 	"syscall"
 
 	"github.com/kloudkit/ws-cli/internals/config"
 )
-
-type DiskStats struct {
-	UsageBytes uint64
-	LimitBytes uint64
-}
-
-type FileDescriptorStats struct {
-	Open  uint64
-	Limit uint64
-}
 
 func GetDiskStats() (*DiskStats, error) {
 	return GetDiskStatsForPath(config.DefaultServerRoot)
@@ -55,23 +44,38 @@ func GetFileDescriptorStats() (*FileDescriptorStats, error) {
 }
 
 func getFDLimit() uint64 {
-	file, err := os.Open("/proc/self/limits")
+	return readProcProperty("/proc/self/limits", "Max open files", 4)
+}
+
+func IsGPUAvailable() bool {
+	_, err := exec.LookPath("nvidia-smi")
+	return err == nil
+}
+
+func GetGPUStats() (*GPUStats, error) {
+	if !IsGPUAvailable() {
+		return &GPUStats{Available: false}, nil
+	}
+
+	out, err := exec.Command("nvidia-smi",
+		"--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+		"--format=csv,noheader,nounits").Output()
 	if err != nil {
-		return 0
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "Max open files") {
-			fields := strings.Fields(line)
-			if len(fields) >= 5 {
-				limit, _ := strconv.ParseUint(fields[4], 10, 64)
-				return limit
-			}
-		}
+		return &GPUStats{Available: false}, nil
 	}
 
-	return 0
+	fields := strings.Split(strings.TrimSpace(string(out)), ", ")
+	if len(fields) < 5 {
+		return &GPUStats{Available: false}, nil
+	}
+
+	stats := &GPUStats{Available: true}
+
+	stats.UtilizationRatio = atof(fields[0]) / 100.0
+	stats.MemoryUsedBytes = uint64(atof(fields[1]) * 1024 * 1024)
+	stats.MemoryTotalBytes = uint64(atof(fields[2]) * 1024 * 1024)
+	stats.TemperatureCelsius = atof(fields[3])
+	stats.PowerWatts = atof(fields[4])
+
+	return stats, nil
 }

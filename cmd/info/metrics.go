@@ -5,11 +5,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	internalIO "github.com/kloudkit/ws-cli/internals/io"
+	"github.com/kloudkit/ws-cli/internals/metrics"
 	"github.com/kloudkit/ws-cli/internals/styles"
 )
 
-type metrics struct {
+type workspaceMetrics struct {
 	cpuUsage    float64
 	cpuSeconds  float64
 	memoryTotal uint64
@@ -19,7 +19,7 @@ type metrics struct {
 	diskUsed    uint64
 	fdOpen      uint64
 	fdLimit     uint64
-	gpu         *internalIO.GPUStats
+	gpu         *metrics.GPUStats
 }
 
 func formatCPUTime(seconds float64) string {
@@ -33,30 +33,30 @@ func formatCPUTime(seconds float64) string {
 	}
 }
 
-func getMetrics(includeGPU bool) (*metrics, error) {
-	cpuUsage, _ := internalIO.GetCPUUsagePercent()
+func getMetrics(includeGPU bool) (*workspaceMetrics, error) {
+	cpuUsage, _ := metrics.GetCPUUsagePercent()
 
-	cpuStats, err := internalIO.GetCPUStats()
+	cpuStats, err := metrics.GetCPUStats()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CPU stats: %w", err)
 	}
 
-	memStats, err := internalIO.GetMemoryStats()
+	memStats, err := metrics.GetMemoryStats()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get memory stats: %w", err)
 	}
 
-	diskStats, err := internalIO.GetDiskStats()
+	diskStats, err := metrics.GetDiskStats()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get disk stats: %w", err)
 	}
 
-	fdStats, err := internalIO.GetFileDescriptorStats()
+	fdStats, err := metrics.GetFileDescriptorStats()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get file descriptor stats: %w", err)
 	}
 
-	m := &metrics{
+	m := &workspaceMetrics{
 		cpuUsage:    cpuUsage,
 		cpuSeconds:  cpuStats.UsageSeconds,
 		memoryTotal: memStats.LimitBytes,
@@ -69,7 +69,7 @@ func getMetrics(includeGPU bool) (*metrics, error) {
 	}
 
 	if includeGPU {
-		if gpuStats, err := internalIO.GetGPUStats(); err == nil {
+		if gpuStats, err := metrics.GetGPUStats(); err == nil {
 			m.gpu = gpuStats
 		}
 	}
