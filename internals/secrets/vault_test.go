@@ -280,7 +280,22 @@ func TestResolveVaultPath(t *testing.T) {
 		assert.Equal(t, "/env/vault.yaml", path)
 	})
 
+	t.Run("FromDefault", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		t.Setenv("WS_SECRETS_VAULT", "")
+
+		defaultVault := filepath.Join(home, ".ws", "vault", "secrets.yaml")
+		assert.NilError(t, os.MkdirAll(filepath.Dir(defaultVault), 0o755))
+		assert.NilError(t, os.WriteFile(defaultVault, []byte("secrets:\n"), 0o600))
+
+		path, err := ResolveVaultPath("")
+		assert.NilError(t, err)
+		assert.Equal(t, defaultVault, path)
+	})
+
 	t.Run("NotSpecified", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
 		t.Setenv("WS_SECRETS_VAULT", "")
 		_, err := ResolveVaultPath("")
 		assert.ErrorContains(t, err, "vault file not specified")

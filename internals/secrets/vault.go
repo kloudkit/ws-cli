@@ -139,6 +139,15 @@ func ResolveVaultPath(inputFlag string) (string, error) {
 		return vaultPath, nil
 	}
 
+	defaultPath, err := path.Expand(config.DefaultSecretsVaultPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve default vault path: %w", err)
+	}
+
+	if _, err := os.Stat(defaultPath); err == nil {
+		return defaultPath, nil
+	}
+
 	return "", fmt.Errorf("vault file not specified (use --input or %s)", config.EnvSecretsVault)
 }
 

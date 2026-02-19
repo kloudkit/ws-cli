@@ -12,7 +12,8 @@ const (
 	EnvMetricsPort       = "WS_METRICS_PORT"
 	EnvMetricsCollectors = "WS_METRICS_COLLECTORS"
 
-	DefaultSecretsKeyPath = "/etc/workspace/master.key"
+	DefaultSecretsKeyPath   = "/etc/workspace/master.key"
+	DefaultSecretsVaultPath = "~/.ws/vault/secrets.yaml"
 	DefaultEnvFilePath    = "~/.zshenv"
 	DefaultLoggingDir     = "/var/log/workspace"
 	DefaultLoggingFile    = "workspace.log"
