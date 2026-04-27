@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/charmbracelet/fang"
+	"charm.land/fang/v2"
 	"github.com/kloudkit/ws-cli/cmd/clip"
 	"github.com/kloudkit/ws-cli/cmd/feature"
 	"github.com/kloudkit/ws-cli/cmd/info"
