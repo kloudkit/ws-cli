@@ -2,40 +2,12 @@ package info
 
 import (
 	"fmt"
-	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/kloudkit/ws-cli/internals/styles"
 )
-
-func humanizeDuration(duration time.Duration) string {
-	days := int(duration.Hours() / 24)
-	hours := int(duration.Hours()) % 24
-	minutes := int(duration.Minutes()) % 60
-
-	var parts []string
-
-	if days > 0 {
-		parts = append(parts, fmt.Sprintf("%d days", days))
-	}
-
-	if hours > 0 {
-		parts = append(parts, fmt.Sprintf("%d hours", hours))
-	}
-
-	if minutes > 0 {
-		parts = append(parts, fmt.Sprintf("%d minutes", minutes))
-	}
-
-	if len(parts) == 0 {
-		return "just now"
-	}
-
-	return strings.Join(parts, ", ") + " ago"
-}
 
 var uptimeCmd = &cobra.Command{
 	Use:   "uptime",
@@ -62,7 +34,7 @@ var uptimeCmd = &cobra.Command{
 
 		t := styles.Table().Rows(
 			[]string{"Started at", styles.Code().Render(started.Format("2006-01-02 15:04:05 MST"))},
-			[]string{"Running for", humanizeDuration(running)},
+			[]string{"Running for", styles.FormatDuration(running)},
 			[]string{"Status", statusValue},
 		)
 

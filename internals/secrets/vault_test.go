@@ -634,3 +634,252 @@ export VAR2="old2"
 		assert.Assert(t, strings.Contains(contentStr, `export VAR2="old2"`))
 	})
 }
+
+func TestListVault(t *testing.T) {
+	t.Run("SortedOutput", func(t *testing.T) {
+		vault := &Vault{
+			Secrets: map[string]VaultSecret{
+				"zebra": {Type: TypeSSH, Destination: "/z", Encrypted: "enc"},
+				"alpha": {Type: TypeGeneric, Destination: "/a", Encrypted: "enc"},
+				"mike":  {Type: TypeEnv, Destination: "MY_VAR", Encrypted: "enc"},
+			},
+		}
+
+		entries := ListVault(vault)
+		assert.Equal(t, 3, len(entries))
+		assert.Equal(t, "alpha", entries[0].Name)
+		assert.Equal(t, "mike", entries[1].Name)
+		assert.Equal(t, "zebra", entries[2].Name)
+	})
+
+	t.Run("EmptyVault", func(t *testing.T) {
+		vault := &Vault{Secrets: map[string]VaultSecret{}}
+		entries := ListVault(vault)
+		assert.Equal(t, 0, len(entries))
+	})
+
+	t.Run("PreservesTypeAndDestination", func(t *testing.T) {
+		vault := &Vault{
+			Secrets: map[string]VaultSecret{
+				"ssh_key": {Type: TypeSSH, Destination: "/home/.ssh/id_rsa", Encrypted: "enc"},
+			},
+		}
+
+		entries := ListVault(vault)
+		assert.Equal(t, 1, len(entries))
+		assert.Equal(t, TypeSSH, entries[0].Type)
+		assert.Equal(t, "/home/.ssh/id_rsa", entries[0].Destination)
+	})
+}
+
+func TestLoadRawVault(t *testing.T) {
+	t.Run("DoesNotResolveDestinations", func(t *testing.T) {
+		vaultContent := `
+secrets:
+  ssh_key:
+    type: "ssh"
+    encrypted: "test$encrypted"
+    destination: "github.com/id_ed25519"
+`
+		vaultFile := filepath.Join(t.TempDir(), "vault.yaml")
+		err := os.WriteFile(vaultFile, []byte(vaultContent), 0600)
+		assert.NilError(t, err)
+
+		vault, err := LoadRawVault(vaultFile)
+		assert.NilError(t, err)
+		assert.Equal(t, "github.com/id_ed25519", vault.Secrets["ssh_key"].Destination)
+	})
+
+	t.Run("DoesNotFillDefaults", func(t *testing.T) {
+		vaultContent := `
+secrets:
+  db_password:
+    encrypted: "test$encrypted"
+    destination: "/etc/db/password"
+`
+		vaultFile := filepath.Join(t.TempDir(), "vault.yaml")
+		err := os.WriteFile(vaultFile, []byte(vaultContent), 0600)
+		assert.NilError(t, err)
+
+		vault, err := LoadRawVault(vaultFile)
+		assert.NilError(t, err)
+		assert.Equal(t, "", vault.Secrets["db_password"].Type)
+		assert.Equal(t, "", vault.Secrets["db_password"].Mode)
+	})
+
+	t.Run("EmptyVault", func(t *testing.T) {
+		vaultContent := `secrets: {}`
+		vaultFile := filepath.Join(t.TempDir(), "vault.yaml")
+		err := os.WriteFile(vaultFile, []byte(vaultContent), 0600)
+		assert.NilError(t, err)
+
+		vault, err := LoadRawVault(vaultFile)
+		assert.NilError(t, err)
+		assert.Equal(t, 0, len(vault.Secrets))
+	})
+
+	t.Run("FileNotFound", func(t *testing.T) {
+		_, err := LoadRawVault("/nonexistent/vault.yaml")
+		assert.ErrorContains(t, err, "failed to read vault file")
+	})
+}
+
+func TestRotateVault(t *testing.T) {
+	t.Run("RotateDecryptsWithNewKey", func(t *testing.T) {
+		oldKey := []byte("old-master-key-for-testing")
+		newKey := []byte("new-master-key-for-testing")
+
+		encrypted, err := Encrypt([]byte("my-secret-value"), oldKey)
+		assert.NilError(t, err)
+
+		vault := &Vault{
+			Secrets: map[string]VaultSecret{
+				"test_secret": {
+					Type:        TypeGeneric,
+					Encrypted:   encrypted,
+					Destination: "/etc/test",
+				},
+			},
+		}
+
+		fileRefs, err := RotateVault(vault, oldKey, newKey)
+		assert.NilError(t, err)
+		assert.Equal(t, 0, len(fileRefs))
+
+		decrypted, err := Decrypt(vault.Secrets["test_secret"].Encrypted, newKey)
+		assert.NilError(t, err)
+		assert.Equal(t, "my-secret-value", string(decrypted))
+	})
+
+	t.Run("OldKeyNoLongerWorks", func(t *testing.T) {
+		oldKey := []byte("old-master-key-for-testing")
+		newKey := []byte("new-master-key-for-testing")
+
+		encrypted, err := Encrypt([]byte("my-secret-value"), oldKey)
+		assert.NilError(t, err)
+
+		vault := &Vault{
+			Secrets: map[string]VaultSecret{
+				"test_secret": {
+					Type:        TypeGeneric,
+					Encrypted:   encrypted,
+					Destination: "/etc/test",
+				},
+			},
+		}
+
+		_, err = RotateVault(vault, oldKey, newKey)
+		assert.NilError(t, err)
+
+		_, err = Decrypt(vault.Secrets["test_secret"].Encrypted, oldKey)
+		assert.ErrorContains(t, err, "cipher: message authentication failed")
+	})
+
+	t.Run("FileRefsReported", func(t *testing.T) {
+		oldKey := []byte("old-master-key-for-testing")
+		newKey := []byte("new-master-key-for-testing")
+
+		encrypted, err := Encrypt([]byte("file-secret"), oldKey)
+		assert.NilError(t, err)
+
+		encFile := filepath.Join(t.TempDir(), "secret.enc")
+		err = os.WriteFile(encFile, []byte(encrypted), 0600)
+		assert.NilError(t, err)
+
+		vault := &Vault{
+			Secrets: map[string]VaultSecret{
+				"file_secret": {
+					Type:        TypeGeneric,
+					Encrypted:   "file:" + encFile,
+					Destination: "/etc/test",
+				},
+			},
+		}
+
+		fileRefs, err := RotateVault(vault, oldKey, newKey)
+		assert.NilError(t, err)
+		assert.Equal(t, 1, len(fileRefs))
+		assert.Equal(t, "file_secret", fileRefs[0])
+
+		assert.Assert(t, !strings.HasPrefix(vault.Secrets["file_secret"].Encrypted, "file:"))
+	})
+
+	t.Run("MultipleSecrets", func(t *testing.T) {
+		oldKey := []byte("old-master-key-for-testing")
+		newKey := []byte("new-master-key-for-testing")
+
+		enc1, err := Encrypt([]byte("secret-1"), oldKey)
+		assert.NilError(t, err)
+		enc2, err := Encrypt([]byte("secret-2"), oldKey)
+		assert.NilError(t, err)
+
+		vault := &Vault{
+			Secrets: map[string]VaultSecret{
+				"first":  {Encrypted: enc1, Destination: "/etc/first"},
+				"second": {Encrypted: enc2, Destination: "/etc/second"},
+			},
+		}
+
+		_, err = RotateVault(vault, oldKey, newKey)
+		assert.NilError(t, err)
+
+		dec1, err := Decrypt(vault.Secrets["first"].Encrypted, newKey)
+		assert.NilError(t, err)
+		assert.Equal(t, "secret-1", string(dec1))
+
+		dec2, err := Decrypt(vault.Secrets["second"].Encrypted, newKey)
+		assert.NilError(t, err)
+		assert.Equal(t, "secret-2", string(dec2))
+	})
+}
+
+func TestSaveVault(t *testing.T) {
+	t.Run("RoundTrip", func(t *testing.T) {
+		vault := &Vault{
+			Secrets: map[string]VaultSecret{
+				"db_password": {
+					Type:        TypeGeneric,
+					Encrypted:   "salt$cipher",
+					Destination: "/etc/db/password",
+					Mode:        "0o600",
+				},
+			},
+		}
+
+		vaultFile := filepath.Join(t.TempDir(), "vault.yaml")
+		err := SaveVault(vaultFile, vault)
+		assert.NilError(t, err)
+
+		loaded, err := LoadRawVault(vaultFile)
+		assert.NilError(t, err)
+		assert.Equal(t, 1, len(loaded.Secrets))
+		assert.Equal(t, "salt$cipher", loaded.Secrets["db_password"].Encrypted)
+		assert.Equal(t, "/etc/db/password", loaded.Secrets["db_password"].Destination)
+		assert.Equal(t, TypeGeneric, loaded.Secrets["db_password"].Type)
+		assert.Equal(t, "0o600", loaded.Secrets["db_password"].Mode)
+	})
+
+	t.Run("FilePermissions", func(t *testing.T) {
+		vault := &Vault{Secrets: map[string]VaultSecret{}}
+		vaultFile := filepath.Join(t.TempDir(), "vault.yaml")
+
+		err := SaveVault(vaultFile, vault)
+		assert.NilError(t, err)
+
+		info, err := os.Stat(vaultFile)
+		assert.NilError(t, err)
+		assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+	})
+
+	t.Run("EmptyVault", func(t *testing.T) {
+		vault := &Vault{Secrets: map[string]VaultSecret{}}
+		vaultFile := filepath.Join(t.TempDir(), "vault.yaml")
+
+		err := SaveVault(vaultFile, vault)
+		assert.NilError(t, err)
+
+		loaded, err := LoadRawVault(vaultFile)
+		assert.NilError(t, err)
+		assert.Equal(t, 0, len(loaded.Secrets))
+	})
+}

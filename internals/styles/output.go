@@ -3,14 +3,11 @@ package styles
 import (
 	"fmt"
 	"io"
-
-	"github.com/spf13/cobra"
 )
 
-func OutputRaw(cmd *cobra.Command, value string) bool {
-	raw, _ := cmd.Flags().GetBool("raw")
+func OutputRaw(w io.Writer, raw bool, value string) bool {
 	if raw {
-		fmt.Fprintln(cmd.OutOrStdout(), value)
+		fmt.Fprintln(w, value)
 		return true
 	}
 	return false

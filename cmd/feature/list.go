@@ -15,35 +15,28 @@ var listCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		featuresDir, _ := cmd.Flags().GetString("root")
 
-		availableFeatures, err := features.ListFeatures(featuresDir)
+		result, err := features.ListFeatures(featuresDir)
 		if err != nil {
 			return fmt.Errorf("failed to list features: %w", err)
 		}
 
-		if len(availableFeatures) == 0 {
+		for _, w := range result.Warnings {
+			styles.PrintWarning(cmd.OutOrStdout(), w)
+		}
+
+		if len(result.Features) == 0 {
 			fmt.Fprintln(cmd.OutOrStdout(), styles.Warning().Render("⚠ No features found"))
 			return nil
 		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.TitleWithCount("Features Available", len(availableFeatures)))
+		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.TitleWithCount("Features Available", len(result.Features)))
 
-		maxNameLen := 0
-		for _, feature := range availableFeatures {
-			if len(feature.Name) > maxNameLen {
-				maxNameLen = len(feature.Name)
-			}
+		items := make([]styles.DescriptionItem, len(result.Features))
+		for i, f := range result.Features {
+			items[i] = styles.DescriptionItem{Name: f.Name, Description: f.Description}
 		}
 
-		var featureItems []any
-		for _, feature := range availableFeatures {
-			item := styles.Key().Width(maxNameLen).Render(feature.Name) +
-				styles.Muted().Render(" — ") +
-				styles.Value().Render(feature.Description)
-
-			featureItems = append(featureItems, item)
-		}
-
-		fmt.Fprintln(cmd.OutOrStdout(), styles.List(featureItems...))
+		fmt.Fprintln(cmd.OutOrStdout(), styles.List(styles.DescriptionList(items)...))
 
 		styles.PrintHints(cmd.OutOrStdout(), [][]string{
 			{"ws-cli feature install <name>", "Install a feature"},

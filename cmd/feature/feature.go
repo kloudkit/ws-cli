@@ -18,5 +18,5 @@ func init() {
 		"Root directory of additional features",
 	)
 
-	FeatureCmd.AddCommand(installCmd, listCmd, infoCmd)
+	FeatureCmd.AddCommand(installCmd, listCmd, infoCmd, storeCmd)
 }

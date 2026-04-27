@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -31,6 +32,10 @@ func ParseFeatureFile(filePath string) (*Feature, error) {
 		return nil, fmt.Errorf("failed to parse YAML from %s: %w", filePath, err)
 	}
 
+	if len(tasks) == 0 {
+		return nil, fmt.Errorf("no playbook tasks found in %s", filePath)
+	}
+
 	baseName := filepath.Base(filePath)
 
 	var vars []string
@@ -39,6 +44,7 @@ func ParseFeatureFile(filePath string) (*Feature, error) {
 			vars = append(vars, key)
 		}
 	}
+	slices.Sort(vars)
 
 	return &Feature{
 		Name:        strings.TrimSuffix(baseName, ".yaml"),
@@ -57,13 +63,18 @@ func InfoFeature(featuresDir, name string) (*Feature, error) {
 	return ParseFeatureFile(featurePath)
 }
 
-func ListFeatures(featuresDir string) ([]*Feature, error) {
+type ListResult struct {
+	Features []*Feature
+	Warnings []string
+}
+
+func ListFeatures(featuresDir string) (*ListResult, error) {
 	entries, err := os.ReadDir(featuresDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read features directory %s: %w", featuresDir, err)
 	}
 
-	var features []*Feature
+	result := &ListResult{}
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
 			continue
@@ -71,11 +82,12 @@ func ListFeatures(featuresDir string) ([]*Feature, error) {
 
 		feature, err := ParseFeatureFile(filepath.Join(featuresDir, entry.Name()))
 		if err != nil {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("skipped %s: %v", entry.Name(), err))
 			continue
 		}
 
-		features = append(features, feature)
+		result.Features = append(result.Features, feature)
 	}
 
-	return features, nil
+	return result, nil
 }
