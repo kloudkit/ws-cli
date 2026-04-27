@@ -1,4 +1,4 @@
-package secrets
+package vault
 
 import (
 	"fmt"
@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var vaultCmd = &cobra.Command{
-	Use:   "vault",
-	Short: "Decrypt a vault spec with encrypted values",
+var decryptCmd = &cobra.Command{
+	Use:   "decrypt",
+	Short: "Decrypt vault secrets and write to destinations",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		inputFile, _ := cmd.Flags().GetString("input")
@@ -67,9 +67,8 @@ var vaultCmd = &cobra.Command{
 }
 
 func init() {
-	vaultCmd.Flags().String("input", "", "Path to vault file")
-	vaultCmd.Flags().StringArray("key", []string{}, "Decrypt only specified key")
-	vaultCmd.Flags().Bool("stdout", false, "Output decrypted values to stdout")
+	decryptCmd.Flags().StringArray("key", []string{}, "Decrypt only specified key")
+	decryptCmd.Flags().Bool("stdout", false, "Output decrypted values to stdout")
 }
 
 func sortedKeys(m map[string]string) []string {

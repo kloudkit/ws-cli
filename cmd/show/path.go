@@ -19,7 +19,8 @@ var pathHomeCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		homePath := env.String(config.EnvServerRoot, config.DefaultServerRoot)
 
-		if styles.OutputRaw(cmd, homePath) {
+		raw, _ := cmd.Flags().GetBool("raw")
+		if styles.OutputRaw(cmd.OutOrStdout(), raw, homePath) {
 			return nil
 		}
 
@@ -42,7 +43,8 @@ var pathVscodeCmd = &cobra.Command{
 			settingsPath = path.GetHomeDirectory("/.local/share/workspace/User/settings.json")
 		}
 
-		if styles.OutputRaw(cmd, settingsPath) {
+		raw, _ := cmd.Flags().GetBool("raw")
+		if styles.OutputRaw(cmd.OutOrStdout(), raw, settingsPath) {
 			return nil
 		}
 

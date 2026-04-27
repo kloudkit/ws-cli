@@ -3,8 +3,8 @@ package styles
 import (
 	"image/color"
 
-	"github.com/charmbracelet/fang"
-	lipgloss "github.com/charmbracelet/lipgloss/v2"
+	"charm.land/fang/v2"
+	lipgloss "charm.land/lipgloss/v2"
 )
 
 var (

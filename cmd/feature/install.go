@@ -2,12 +2,9 @@ package feature
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
-	"strings"
 
 	"github.com/kloudkit/ws-cli/internals/features"
 	"github.com/kloudkit/ws-cli/internals/styles"
@@ -22,13 +19,12 @@ var installCmd = &cobra.Command{
 		featuresDir, _ := cmd.Flags().GetString("root")
 		featureName := args[0]
 
-		availableFeatures, err := features.ListFeatures(featuresDir)
-
+		result, err := features.ListFeatures(featuresDir)
 		if err != nil {
 			return fmt.Errorf("failed to list features: %w", err)
 		}
 
-		featureExists := slices.ContainsFunc(availableFeatures, func(f *features.Feature) bool {
+		featureExists := slices.ContainsFunc(result.Features, func(f *features.Feature) bool {
 			return f.Name == featureName
 		})
 
@@ -38,31 +34,6 @@ var installCmd = &cobra.Command{
 
 		return installFeatureByName(cmd, featureName, featuresDir)
 	},
-}
-
-func runAnsiblePlaybook(featurePath string, vars map[string]any) error {
-	args := []string{featurePath}
-
-	if len(vars) > 0 {
-		var extraVars []string
-		for key, value := range vars {
-			extraVars = append(extraVars, fmt.Sprintf("%s=%v", key, value))
-		}
-		args = append(args, "--extra-vars", strings.Join(extraVars, " "))
-	}
-
-	cmd := exec.Command("ansible-playbook", args...)
-	cmd.Env = append(os.Environ(),
-		"ANSIBLE_DISPLAY_OK_HOSTS=0",
-		"ANSIBLE_DISPLAY_FAILED_STDERR=0",
-		"ANSIBLE_DISPLAY_SKIPPED_HOSTS=0",
-		"ANSIBLE_SHOW_CUSTOM_STATS=0",
-		"ANSIBLE_STDOUT_CALLBACK=community.general.unixy",
-	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	return cmd.Run()
 }
 
 func installFeatureByName(cmd *cobra.Command, featureName, featuresDir string) error {
@@ -84,14 +55,8 @@ func installFeatureByName(cmd *cobra.Command, featureName, featuresDir string) e
 
 	featurePath := filepath.Join(featuresDir, featureName+".yaml")
 
-	if _, err := features.InfoFeature(featuresDir, featureName); err != nil {
-		return fmt.Errorf("feature installation failed: %w", err)
-	}
-
-	if err := runAnsiblePlaybook(featurePath, vars); err != nil {
-		fmt.Fprintln(cmd.ErrOrStderr())
-		styles.PrintError(cmd.ErrOrStderr(), err.Error())
-		os.Exit(1)
+	if err := features.RunPlaybook(featurePath, vars); err != nil {
+		return fmt.Errorf("installation failed: %w", err)
 	}
 
 	fmt.Fprintln(cmd.OutOrStdout())

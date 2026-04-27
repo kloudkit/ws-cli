@@ -1,8 +1,8 @@
 package styles
 
 import (
-	"github.com/charmbracelet/lipgloss/v2"
-	"github.com/charmbracelet/lipgloss/v2/table"
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 )
 
 func TableBorderStyle() lipgloss.Style {

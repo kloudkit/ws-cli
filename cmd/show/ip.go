@@ -20,7 +20,8 @@ var ipInternalCmd = &cobra.Command{
 			return err
 		}
 
-		if styles.OutputRaw(cmd, ip) {
+		raw, _ := cmd.Flags().GetBool("raw")
+		if styles.OutputRaw(cmd.OutOrStdout(), raw, ip) {
 			return nil
 		}
 
@@ -40,7 +41,8 @@ var ipNodeCmd = &cobra.Command{
 			return err
 		}
 
-		if styles.OutputRaw(cmd, ip) {
+		raw, _ := cmd.Flags().GetBool("raw")
+		if styles.OutputRaw(cmd.OutOrStdout(), raw, ip) {
 			return nil
 		}
 

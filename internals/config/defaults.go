@@ -11,16 +11,17 @@ const (
 	EnvIPCSocket         = "WS__INTERNAL_IPC_SOCKET"
 	EnvMetricsPort       = "WS_METRICS_PORT"
 	EnvMetricsCollectors = "WS_METRICS_COLLECTORS"
+	EnvFeaturesStoreURL  = "WS_FEATURES_STORE_URL"
 
 	DefaultSecretsKeyPath   = "/etc/workspace/master.key"
 	DefaultSecretsVaultPath = "~/.ws/vault/secrets.yaml"
-	DefaultEnvFilePath    = "~/.zshenv"
-	DefaultLoggingDir     = "/var/log/workspace"
-	DefaultLoggingFile    = "workspace.log"
-	DefaultServerRoot     = "/workspace"
-	DefaultFeaturesDir    = "/features"
-	DefaultIPCSocket      = "/var/workspace/ipc.socket"
-	DefaultManifestPath   = "/var/lib/workspace/manifest.json"
-	DefaultStatePath      = "/var/lib/workspace/state"
-	DefaultMetricsPort    = 9100
+	DefaultEnvFilePath      = "~/.zshenv"
+	DefaultLoggingDir       = "/var/log/workspace"
+	DefaultLoggingFile      = "workspace.log"
+	DefaultServerRoot       = "/workspace"
+	DefaultFeaturesDir      = "/features"
+	DefaultIPCSocket        = "/var/workspace/ipc.socket"
+	DefaultManifestPath     = "/var/lib/workspace/manifest.json"
+	DefaultStatePath        = "/var/lib/workspace/state"
+	DefaultMetricsPort      = 9100
 )

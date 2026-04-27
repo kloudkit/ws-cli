@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"github.com/kloudkit/ws-cli/cmd/secrets/vault"
 	"github.com/spf13/cobra"
 )
 
@@ -16,5 +17,5 @@ func init() {
 	SecretsCmd.PersistentFlags().Bool("force", false, "Overwrite existing files")
 	SecretsCmd.PersistentFlags().Bool("raw", false, "Output without styling")
 
-	SecretsCmd.AddCommand(encryptCmd, decryptCmd, generateCmd, vaultCmd)
+	SecretsCmd.AddCommand(encryptCmd, decryptCmd, generateCmd, vault.VaultCmd)
 }

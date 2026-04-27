@@ -323,3 +323,87 @@ func FormatSecretForStdout(key string, value string, raw bool) string {
 
 	return fmt.Sprintf("[%s]\n%s\n", key, value)
 }
+
+type VaultEntry struct {
+	Name        string
+	Type        string
+	Destination string
+}
+
+func ListVault(vault *Vault) []VaultEntry {
+	entries := make([]VaultEntry, 0, len(vault.Secrets))
+	for name, secret := range vault.Secrets {
+		entries = append(entries, VaultEntry{
+			Name:        name,
+			Type:        secret.Type,
+			Destination: secret.Destination,
+		})
+	}
+	slices.SortFunc(entries, func(a, b VaultEntry) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+	return entries
+}
+
+func LoadRawVault(path string) (*Vault, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read vault file %q: %w", path, err)
+	}
+
+	var vault Vault
+	if err := yaml.Unmarshal(data, &vault); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal vault yaml: %w", err)
+	}
+
+	if vault.Secrets == nil {
+		vault.Secrets = make(map[string]VaultSecret)
+	}
+
+	return &vault, nil
+}
+
+func RotateVault(vault *Vault, oldKey, newKey []byte) ([]string, error) {
+	var fileRefs []string
+
+	for name, secret := range vault.Secrets {
+		encryptedValue := secret.Encrypted
+		if strings.HasPrefix(encryptedValue, "file:") {
+			fileRefs = append(fileRefs, name)
+		}
+
+		resolved, err := ResolveEncryptedValue(encryptedValue)
+		if err != nil {
+			return nil, fmt.Errorf("secret %q: %w", name, err)
+		}
+
+		decrypted, err := Decrypt(resolved, oldKey)
+		if err != nil {
+			return nil, fmt.Errorf("secret %q: failed to decrypt: %w", name, err)
+		}
+
+		reEncrypted, err := Encrypt(decrypted, newKey)
+		if err != nil {
+			return nil, fmt.Errorf("secret %q: failed to re-encrypt: %w", name, err)
+		}
+
+		secret.Encrypted = reEncrypted
+		vault.Secrets[name] = secret
+	}
+
+	slices.Sort(fileRefs)
+	return fileRefs, nil
+}
+
+func SaveVault(path string, vault *Vault) error {
+	data, err := yaml.Marshal(vault)
+	if err != nil {
+		return fmt.Errorf("failed to marshal vault yaml: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return fmt.Errorf("failed to write vault file %q: %w", path, err)
+	}
+
+	return nil
+}

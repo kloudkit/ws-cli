@@ -41,10 +41,11 @@ func runList(cmd *cobra.Command, args []string) error {
 
 	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", l.String())
 
-	fmt.Fprintf(cmd.OutOrStdout(), "\n%s\n", styles.Muted().Render("Quick actions:"))
-	fmt.Fprintf(cmd.OutOrStdout(), "  %s %s\n", styles.Code().Render("ws-cli template apply <name>"), styles.Muted().Render("Apply a template"))
-	fmt.Fprintf(cmd.OutOrStdout(), "  %s %s\n", styles.Code().Render("ws-cli template show <name>"), styles.Muted().Render("View template contents"))
-	fmt.Fprintf(cmd.OutOrStdout(), "  %s %s\n", styles.Code().Render("ws-cli template show --local <name>"), styles.Muted().Render("View applied template"))
+	styles.PrintHints(cmd.OutOrStdout(), [][]string{
+		{"ws-cli template apply <name>", "Apply a template"},
+		{"ws-cli template show <name>", "View template contents"},
+		{"ws-cli template show --local <name>", "View applied template"},
+	})
 
 	return nil
 }
