@@ -16,10 +16,7 @@ var pathHomeCmd = &cobra.Command{
 	Use:   "home",
 	Short: "Display the workspace home path",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		homePath, err := config.Resolve("server", "root")
-		if err != nil {
-			return err
-		}
+		homePath := config.MustResolve("server", "root")
 
 		raw, _ := cmd.Flags().GetBool("raw")
 		if styles.OutputRaw(cmd.OutOrStdout(), raw, homePath) {

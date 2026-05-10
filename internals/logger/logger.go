@@ -72,16 +72,10 @@ var Log = func(writer io.Writer, level, message string, indent int, withStamp bo
 }
 
 func NewReader(tailLines int, levelFilter string) (*Reader, error) {
-	dir, err := config.Resolve("logging", "dir")
-	if err != nil {
-		return nil, err
-	}
-	file, err := config.Resolve("logging", "main_file")
-	if err != nil {
-		return nil, err
-	}
-
-	logPath := filepath.Join(dir, file)
+	logPath := filepath.Join(
+		config.MustResolve("logging", "dir"),
+		config.MustResolve("logging", "main_file"),
+	)
 
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("log file not found at %s", logPath)

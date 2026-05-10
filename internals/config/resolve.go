@@ -48,11 +48,26 @@ func ResolveList(group, prop, override string) ([]string, error) {
 }
 
 func ResolveKey(runtimeKey string) (string, error) {
+	if v := env.String(runtimeKey); v != "" {
+		return v, nil
+	}
 	ref, err := LoadEnvReference()
 	if err != nil {
 		return "", err
 	}
 	return ref.Resolve(runtimeKey), nil
+}
+
+func MustResolve(group, prop string) string {
+	return MustResolveKey(RuntimeKey(group, prop))
+}
+
+func MustResolveKey(runtimeKey string) string {
+	v, err := ResolveKey(runtimeKey)
+	if err != nil {
+		panic(fmt.Sprintf("config: %s: %v", runtimeKey, err))
+	}
+	return v
 }
 
 func ResolveListKey(runtimeKey, override string) ([]string, error) {

@@ -26,7 +26,11 @@ var rootCmd = &cobra.Command{
 	Aliases:       []string{"ws"},
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return config.RequireWorkspace()
+		if err := config.RequireWorkspace(); err != nil {
+			return err
+		}
+		_, err := config.LoadEnvReference()
+		return err
 	},
 }
 

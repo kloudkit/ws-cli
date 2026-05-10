@@ -11,8 +11,7 @@ import (
 )
 
 func GetDiskStats() (*DiskStats, error) {
-	root, _ := config.Resolve("server", "root")
-	return GetDiskStatsForPath(root)
+	return GetDiskStatsForPath(config.MustResolve("server", "root"))
 }
 
 func GetDiskStatsForPath(path string) (*DiskStats, error) {
