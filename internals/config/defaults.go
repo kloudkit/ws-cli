@@ -21,7 +21,8 @@ const (
 	DefaultServerRoot       = "/workspace"
 	DefaultFeaturesDir      = "/features"
 	DefaultIPCSocket        = "/var/workspace/ipc.socket"
-	DefaultManifestPath     = "/var/lib/workspace/manifest.json"
 	DefaultStatePath        = "/var/lib/workspace/state"
 	DefaultMetricsPort      = 9100
 )
+
+var DefaultManifestPath = "/var/lib/workspace/manifest.json"
