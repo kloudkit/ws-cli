@@ -2,7 +2,6 @@ package show
 
 import (
 	"github.com/kloudkit/ws-cli/internals/config"
-	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/kloudkit/ws-cli/internals/path"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
@@ -17,7 +16,10 @@ var pathHomeCmd = &cobra.Command{
 	Use:   "home",
 	Short: "Display the workspace home path",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		homePath := env.String(config.EnvServerRoot, config.DefaultServerRoot)
+		homePath, err := config.Resolve("server", "root")
+		if err != nil {
+			return err
+		}
 
 		raw, _ := cmd.Flags().GetBool("raw")
 		if styles.OutputRaw(cmd.OutOrStdout(), raw, homePath) {

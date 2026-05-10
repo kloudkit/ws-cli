@@ -3,11 +3,9 @@ package metrics
 import (
 	"errors"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/kloudkit/ws-cli/internals/config"
-	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -95,16 +93,15 @@ func BuildRegistry(collectors []string) (*RegistryResult, error) {
 }
 
 func DefaultPort() int {
-	if portStr := env.String(config.EnvMetricsPort); portStr != "" {
-		if port, err := strconv.Atoi(portStr); err == nil {
-			return port
-		}
+	port, err := config.ResolveInt("metrics", "port")
+	if err != nil {
+		return 9100
 	}
-	return config.DefaultMetricsPort
+	return int(port)
 }
 
 func DefaultCollectors() []string {
-	envCollectors := env.String(config.EnvMetricsCollectors)
+	envCollectors, _ := config.Resolve("metrics", "collectors")
 	if envCollectors == "" {
 		return nil
 	}

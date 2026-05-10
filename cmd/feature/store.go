@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/kloudkit/ws-cli/internals/config"
-	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/kloudkit/ws-cli/internals/features"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
@@ -14,7 +13,7 @@ var storeCmd = &cobra.Command{
 	Use:   "store",
 	Short: "List packages available in the feature store",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		storeURL := env.String(config.EnvFeaturesStoreURL)
+		storeURL, _ := config.Resolve("features", "store_url")
 		if storeURL == "" {
 			styles.PrintWarning(cmd.OutOrStdout(), "Feature store not configured (set WS_FEATURES_STORE_URL)")
 			return nil

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kloudkit/ws-cli/internals/config"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
 )
@@ -82,8 +81,8 @@ Plain text error message`
 	err := os.WriteFile(logFile, []byte(logContent), 0644)
 	assert.NilError(t, err)
 
-	t.Setenv(config.EnvLoggingDir, tempDir)
-	t.Setenv(config.EnvLoggingFile, "test.log")
+	t.Setenv("WS_LOGGING_DIR", tempDir)
+	t.Setenv("WS_LOGGING_MAIN_FILE", "test.log")
 
 	tests := []struct {
 		name        string
