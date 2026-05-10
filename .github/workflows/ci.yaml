@@ -54,7 +54,15 @@ jobs:
       - name: ⏬ Install Dependencies
         run: go get .
 
+      - name: ⬇️ Fetch `env.reference.yaml` from `ws-meta`
+        run: |
+          curl -fsSL \
+            https://raw.githubusercontent.com/kloudkit/ws-meta/main/shared/workspace/env.reference.yaml \
+            -o "${{ runner.temp }}/env.reference.yaml"
+
       - name: 🧪 Test
+        env:
+          WS__INTERNAL_ENV_REFERENCE: ${{ runner.temp }}/env.reference.yaml
         run: go test -v ./...
 
       - name: 👷‍♂️ Build for ${{ matrix.arch }}
