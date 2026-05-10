@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"sync"
+
+	"github.com/kloudkit/ws-cli/internals/env"
 )
 
 type CheckState int
@@ -45,12 +47,16 @@ func ResolveList(group, prop, override string) ([]string, error) {
 	return ResolveListKey(RuntimeKey(group, prop), override)
 }
 
-func ResolveListKey(runtimeKey, override string) ([]string, error) {
+func ResolveKey(runtimeKey string) (string, error) {
 	ref, err := LoadEnvReference()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	v, err := ref.Resolve(runtimeKey)
+	return ref.Resolve(runtimeKey), nil
+}
+
+func ResolveListKey(runtimeKey, override string) ([]string, error) {
+	ref, err := LoadEnvReference()
 	if err != nil {
 		return nil, err
 	}
@@ -58,61 +64,45 @@ func ResolveListKey(runtimeKey, override string) ([]string, error) {
 	if delim == "" {
 		delim = ref.Properties[runtimeKey].Delimiter
 	}
-	if delim == "" {
-		delim = " "
-	}
-	return ParseList(v, delim), nil
-}
-
-func ResolveKey(runtimeKey string) (string, error) {
-	ref, err := LoadEnvReference()
-	if err != nil {
-		return "", err
-	}
-	return ref.Resolve(runtimeKey)
+	return ParseList(ref.Resolve(runtimeKey), delim), nil
 }
 
 func Check(preferred, deprecated string) CheckState {
-	if v, ok := os.LookupEnv(preferred); ok && v != "" {
-		if deprecated != "" {
-			if dv, dok := os.LookupEnv(deprecated); dok && dv != "" {
-				return CheckBothSet
-			}
-		}
+	preferredSet := env.String(preferred) != ""
+	deprecatedSet := deprecated != "" && env.String(deprecated) != ""
+
+	switch {
+	case preferredSet && deprecatedSet:
+		return CheckBothSet
+	case preferredSet:
 		return CheckPreferredSet
-	}
-	if deprecated != "" {
-		if dv, dok := os.LookupEnv(deprecated); dok && dv != "" {
-			return CheckDeprecatedOnly
-		}
+	case deprecatedSet:
+		return CheckDeprecatedOnly
 	}
 	return CheckUnset
 }
 
-func (r *EnvReference) Resolve(key string) (string, error) {
-	if v, ok := os.LookupEnv(key); ok && v != "" {
-		return v, nil
+func (r *EnvReference) Resolve(key string) string {
+	if v := env.String(key); v != "" {
+		return v
 	}
-
 	for _, alias := range r.AliasesByPreferred[key] {
-		if v, ok := os.LookupEnv(alias); ok && v != "" {
+		if v := env.String(alias); v != "" {
 			emitDeprecationWarn(alias, key)
-			return v, nil
+			return v
 		}
 	}
-
 	if prop, ok := r.Properties[key]; ok && prop.Default != nil {
-		return *prop.Default, nil
+		return *prop.Default
 	}
-
-	return "", nil
+	return ""
 }
 
 func emitDeprecationWarn(alias, preferred string) {
 	if _, loaded := warnedAliases.LoadOrStore(alias, true); loaded {
 		return
 	}
-	fmt.Fprintf(deprecationWriter, "Deprecated: [%s] use [%s] instead\n", alias, preferred)
+	fmt.Fprintln(deprecationWriter, DeprecationLine(alias, preferred))
 }
 
 func DeprecationLine(alias, preferred string) string {

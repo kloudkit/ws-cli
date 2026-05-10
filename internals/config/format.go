@@ -6,17 +6,11 @@ import (
 	"strings"
 )
 
-var (
-	boolTruthy = map[string]bool{"1": true, "true": true, "yes": true, "on": true}
-	boolFalsy  = map[string]bool{"0": true, "false": true, "no": true, "off": true}
-)
-
 func ParseBool(s string) (bool, error) {
-	lower := strings.ToLower(s)
-	if boolTruthy[lower] {
+	switch strings.ToLower(s) {
+	case "1", "true", "yes", "on":
 		return true, nil
-	}
-	if boolFalsy[lower] {
+	case "0", "false", "no", "off":
 		return false, nil
 	}
 	return false, fmt.Errorf("not a boolean: %q (accepted: 1/true/yes/on or 0/false/no/off)", s)
@@ -37,14 +31,11 @@ func ParseList(s, delim string) []string {
 	if delim == "" {
 		delim = " "
 	}
-	parts := strings.Split(s, delim)
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		trimmed := strings.TrimSpace(p)
-		if trimmed == "" {
-			continue
+	out := []string{}
+	for _, p := range strings.Split(s, delim) {
+		if trimmed := strings.TrimSpace(p); trimmed != "" {
+			out = append(out, trimmed)
 		}
-		out = append(out, trimmed)
 	}
 	return out
 }

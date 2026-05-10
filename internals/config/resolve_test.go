@@ -89,49 +89,37 @@ func TestRuntimeKey(t *testing.T) {
 func TestResolve_EnvWinsOverDefault(t *testing.T) {
 	r := _newReference(t)
 	t.Setenv("WS_SERVER_ROOT", "/custom")
-	v, err := r.Resolve("WS_SERVER_ROOT")
-	assert.NilError(t, err)
-	assert.Equal(t, "/custom", v)
+	assert.Equal(t, "/custom", r.Resolve("WS_SERVER_ROOT"))
 }
 
 func TestResolve_UnsetReturnsDefault(t *testing.T) {
 	r := _newReference(t)
-	v, err := r.Resolve("WS_SERVER_ROOT")
-	assert.NilError(t, err)
-	assert.Equal(t, "/workspace", v)
+	assert.Equal(t, "/workspace", r.Resolve("WS_SERVER_ROOT"))
 }
 
 func TestResolve_EmptyEnvReturnsDefault(t *testing.T) {
 	r := _newReference(t)
 	t.Setenv("WS_SERVER_ROOT", "")
-	v, err := r.Resolve("WS_SERVER_ROOT")
-	assert.NilError(t, err)
-	assert.Equal(t, "/workspace", v)
+	assert.Equal(t, "/workspace", r.Resolve("WS_SERVER_ROOT"))
 }
 
 func TestResolve_NullDefaultReturnsEmpty(t *testing.T) {
 	r := _newReference(t)
 	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "")
-	v, err := r.Resolve("WS_FEATURES_ADDITIONAL_FEATURES")
-	assert.NilError(t, err)
-	assert.Equal(t, "", v)
+	assert.Equal(t, "", r.Resolve("WS_FEATURES_ADDITIONAL_FEATURES"))
 }
 
 func TestResolve_UnknownKeyReturnsEmpty(t *testing.T) {
 	r := _newReference(t)
 	t.Setenv("WS_NOT_DECLARED", "")
-	v, err := r.Resolve("WS_NOT_DECLARED")
-	assert.NilError(t, err)
-	assert.Equal(t, "", v)
+	assert.Equal(t, "", r.Resolve("WS_NOT_DECLARED"))
 }
 
 func TestResolve_DeprecatedAliasUsedWithWarn(t *testing.T) {
 	r := _newReference(t)
 	buf := _captureWarnings(t)
 	t.Setenv("WS_PORT", "8888")
-	v, err := r.Resolve("WS_SERVER_PORT")
-	assert.NilError(t, err)
-	assert.Equal(t, "8888", v)
+	assert.Equal(t, "8888", r.Resolve("WS_SERVER_PORT"))
 	assert.Equal(t, "Deprecated: [WS_PORT] use [WS_SERVER_PORT] instead\n", buf.String())
 }
 
@@ -139,9 +127,9 @@ func TestResolve_DeprecatedWarnEmittedOnce(t *testing.T) {
 	r := _newReference(t)
 	buf := _captureWarnings(t)
 	t.Setenv("WS_PORT", "8888")
-	_, _ = r.Resolve("WS_SERVER_PORT")
-	_, _ = r.Resolve("WS_SERVER_PORT")
-	_, _ = r.Resolve("WS_SERVER_PORT")
+	r.Resolve("WS_SERVER_PORT")
+	r.Resolve("WS_SERVER_PORT")
+	r.Resolve("WS_SERVER_PORT")
 	assert.Equal(t, 1, bytes.Count(buf.Bytes(), []byte("Deprecated:")))
 }
 
@@ -150,9 +138,7 @@ func TestResolve_BothSetPrefersPreferred(t *testing.T) {
 	_captureWarnings(t)
 	t.Setenv("WS_SERVER_PORT", "9999")
 	t.Setenv("WS_PORT", "8888")
-	v, err := r.Resolve("WS_SERVER_PORT")
-	assert.NilError(t, err)
-	assert.Equal(t, "9999", v)
+	assert.Equal(t, "9999", r.Resolve("WS_SERVER_PORT"))
 }
 
 func TestParse_DeprecationChainCollapses(t *testing.T) {

@@ -6,10 +6,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/kloudkit/ws-cli/internals/env"
 	"gopkg.in/yaml.v3"
 )
-
-const defaultEnvReferencePath = "/etc/workspace/env.reference.yaml"
 
 type Property struct {
 	Type      string
@@ -32,26 +31,6 @@ func RuntimeKey(group, prop string) string {
 	return "WS_" + strings.ToUpper(group) + "_" + strings.ToUpper(prop)
 }
 
-type yamlSchema struct {
-	Envs       map[string]yamlGroup       `yaml:"envs"`
-	Deprecated map[string]yamlDeprecation `yaml:"deprecated"`
-}
-
-type yamlGroup struct {
-	Properties map[string]yamlProperty `yaml:"properties"`
-}
-
-type yamlProperty struct {
-	Type      string `yaml:"type"`
-	Default   any    `yaml:"default"`
-	Delimiter string `yaml:"delimiter"`
-}
-
-type yamlDeprecation struct {
-	Use     string `yaml:"use"`
-	Message string `yaml:"message"`
-}
-
 var (
 	cacheMu    sync.Mutex
 	cachedPath string
@@ -59,18 +38,11 @@ var (
 	cachedErr  error
 )
 
-func envReferencePath() string {
-	if v := os.Getenv("WS__INTERNAL_ENV_REFERENCE"); v != "" {
-		return v
-	}
-	return defaultEnvReferencePath
-}
-
 func LoadEnvReference() (*EnvReference, error) {
 	cacheMu.Lock()
 	defer cacheMu.Unlock()
 
-	path := envReferencePath()
+	path := env.String("WS__INTERNAL_ENV_REFERENCE", DefaultEnvReferencePath)
 	if cachedVal != nil && cachedPath == path {
 		return cachedVal, cachedErr
 	}
@@ -88,7 +60,19 @@ func readEnvReference(path string) (*EnvReference, error) {
 }
 
 func parseEnvReference(data []byte) (*EnvReference, error) {
-	var raw yamlSchema
+	var raw struct {
+		Envs map[string]struct {
+			Properties map[string]struct {
+				Type      string `yaml:"type"`
+				Default   any    `yaml:"default"`
+				Delimiter string `yaml:"delimiter"`
+			} `yaml:"properties"`
+		} `yaml:"envs"`
+		Deprecated map[string]struct {
+			Use     string `yaml:"use"`
+			Message string `yaml:"message"`
+		} `yaml:"deprecated"`
+	}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("cannot parse env reference: %w", err)
 	}
@@ -100,10 +84,8 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 	}
 
 	for groupKey, group := range raw.Envs {
-		groupUpper := strings.ToUpper(groupKey)
 		for propKey, prop := range group.Properties {
-			runtimeKey := "WS_" + groupUpper + "_" + strings.ToUpper(propKey)
-			ref.Properties[runtimeKey] = Property{
+			ref.Properties[RuntimeKey(groupKey, propKey)] = Property{
 				Type:      prop.Type,
 				Default:   defaultFromAny(prop.Default),
 				Delimiter: prop.Delimiter,
@@ -112,10 +94,7 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 	}
 
 	for alias, dep := range raw.Deprecated {
-		ref.Deprecations[alias] = Deprecation{
-			Use:     dep.Use,
-			Message: dep.Message,
-		}
+		ref.Deprecations[alias] = Deprecation{Use: dep.Use, Message: dep.Message}
 	}
 
 	for alias, dep := range ref.Deprecations {
