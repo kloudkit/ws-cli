@@ -12,7 +12,6 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/kloudkit/ws-cli/internals/config"
-	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/kloudkit/ws-cli/internals/styles"
 )
 
@@ -73,7 +72,10 @@ var Log = func(writer io.Writer, level, message string, indent int, withStamp bo
 }
 
 func NewReader(tailLines int, levelFilter string) (*Reader, error) {
-	logPath := filepath.Join(env.String(config.EnvLoggingDir, config.DefaultLoggingDir), env.String(config.EnvLoggingFile, config.DefaultLoggingFile))
+	logPath := filepath.Join(
+		config.MustResolve("logging", "dir"),
+		config.MustResolve("logging", "main_file"),
+	)
 
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("log file not found at %s", logPath)

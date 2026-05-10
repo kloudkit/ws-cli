@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kloudkit/ws-cli/internals/config"
 	"gotest.tools/v3/assert"
 )
 
@@ -39,7 +38,7 @@ func TestResolveMasterKey(t *testing.T) {
 
 	t.Run("FromEnv", func(t *testing.T) {
 		keyContent := "env-secret-key"
-		t.Setenv(config.EnvSecretsKey, keyContent)
+		t.Setenv("WS_SECRETS_MASTER_KEY", keyContent)
 
 		resolved, err := ResolveMasterKey("")
 		assert.NilError(t, err)
@@ -51,7 +50,7 @@ func TestResolveMasterKey(t *testing.T) {
 		err := os.WriteFile(keyFile, []byte("secretkey"), 0600)
 		assert.NilError(t, err)
 
-		t.Setenv(config.EnvSecretsKey, keyFile)
+		t.Setenv("WS_SECRETS_MASTER_KEY", keyFile)
 
 		resolved, err := ResolveMasterKey("")
 		assert.NilError(t, err)
@@ -64,7 +63,7 @@ func TestResolveMasterKey(t *testing.T) {
 		err := os.WriteFile(keyFile, []byte(keyContent), 0600)
 		assert.NilError(t, err)
 
-		t.Setenv(config.EnvSecretsKeyFile, keyFile)
+		t.Setenv("WS_SECRETS_MASTER_KEY_FILE", keyFile)
 
 		resolved, err := ResolveMasterKey("")
 		assert.NilError(t, err)
@@ -72,7 +71,7 @@ func TestResolveMasterKey(t *testing.T) {
 	})
 
 	t.Run("Precedence", func(t *testing.T) {
-		t.Setenv(config.EnvSecretsKey, "env-key")
+		t.Setenv("WS_SECRETS_MASTER_KEY", "env-key")
 
 		resolved, err := ResolveMasterKey("flag-key")
 		assert.NilError(t, err)
@@ -80,15 +79,15 @@ func TestResolveMasterKey(t *testing.T) {
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
-		t.Setenv(config.EnvSecretsKey, "")
-		t.Setenv(config.EnvSecretsKeyFile, "")
+		t.Setenv("WS_SECRETS_MASTER_KEY", "")
+		t.Setenv("WS_SECRETS_MASTER_KEY_FILE", "")
 
-		if _, err := os.Stat(config.DefaultSecretsKeyPath); err == nil {
-			t.Skip("Skipping test because " + config.DefaultSecretsKeyPath + " exists")
+		if _, err := os.Stat("/etc/workspace/master.key"); err == nil {
+			t.Skip("Skipping test because " + "/etc/workspace/master.key" + " exists")
 		}
 
 		_, err := ResolveMasterKey("")
 		assert.ErrorContains(t, err, "master key not found")
-		assert.ErrorContains(t, err, config.DefaultSecretsKeyPath)
+		assert.ErrorContains(t, err, "/etc/workspace/master.key")
 	})
 }

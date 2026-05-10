@@ -1,27 +1,12 @@
 package config
 
 const (
-	EnvSecretsKey        = "WS_SECRETS_MASTER_KEY"
-	EnvSecretsKeyFile    = "WS_SECRETS_MASTER_KEY_FILE"
-	EnvSecretsVault      = "WS_SECRETS_VAULT"
-	EnvLoggingDir        = "WS_LOGGING_DIR"
-	EnvLoggingFile       = "WS_LOGGING_MAIN_FILE"
-	EnvServerRoot        = "WS_SERVER_ROOT"
-	EnvFeaturesDir       = "WS_FEATURES_DIR"
-	EnvIPCSocket         = "WS__INTERNAL_IPC_SOCKET"
-	EnvMetricsPort       = "WS_METRICS_PORT"
-	EnvMetricsCollectors = "WS_METRICS_COLLECTORS"
-	EnvFeaturesStoreURL  = "WS_FEATURES_STORE_URL"
+	EnvIPCSocket = "WS__INTERNAL_IPC_SOCKET"
 
-	DefaultSecretsKeyPath   = "/etc/workspace/master.key"
-	DefaultSecretsVaultPath = "~/.ws/vault/secrets.yaml"
-	DefaultEnvFilePath      = "~/.zshenv"
-	DefaultLoggingDir       = "/var/log/workspace"
-	DefaultLoggingFile      = "workspace.log"
-	DefaultServerRoot       = "/workspace"
-	DefaultFeaturesDir      = "/features"
+	DefaultEnvReferencePath = "/etc/workspace/env.reference.yaml"
 	DefaultIPCSocket        = "/var/workspace/ipc.socket"
-	DefaultManifestPath     = "/var/lib/workspace/manifest.json"
 	DefaultStatePath        = "/var/lib/workspace/state"
-	DefaultMetricsPort      = 9100
+	DefaultEnvFilePath      = "~/.zshenv"
 )
+
+var DefaultManifestPath = "/var/lib/workspace/manifest.json"

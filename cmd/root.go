@@ -14,6 +14,7 @@ import (
 	"github.com/kloudkit/ws-cli/cmd/serve"
 	"github.com/kloudkit/ws-cli/cmd/show"
 	"github.com/kloudkit/ws-cli/cmd/template"
+	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
@@ -24,6 +25,13 @@ var rootCmd = &cobra.Command{
 	Version:       "v" + info.Version,
 	Aliases:       []string{"ws"},
 	SilenceErrors: true,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if err := config.RequireWorkspace(); err != nil {
+			return err
+		}
+		_, err := config.LoadEnvReference()
+		return err
+	},
 }
 
 func Execute() {
