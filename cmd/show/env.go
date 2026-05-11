@@ -3,6 +3,7 @@ package show
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/kloudkit/ws-cli/internals/styles"
@@ -18,38 +19,35 @@ var envCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		key := args[0]
 
-		asList, _ := cmd.Flags().GetBool("list")
-		asBool, _ := cmd.Flags().GetBool("bool")
-		asInt, _ := cmd.Flags().GetBool("int")
-		asCheck, _ := cmd.Flags().GetBool("check")
-		raw, _ := cmd.Flags().GetBool("raw")
-		delimiter, _ := cmd.Flags().GetString("delimiter")
-		deprecated, _ := cmd.Flags().GetString("deprecated")
+		config.SetDeprecationWriter(cmd.ErrOrStderr())
 
-		switch {
-		case asCheck:
+		check, _ := cmd.Flags().GetBool("check")
+		if check {
+			deprecated, _ := cmd.Flags().GetString("deprecated")
 			return runCheck(cmd, key, deprecated)
-		case asBool:
-			return runBool(cmd, key)
-		case asInt:
-			return runInt(cmd, key)
-		case asList:
-			return runList(cmd, key, delimiter)
 		}
 
-		value, err := config.ResolveKey(key)
+		prop, exists, err := config.LookupProperty(key)
 		if err != nil {
 			return err
 		}
-
-		if styles.OutputRaw(cmd.OutOrStdout(), raw, value) {
+		if !exists {
+			fmt.Fprintf(cmd.ErrOrStderr(), "Unknown env var [%s]\n", key)
+			osExit(2)
 			return nil
 		}
 
-		styles.PrintTitle(cmd.OutOrStdout(), "Workspace Environment")
-		styles.PrintKeyCode(cmd.OutOrStdout(), key, value)
+		value, _ := cmd.Flags().GetBool("value")
+		if value {
+			return runValue(cmd, key)
+		}
 
-		return nil
+		asType, _ := cmd.Flags().GetString("as")
+		if asType != "" {
+			return runAs(cmd, key, asType)
+		}
+
+		return runPretty(cmd, key, prop)
 	},
 }
 
@@ -67,6 +65,28 @@ func runCheck(cmd *cobra.Command, preferred, deprecated string) error {
 		osExit(1)
 	}
 	return nil
+}
+
+func runValue(cmd *cobra.Command, key string) error {
+	value, err := config.ResolveKey(key)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), value)
+	return nil
+}
+
+func runAs(cmd *cobra.Command, key, asType string) error {
+	switch asType {
+	case "bool":
+		return runBool(cmd, key)
+	case "int":
+		return runInt(cmd, key)
+	case "list":
+		delimiter, _ := cmd.Flags().GetString("delimiter")
+		return runList(cmd, key, delimiter)
+	}
+	return fmt.Errorf("invalid --as value %q (accepted: bool, int, list)", asType)
 }
 
 func runBool(_ *cobra.Command, key string) error {
@@ -108,15 +128,51 @@ func runList(cmd *cobra.Command, key, delimiter string) error {
 	return nil
 }
 
+func runPretty(cmd *cobra.Command, key string, prop config.Property) error {
+	out := cmd.OutOrStdout()
+	value, source, err := config.ResolveKeyWithSource(key)
+	if err != nil {
+		return err
+	}
+
+	styles.PrintTitle(out, "Workspace Environment")
+	fmt.Fprintf(out, "  %s %s\n\n",
+		styles.Key().Render(key),
+		styles.Muted().Render("("+formatGroupProp(key)+")"))
+
+	if prop.Description != "" {
+		fmt.Fprintf(out, "  %s\n\n", styles.Value().Render(prop.Description))
+	}
+
+	if prop.LongDescription != "" {
+		if err := styles.RenderMarkdown(out, prop.LongDescription); err != nil {
+			return err
+		}
+	}
+
+	styles.PrintKeyValue(out, "Value", value)
+	styles.PrintKeyValue(out, "Source", source.Label())
+
+	return nil
+}
+
+func formatGroupProp(key string) string {
+	s := strings.TrimPrefix(key, "WS_")
+	parts := strings.SplitN(s, "_", 2)
+	if len(parts) != 2 {
+		return strings.ToLower(s)
+	}
+	return strings.ToLower(parts[0] + "." + parts[1])
+}
+
 func init() {
-	envCmd.Flags().Bool("list", false, "Output as newline-separated list (uses YAML delimiter or --delimiter)")
-	envCmd.Flags().Bool("bool", false, "Coerce to boolean; exit 0 truthy, 1 falsy, 2 invalid")
-	envCmd.Flags().Bool("int", false, "Coerce to integer; print canonical form or fail with exit 2")
+	envCmd.Flags().Bool("value", false, "Emit the raw resolved value as a single line")
+	envCmd.Flags().String("as", "", "Validate and emit as one of: bool, int, list (mutex with --value/--check)")
 	envCmd.Flags().Bool("check", false, "Check whether the variable (or its --deprecated alias) is set")
-	envCmd.Flags().String("delimiter", "", "Override delimiter for --list (defaults to YAML delimiter or space)")
+	envCmd.Flags().String("delimiter", "", "Override delimiter for --as=list (defaults to YAML delimiter or space)")
 	envCmd.Flags().String("deprecated", "", "Deprecated alias paired with --check")
 
-	envCmd.MarkFlagsMutuallyExclusive("list", "bool", "int", "check")
+	envCmd.MarkFlagsMutuallyExclusive("value", "as", "check")
 
 	ShowCmd.AddCommand(envCmd)
 }

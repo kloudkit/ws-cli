@@ -54,6 +54,9 @@ var ipNodeCmd = &cobra.Command{
 }
 
 func init() {
+	ipInternalCmd.Flags().Bool("raw", false, "Output raw value without styling")
+	ipNodeCmd.Flags().Bool("raw", false, "Output raw value without styling")
+
 	ipCmd.AddCommand(ipInternalCmd, ipNodeCmd)
 
 	ShowCmd.AddCommand(ipCmd)

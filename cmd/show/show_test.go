@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/spf13/pflag"
 	"gotest.tools/v3/assert"
 )
@@ -18,11 +20,19 @@ envs:
       root:
         type: string
         default: /workspace
+        description: Root directory for the workspace.
+        longDescription: |
+          Accepts a **path** to override the default ` + "`/workspace`" + ` location.
+      port:
+        type: integer
+        default: 8080
+        description: Port on which the web server listens.
   metrics:
     properties:
       port:
         type: integer
         default: 9100
+        description: Port on which the metrics endpoint listens.
   features:
     properties:
       additional_features:
@@ -33,6 +43,12 @@ deprecated:
   WS_PORT:
     use: WS_SERVER_PORT
 `
+
+var _ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*[A-Za-z]`)
+
+func _stripANSI(s string) string {
+	return _ansiRE.ReplaceAllString(s, "")
+}
 
 func _installEnvFixture(t *testing.T) {
 	t.Helper()
@@ -48,6 +64,10 @@ func _runShow(t *testing.T, args ...string) (stdout, stderr string, exit int) {
 	original := osExit
 	osExit = func(code int) { exit = code }
 	t.Cleanup(func() { osExit = original })
+
+	config.ResetWarnedAliases()
+	originalWriter := config.SetDeprecationWriter(os.Stderr)
+	t.Cleanup(func() { config.SetDeprecationWriter(originalWriter) })
 
 	envCmd.Flags().VisitAll(func(f *pflag.Flag) {
 		f.Changed = false
@@ -109,55 +129,222 @@ func assertOutputContains(t *testing.T, args []string, expected string) {
 	assert.Assert(t, strings.Contains(output, expected))
 }
 
-func TestShowEnv_RawDefault(t *testing.T) {
+func TestShowEnv_ValueDefault(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "")
 
-	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--raw")
+	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--value")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "/workspace", strings.TrimSpace(stdout))
 }
 
-func TestShowEnv_RawHonorsEnv(t *testing.T) {
+func TestShowEnv_ValueHonorsEnv(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "/custom")
 
-	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--raw")
+	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--value")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "/custom", strings.TrimSpace(stdout))
 }
 
-func TestShowEnv_BoolTruthyExitsZero(t *testing.T) {
+func TestShowEnv_AsBool_TruthyExitsZero(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "true")
 
-	_, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--bool")
+	_, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "bool")
 	assert.Equal(t, 0, exit)
 }
 
-func TestShowEnv_BoolFalsyExitsOne(t *testing.T) {
+func TestShowEnv_AsBool_FalsyExitsOne(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "false")
 
-	_, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--bool")
+	_, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "bool")
 	assert.Equal(t, 1, exit)
 }
 
-func TestShowEnv_IntPrintsCanonical(t *testing.T) {
+func TestShowEnv_AsInt_PrintsCanonical(t *testing.T) {
 	_installEnvFixture(t)
+	t.Setenv("WS_METRICS_PORT", "")
 
-	stdout, _, exit := _runShow(t, "env", "WS_METRICS_PORT", "--int")
+	stdout, _, exit := _runShow(t, "env", "WS_METRICS_PORT", "--as", "int")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "9100", strings.TrimSpace(stdout))
 }
 
-func TestShowEnv_ListWithYAMLDelimiter(t *testing.T) {
+func TestShowEnv_AsList_WithYAMLDelimiter(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "tshark gh helm-extras")
 
-	stdout, _, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--list")
+	stdout, _, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "list")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "tshark\ngh\nhelm-extras", strings.TrimSpace(stdout))
+}
+
+func TestShowEnv_AsRejectsUnknownType(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_ROOT", "anything")
+
+	_, stderr, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "garbage")
+	assert.Assert(t, exit != 0 || stderr != "")
+}
+
+func TestShowEnv_AsAndValueMutuallyExclusive(t *testing.T) {
+	_installEnvFixture(t)
+
+	_, stderr, _ := _runShow(t, "env", "WS_SERVER_ROOT", "--value", "--as", "int")
+	assert.Assert(t, strings.Contains(stderr, "none of the others can be"), "want cobra mutex error, got: %q", stderr)
+}
+
+func TestShowEnv_UnknownKey_Default(t *testing.T) {
+	_installEnvFixture(t)
+
+	stdout, stderr, exit := _runShow(t, "env", "WS_NOT_DECLARED")
+	assert.Equal(t, 2, exit)
+	assert.Equal(t, "", stdout)
+	assert.Equal(t, "Unknown env var [WS_NOT_DECLARED]\n", stderr)
+}
+
+func TestShowEnv_UnknownKey_Value(t *testing.T) {
+	_installEnvFixture(t)
+
+	_, stderr, exit := _runShow(t, "env", "WS_NOT_DECLARED", "--value")
+	assert.Equal(t, 2, exit)
+	assert.Equal(t, "Unknown env var [WS_NOT_DECLARED]\n", stderr)
+}
+
+func TestShowEnv_UnknownKey_AsBool(t *testing.T) {
+	_installEnvFixture(t)
+
+	_, stderr, exit := _runShow(t, "env", "WS_NOT_DECLARED", "--as", "bool")
+	assert.Equal(t, 2, exit)
+	assert.Equal(t, "Unknown env var [WS_NOT_DECLARED]\n", stderr)
+}
+
+func TestShowEnv_UnknownKey_AsInt(t *testing.T) {
+	_installEnvFixture(t)
+
+	_, stderr, exit := _runShow(t, "env", "WS_NOT_DECLARED", "--as", "int")
+	assert.Equal(t, 2, exit)
+	assert.Equal(t, "Unknown env var [WS_NOT_DECLARED]\n", stderr)
+}
+
+func TestShowEnv_UnknownKey_AsList(t *testing.T) {
+	_installEnvFixture(t)
+
+	_, stderr, exit := _runShow(t, "env", "WS_NOT_DECLARED", "--as", "list")
+	assert.Equal(t, 2, exit)
+	assert.Equal(t, "Unknown env var [WS_NOT_DECLARED]\n", stderr)
+}
+
+func TestShowEnv_UnknownKey_StderrNotStdout(t *testing.T) {
+	_installEnvFixture(t)
+
+	stdout, _, _ := _runShow(t, "env", "WS_NOT_DECLARED")
+	assert.Equal(t, "", stdout)
+}
+
+func TestShowEnv_UnknownKey_NotConflatedWithCheck(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_NOT_DECLARED", "")
+
+	_, stderr, exit := _runShow(t, "env", "WS_NOT_DECLARED", "--check")
+	assert.Equal(t, 1, exit)
+	assert.Assert(t, !strings.Contains(stderr, "Unknown env var"))
+}
+
+func TestShowEnv_UnknownKey_ExitCode(t *testing.T) {
+	_installEnvFixture(t)
+
+	_, _, exit := _runShow(t, "env", "WS_BOGUS_KEY_42")
+	assert.Equal(t, 2, exit)
+}
+
+func TestShowEnv_InternalKeyAlsoErrors(t *testing.T) {
+	_installEnvFixture(t)
+
+	_, stderr, exit := _runShow(t, "env", "WS__INTERNAL_ENV_REFERENCE")
+	assert.Equal(t, 2, exit)
+	assert.Equal(t, "Unknown env var [WS__INTERNAL_ENV_REFERENCE]\n", stderr)
+}
+
+func TestShowEnv_LongDescriptionRenders_Default(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_ROOT", "")
+
+	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT")
+	assert.Equal(t, 0, exit)
+	plain := _stripANSI(stdout)
+	assert.Assert(t, strings.Contains(plain, "WS_SERVER_ROOT"), "want key in output, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "Root directory for the workspace."), "want description, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "/workspace"), "want resolved value, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "override the default"), "want longDescription text, got: %q", plain)
+}
+
+func TestShowEnv_LongDescriptionAbsent_DefaultStillRenders(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_METRICS_PORT", "")
+
+	stdout, _, exit := _runShow(t, "env", "WS_METRICS_PORT")
+	assert.Equal(t, 0, exit)
+	plain := _stripANSI(stdout)
+	assert.Assert(t, strings.Contains(plain, "WS_METRICS_PORT"))
+	assert.Assert(t, strings.Contains(plain, "Port on which the metrics endpoint listens."))
+	assert.Assert(t, strings.Contains(plain, "9100"))
+}
+
+func TestShowEnv_SourceLabel_EnvSet(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_ROOT", "/from-env")
+
+	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT")
+	assert.Equal(t, 0, exit)
+	plain := _stripANSI(stdout)
+	assert.Assert(t, strings.Contains(plain, "env-set"), "want env-set source label, got: %q", plain)
+}
+
+func TestShowEnv_SourceLabel_YAMLDefault(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_ROOT", "")
+
+	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT")
+	assert.Equal(t, 0, exit)
+	plain := _stripANSI(stdout)
+	assert.Assert(t, strings.Contains(plain, "yaml-default"), "want yaml-default source label, got: %q", plain)
+}
+
+func TestShowEnv_SourceLabel_DeprecatedAlias(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_PORT", "")
+	t.Setenv("WS_PORT", "9000")
+
+	stdout, _, exit := _runShow(t, "env", "WS_SERVER_PORT")
+	assert.Equal(t, 0, exit)
+	plain := _stripANSI(stdout)
+	assert.Assert(t, strings.Contains(plain, "deprecated-alias"), "want deprecated-alias label, got: %q", plain)
+}
+
+func TestShowEnv_SourceLabel_EmptyEnvFallsBackToYAML(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_ROOT", "")
+
+	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT")
+	assert.Equal(t, 0, exit)
+	plain := _stripANSI(stdout)
+	assert.Assert(t, strings.Contains(plain, "yaml-default"))
+	assert.Assert(t, strings.Contains(plain, "/workspace"))
+}
+
+func TestShowEnv_DeprecatedAlias_StderrAndLabel(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_PORT", "")
+	t.Setenv("WS_PORT", "9000")
+
+	stdout, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT")
+	assert.Equal(t, 0, exit)
+	plain := _stripANSI(stdout)
+	assert.Assert(t, strings.Contains(plain, "deprecated-alias"), "want source label, got: %q", plain)
+	assert.Assert(t, strings.Contains(stderr, "Deprecated: [WS_PORT] use [WS_SERVER_PORT] instead"), "want deprecation warn, got: %q", stderr)
 }
 
 func TestShowEnv_CheckPreferredSet(t *testing.T) {
@@ -199,9 +386,19 @@ func TestShowEnv_CheckUnset(t *testing.T) {
 	assert.Equal(t, 1, exit)
 }
 
-func TestShowEnv_MutuallyExclusiveFlags(t *testing.T) {
+func TestShowEnv_CheckUnchanged(t *testing.T) {
 	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_PORT", "")
+	t.Setenv("WS_PORT", "9000")
 
-	_, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--raw", "--bool")
-	assert.Assert(t, exit != 0 || true)
+	_, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT", "--check", "--deprecated", "WS_PORT")
+	assert.Equal(t, 1, exit)
+	assert.Equal(t, "Deprecated: [WS_PORT] use [WS_SERVER_PORT] instead\n", stderr)
+
+	t.Setenv("WS_SERVER_PORT", "9000")
+	t.Setenv("WS_PORT", "9001")
+
+	_, stderr, exit = _runShow(t, "env", "WS_SERVER_PORT", "--check", "--deprecated", "WS_PORT")
+	assert.Equal(t, 2, exit)
+	assert.Equal(t, "Both [WS_PORT] (deprecated) and [WS_SERVER_PORT] are set\n. Aborting\n", stderr)
 }

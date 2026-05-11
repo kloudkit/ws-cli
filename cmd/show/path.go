@@ -61,6 +61,8 @@ var pathVscodeCmd = &cobra.Command{
 }
 
 func init() {
+	pathHomeCmd.Flags().Bool("raw", false, "Output raw value without styling")
+	pathVscodeCmd.Flags().Bool("raw", false, "Output raw value without styling")
 	pathVscodeCmd.Flags().Bool("workspace", false, "Get the workspace settings")
 
 	pathCmd.AddCommand(pathHomeCmd, pathVscodeCmd)
