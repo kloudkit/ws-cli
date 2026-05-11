@@ -283,7 +283,6 @@ func TestResolveSource_Label(t *testing.T) {
 	assert.Equal(t, "yaml-default", SourceDefault.Label())
 }
 
-
 func TestParse_DescriptionAndLongDescriptionRoundTrip(t *testing.T) {
 	r := _newReference(t)
 
