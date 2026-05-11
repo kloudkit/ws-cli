@@ -16,6 +16,9 @@ envs:
       port:
         type: integer
         default: 9100
+        description: Port on which the metrics endpoint listens.
+        longDescription: |
+          The metrics server exposes a ` + "`/`" + ` endpoint on this port.
       collectors:
         type: string
         default: null
@@ -25,6 +28,7 @@ envs:
       root:
         type: string
         default: /workspace
+        description: Root directory for the workspace.
   features:
     properties:
       additional_features:
@@ -33,6 +37,13 @@ envs:
         delimiter: " "
   apt:
     properties:
+      additional_packages:
+        type: string
+        default: null
+        delimiter: " "
+        description: Additional APT packages installed during startup.
+        longDescription: |
+          Accepts a **space-delimited** package list.
       additional_repos:
         type: string
         default: null
@@ -196,6 +207,101 @@ func TestLoad_RespectsOverridePath(t *testing.T) {
 	r, err := LoadEnvReference()
 	assert.NilError(t, err)
 	assert.Equal(t, "/workspace", *r.Properties["WS_SERVER_ROOT"].Default)
+}
+
+func TestLookupProperty_KnownReturnsTrue(t *testing.T) {
+	_installFixture(t, sampleYAML)
+	prop, ok, err := LookupProperty("WS_SERVER_ROOT")
+	assert.NilError(t, err)
+	assert.Equal(t, true, ok)
+	assert.Equal(t, "string", prop.Type)
+}
+
+func TestLookupProperty_UnknownReturnsFalse(t *testing.T) {
+	_installFixture(t, sampleYAML)
+	_, ok, err := LookupProperty("WS_NOT_DECLARED")
+	assert.NilError(t, err)
+	assert.Equal(t, false, ok)
+}
+
+func TestLookupProperty_InternalKeyReturnsFalse(t *testing.T) {
+	_installFixture(t, sampleYAML)
+	_, ok, err := LookupProperty("WS__INTERNAL_ENV_REFERENCE")
+	assert.NilError(t, err)
+	assert.Equal(t, false, ok)
+}
+
+func TestResolveKeyWithSource_EnvWins(t *testing.T) {
+	_installFixture(t, sampleYAML)
+	t.Setenv("WS_SERVER_ROOT", "/custom")
+	value, source, err := ResolveKeyWithSource("WS_SERVER_ROOT")
+	assert.NilError(t, err)
+	assert.Equal(t, "/custom", value)
+	assert.Equal(t, SourceEnv, source)
+}
+
+func TestResolveKeyWithSource_UnsetReturnsDefault(t *testing.T) {
+	_installFixture(t, sampleYAML)
+	t.Setenv("WS_SERVER_ROOT", "")
+	value, source, err := ResolveKeyWithSource("WS_SERVER_ROOT")
+	assert.NilError(t, err)
+	assert.Equal(t, "/workspace", value)
+	assert.Equal(t, SourceDefault, source)
+}
+
+func TestResolveKeyWithSource_EmptyEnvFallsBackToDefault(t *testing.T) {
+	_installFixture(t, sampleYAML)
+	t.Setenv("WS_SERVER_ROOT", "")
+	value, source, err := ResolveKeyWithSource("WS_SERVER_ROOT")
+	assert.NilError(t, err)
+	assert.Equal(t, "/workspace", value)
+	assert.Equal(t, SourceDefault, source)
+}
+
+func TestResolveKeyWithSource_DeprecatedAlias(t *testing.T) {
+	_installFixture(t, sampleYAML)
+	_captureWarnings(t)
+	t.Setenv("WS_PORT", "8888")
+	value, source, err := ResolveKeyWithSource("WS_SERVER_PORT")
+	assert.NilError(t, err)
+	assert.Equal(t, "8888", value)
+	assert.Equal(t, SourceDeprecatedAlias, source)
+}
+
+func TestResolveKeyWithSource_NullDefaultReturnsEmpty(t *testing.T) {
+	_installFixture(t, sampleYAML)
+	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "")
+	value, source, err := ResolveKeyWithSource("WS_FEATURES_ADDITIONAL_FEATURES")
+	assert.NilError(t, err)
+	assert.Equal(t, "", value)
+	assert.Equal(t, SourceDefault, source)
+}
+
+func TestResolveSource_Label(t *testing.T) {
+	assert.Equal(t, "env-set", SourceEnv.Label())
+	assert.Equal(t, "deprecated-alias", SourceDeprecatedAlias.Label())
+	assert.Equal(t, "yaml-default", SourceDefault.Label())
+}
+
+
+func TestParse_DescriptionAndLongDescriptionRoundTrip(t *testing.T) {
+	r := _newReference(t)
+
+	apt := r.Properties["WS_APT_ADDITIONAL_PACKAGES"]
+	assert.Equal(t, "Additional APT packages installed during startup.", apt.Description)
+	assert.Equal(t, "Accepts a **space-delimited** package list.\n", apt.LongDescription)
+
+	metrics := r.Properties["WS_METRICS_PORT"]
+	assert.Equal(t, "Port on which the metrics endpoint listens.", metrics.Description)
+	assert.Equal(t, "The metrics server exposes a `/` endpoint on this port.\n", metrics.LongDescription)
+
+	server := r.Properties["WS_SERVER_ROOT"]
+	assert.Equal(t, "Root directory for the workspace.", server.Description)
+	assert.Equal(t, "", server.LongDescription)
+
+	features := r.Properties["WS_FEATURES_ADDITIONAL_FEATURES"]
+	assert.Equal(t, "", features.Description)
+	assert.Equal(t, "", features.LongDescription)
 }
 
 func TestParseBool(t *testing.T) {

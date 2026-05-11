@@ -18,10 +18,43 @@ const (
 	CheckUnset
 )
 
+type ResolveSource int
+
+const (
+	SourceEnv ResolveSource = iota
+	SourceDeprecatedAlias
+	SourceDefault
+)
+
+func (s ResolveSource) Label() string {
+	switch s {
+	case SourceEnv:
+		return "env-set"
+	case SourceDeprecatedAlias:
+		return "deprecated-alias"
+	case SourceDefault:
+		return "yaml-default"
+	}
+	return ""
+}
+
 var (
 	deprecationWriter io.Writer = os.Stderr
 	warnedAliases     sync.Map
 )
+
+func SetDeprecationWriter(w io.Writer) io.Writer {
+	original := deprecationWriter
+	deprecationWriter = w
+	return original
+}
+
+func ResetWarnedAliases() {
+	warnedAliases.Range(func(k, _ any) bool {
+		warnedAliases.Delete(k)
+		return true
+	})
+}
 
 func Resolve(group, prop string) (string, error) {
 	return ResolveKey(RuntimeKey(group, prop))
@@ -56,6 +89,35 @@ func ResolveKey(runtimeKey string) (string, error) {
 		return "", err
 	}
 	return ref.Resolve(runtimeKey), nil
+}
+
+func LookupProperty(runtimeKey string) (Property, bool, error) {
+	ref, err := LoadEnvReference()
+	if err != nil {
+		return Property{}, false, err
+	}
+	prop, ok := ref.Properties[runtimeKey]
+	return prop, ok, nil
+}
+
+func ResolveKeyWithSource(runtimeKey string) (string, ResolveSource, error) {
+	if v := env.String(runtimeKey); v != "" {
+		return v, SourceEnv, nil
+	}
+	ref, err := LoadEnvReference()
+	if err != nil {
+		return "", SourceDefault, err
+	}
+	for _, alias := range ref.AliasesByPreferred[runtimeKey] {
+		if v := env.String(alias); v != "" {
+			emitDeprecationWarn(alias, runtimeKey)
+			return v, SourceDeprecatedAlias, nil
+		}
+	}
+	if prop, ok := ref.Properties[runtimeKey]; ok && prop.Default != nil {
+		return *prop.Default, SourceDefault, nil
+	}
+	return "", SourceDefault, nil
 }
 
 func MustResolve(group, prop string) string {

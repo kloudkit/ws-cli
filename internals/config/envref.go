@@ -11,9 +11,11 @@ import (
 )
 
 type Property struct {
-	Type      string
-	Default   *string
-	Delimiter string
+	Type            string
+	Default         *string
+	Delimiter       string
+	Description     string
+	LongDescription string
 }
 
 type Deprecation struct {
@@ -63,9 +65,11 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 	var raw struct {
 		Envs map[string]struct {
 			Properties map[string]struct {
-				Type      string `yaml:"type"`
-				Default   any    `yaml:"default"`
-				Delimiter string `yaml:"delimiter"`
+				Type            string `yaml:"type"`
+				Default         any    `yaml:"default"`
+				Delimiter       string `yaml:"delimiter"`
+				Description     string `yaml:"description"`
+				LongDescription string `yaml:"longDescription"`
 			} `yaml:"properties"`
 		} `yaml:"envs"`
 		Deprecated map[string]struct {
@@ -86,9 +90,11 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 	for groupKey, group := range raw.Envs {
 		for propKey, prop := range group.Properties {
 			ref.Properties[RuntimeKey(groupKey, propKey)] = Property{
-				Type:      prop.Type,
-				Default:   defaultFromAny(prop.Default),
-				Delimiter: prop.Delimiter,
+				Type:            prop.Type,
+				Default:         defaultFromAny(prop.Default),
+				Delimiter:       prop.Delimiter,
+				Description:     prop.Description,
+				LongDescription: prop.LongDescription,
 			}
 		}
 	}
