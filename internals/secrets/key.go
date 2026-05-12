@@ -23,21 +23,10 @@ func ResolveMasterKey(flagValue string) ([]byte, error) {
 		return parseKey(val)
 	}
 
-	if explicit, ok := os.LookupEnv("WS_SECRETS_MASTER_KEY_FILE"); ok && explicit != "" {
-		if !io.FileExists(explicit) {
-			return nil, fmt.Errorf("master key file not found at WS_SECRETS_MASTER_KEY_FILE: %s", explicit)
-		}
-		return readKeyFile(explicit)
-	}
-
-	defaultPath, _ := config.Resolve("secrets", "master_key_file")
-	if defaultPath != "" && io.FileExists(defaultPath) {
-		return readKeyFile(defaultPath)
-	}
-
 	return nil, fmt.Errorf(
-		"master key not found (use --master, WS_SECRETS_MASTER_KEY, WS_SECRETS_MASTER_KEY_FILE, or check %s)",
-		defaultPath,
+		"master key not found (use --master, WS_SECRETS_MASTER_KEY=<value>, " +
+			"WS_SECRETS_MASTER_KEY=file:/path, or mount the key at " +
+			"/run/secrets/workspace/secrets/master_key)",
 	)
 }
 

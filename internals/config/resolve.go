@@ -25,6 +25,8 @@ const (
 	SourceEnv ResolveSource = iota
 	SourceDeprecatedAlias
 	SourceDefault
+	SourceEnvFile
+	SourceSecretFileDefault
 )
 
 func (s ResolveSource) Label() string {
@@ -35,8 +37,51 @@ func (s ResolveSource) Label() string {
 		return "deprecated-alias"
 	case SourceDefault:
 		return "yaml-default"
+	case SourceEnvFile:
+		return "env-file"
+	case SourceSecretFileDefault:
+		return "secret-file-default"
 	}
 	return ""
+}
+
+const defaultSecretConventionRoot = "/run/secrets/workspace"
+
+func conventionSecretPath(prop Property) string {
+	root := env.String("WS__INTERNAL_SECRETS_ROOT", defaultSecretConventionRoot)
+	return root + "/" + strings.ToLower(prop.Group) + "/" + strings.ToLower(prop.Name)
+}
+
+func readSecretFile(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read secret file [%s]: %w", path, err)
+	}
+	return strings.TrimSuffix(string(data), "\n"), nil
+}
+
+func resolveSecretFromEnv(prop Property, value string) (string, ResolveSource, error) {
+	path := strings.TrimPrefix(value, "file:")
+	if path == "" {
+		return "", SourceEnv, fmt.Errorf(
+			"file: prefix requires a path [%s]", RuntimeKey(prop.Group, prop.Name),
+		)
+	}
+	if prop.Type == "path" {
+		path = expandPath(path)
+	}
+	contents, err := readSecretFile(path)
+	if err != nil {
+		return "", SourceEnv, err
+	}
+	return contents, SourceEnvFile, nil
+}
+
+func fileExists(path string) bool {
+	if _, err := os.Stat(path); err != nil {
+		return false
+	}
+	return true
 }
 
 var (
@@ -103,26 +148,55 @@ func ResolveKeyWithSource(runtimeKey string) (string, ResolveSource, error) {
 	}
 	if ref != nil {
 		if prop, ok := ref.Properties[runtimeKey]; ok && prop.Type == "path" {
-			value = expandPath(value)
+			if source != SourceEnvFile && source != SourceSecretFileDefault {
+				value = expandPath(value)
+			}
 		}
 	}
 	return value, source, nil
 }
 
 func resolveValueAndSource(ref *EnvReference, refErr error, runtimeKey string) (string, ResolveSource, error) {
-	if v := env.String(runtimeKey); v != "" {
-		return v, SourceEnv, nil
-	}
+	raw := env.String(runtimeKey)
 	if refErr != nil {
+		if raw != "" {
+			return raw, SourceEnv, nil
+		}
 		return "", SourceDefault, refErr
 	}
+	prop, hasProp := ref.Properties[runtimeKey]
+
+	if raw != "" {
+		if strings.HasPrefix(raw, "file:") {
+			if !hasProp || !prop.Secret {
+				return "", SourceEnv, fmt.Errorf(
+					"file: prefix is only valid on secret properties [%s]", runtimeKey,
+				)
+			}
+			return resolveSecretFromEnv(prop, raw)
+		}
+		return raw, SourceEnv, nil
+	}
+
 	for _, alias := range ref.AliasesByPreferred[runtimeKey] {
 		if v := env.String(alias); v != "" {
 			emitDeprecationWarn(alias, runtimeKey)
 			return v, SourceDeprecatedAlias, nil
 		}
 	}
-	if prop, ok := ref.Properties[runtimeKey]; ok && prop.Default != nil {
+
+	if hasProp && prop.Secret {
+		convPath := conventionSecretPath(prop)
+		if fileExists(convPath) {
+			contents, err := readSecretFile(convPath)
+			if err != nil {
+				return "", SourceSecretFileDefault, err
+			}
+			return contents, SourceSecretFileDefault, nil
+		}
+	}
+
+	if hasProp && prop.Default != nil {
 		return *prop.Default, SourceDefault, nil
 	}
 	return "", SourceDefault, nil
@@ -191,7 +265,15 @@ func Check(preferred, deprecated string) CheckState {
 }
 
 func (r *EnvReference) Resolve(key string) string {
+	prop, hasProp := r.Properties[key]
 	if v := env.String(key); v != "" {
+		if strings.HasPrefix(v, "file:") && hasProp && prop.Secret {
+			contents, _, err := resolveSecretFromEnv(prop, v)
+			if err != nil {
+				return ""
+			}
+			return contents
+		}
 		return v
 	}
 	for _, alias := range r.AliasesByPreferred[key] {
@@ -200,7 +282,16 @@ func (r *EnvReference) Resolve(key string) string {
 			return v
 		}
 	}
-	if prop, ok := r.Properties[key]; ok && prop.Default != nil {
+	if hasProp && prop.Secret {
+		convPath := conventionSecretPath(prop)
+		if fileExists(convPath) {
+			contents, err := readSecretFile(convPath)
+			if err == nil {
+				return contents
+			}
+		}
+	}
+	if hasProp && prop.Default != nil {
 		return *prop.Default
 	}
 	return ""

@@ -81,3 +81,102 @@ envs:
 	assert.Assert(t, err != nil)
 	assert.ErrorContains(t, err, "path")
 }
+
+func TestParse_SecretTrue_AcceptsBoolean(t *testing.T) {
+	yamlData := `
+envs:
+  auth:
+    properties:
+      password:
+        type: string
+        default: null
+        secret: true
+`
+	r, err := parseEnvReference([]byte(yamlData))
+	assert.NilError(t, err)
+	prop := r.Properties["WS_AUTH_PASSWORD"]
+	assert.Equal(t, true, prop.Secret)
+}
+
+func TestParse_SecretFalse_DefaultsToFalse(t *testing.T) {
+	yamlData := `
+envs:
+  server:
+    properties:
+      root:
+        type: string
+        default: /workspace
+      explicit:
+        type: string
+        default: null
+        secret: false
+`
+	r, err := parseEnvReference([]byte(yamlData))
+	assert.NilError(t, err)
+	assert.Equal(t, false, r.Properties["WS_SERVER_ROOT"].Secret)
+	assert.Equal(t, false, r.Properties["WS_SERVER_EXPLICIT"].Secret)
+}
+
+func TestParse_SecretTrue_RejectsLiteralFilePrefixDefault(t *testing.T) {
+	yamlData := `
+envs:
+  auth:
+    properties:
+      password:
+        type: string
+        default: "file:/etc/foo"
+        secret: true
+`
+	_, err := parseEnvReference([]byte(yamlData))
+	assert.Assert(t, err != nil)
+	assert.ErrorContains(t, err, "secret")
+	assert.ErrorContains(t, err, "file:")
+}
+
+func TestParse_SecretTrue_RejectsBoolDefault(t *testing.T) {
+	yamlData := `
+envs:
+  auth:
+    properties:
+      password:
+        type: string
+        default: false
+        secret: true
+`
+	_, err := parseEnvReference([]byte(yamlData))
+	assert.Assert(t, err != nil)
+	assert.ErrorContains(t, err, "secret")
+}
+
+func TestParse_DeprecatedTombstone_NotRegisteredAsAlias(t *testing.T) {
+	yamlData := `
+envs:
+  auth:
+    properties:
+      password:
+        type: string
+        default: null
+        secret: true
+deprecated:
+  WS_AUTH_PASSWORD_FILE:
+    use: WS_AUTH_PASSWORD
+    since: 0.3.0
+    removed: 0.3.0
+    message: tombstone
+  WS_OLD_ACTIVE:
+    use: WS_AUTH_PASSWORD
+`
+	r, err := parseEnvReference([]byte(yamlData))
+	assert.NilError(t, err)
+	aliases := r.AliasesByPreferred["WS_AUTH_PASSWORD"]
+	for _, a := range aliases {
+		assert.Assert(t, a != "WS_AUTH_PASSWORD_FILE", "tombstone unexpectedly registered: %v", aliases)
+	}
+	found := false
+	for _, a := range aliases {
+		if a == "WS_OLD_ACTIVE" {
+			found = true
+		}
+	}
+	assert.Assert(t, found, "non-tombstone alias missing from AliasesByPreferred: %v", aliases)
+}

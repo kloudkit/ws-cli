@@ -51,6 +51,11 @@ envs:
         type: path
         default: null
         description: Path to the GitHub token file.
+      password:
+        type: string
+        default: null
+        secret: true
+        description: Plaintext password for the editor.
 deprecated:
   WS_PORT:
     use: WS_SERVER_PORT
@@ -440,6 +445,49 @@ func TestShowEnv_TypePath_SourceLabel_NullDefault_TypePath(t *testing.T) {
 	plain := _stripANSI(stdout)
 	assert.Assert(t, strings.Contains(plain, "yaml-default"), "want yaml-default source label, got: %q", plain)
 	assert.Equal(t, "", _extractField(plain, "Value"), "want empty Value field, got: %q", plain)
+}
+
+func TestShowEnv_Secret_FilePrefix_ValueFlag(t *testing.T) {
+	_installEnvFixture(t)
+	pwFile := filepath.Join(t.TempDir(), "pw")
+	assert.NilError(t, os.WriteFile(pwFile, []byte("super-secret\n"), 0o600))
+	t.Setenv("WS_AUTH_PASSWORD", "file:"+pwFile)
+
+	stdout, _, exit := _runShow(t, "env", "WS_AUTH_PASSWORD", "--value")
+	assert.Equal(t, 0, exit)
+	assert.Equal(t, "super-secret", strings.TrimSpace(stdout))
+
+	t.Setenv("WS_AUTH_PASSWORD", "file:"+pwFile)
+	stdout, _, exit = _runShow(t, "env", "WS_AUTH_PASSWORD")
+	assert.Equal(t, 0, exit)
+	plain := _stripANSI(stdout)
+	assert.Assert(t, strings.Contains(plain, "env-file"), "want env-file source label, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "super-secret"), "want resolved value, got: %q", plain)
+}
+
+func TestShowEnv_Secret_ConventionDefault_SourceLabel(t *testing.T) {
+	_installEnvFixture(t)
+	root := t.TempDir()
+	t.Setenv("WS__INTERNAL_SECRETS_ROOT", root)
+	assert.NilError(t, os.MkdirAll(filepath.Join(root, "auth"), 0o755))
+	assert.NilError(t, os.WriteFile(filepath.Join(root, "auth/password"), []byte("conv-secret\n"), 0o600))
+	t.Setenv("WS_AUTH_PASSWORD", "")
+
+	stdout, _, exit := _runShow(t, "env", "WS_AUTH_PASSWORD")
+	assert.Equal(t, 0, exit)
+	plain := _stripANSI(stdout)
+	assert.Assert(t, strings.Contains(plain, "secret-file-default"), "want secret-file-default source label, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "conv-secret"), "want resolved value, got: %q", plain)
+}
+
+func TestShowEnv_NonSecret_FilePrefix_ErrorPath(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_ROOT", "file:/tmp/x")
+
+	_, stderr, _ := _runShow(t, "env", "WS_SERVER_ROOT", "--value")
+	assert.Assert(t, strings.Contains(stderr, "file: prefix is only valid on secret properties"),
+		"want foot-gun error, got stderr=%q", stderr)
+	assert.Assert(t, strings.Contains(stderr, "WS_SERVER_ROOT"), "want runtimeKey in stderr, got: %q", stderr)
 }
 
 func TestShowEnv_CheckUnchanged(t *testing.T) {

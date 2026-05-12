@@ -16,11 +16,15 @@ type Property struct {
 	Delimiter       string
 	Description     string
 	LongDescription string
+	Secret          bool
+	Group           string
+	Name            string
 }
 
 type Deprecation struct {
 	Use     string
 	Message string
+	Removed string
 }
 
 type EnvReference struct {
@@ -70,11 +74,13 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 				Delimiter       string `yaml:"delimiter"`
 				Description     string `yaml:"description"`
 				LongDescription string `yaml:"longDescription"`
+				Secret          bool   `yaml:"secret"`
 			} `yaml:"properties"`
 		} `yaml:"envs"`
 		Deprecated map[string]struct {
 			Use     string `yaml:"use"`
 			Message string `yaml:"message"`
+			Removed string `yaml:"removed"`
 		} `yaml:"deprecated"`
 	}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
@@ -89,11 +95,23 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 
 	for groupKey, group := range raw.Envs {
 		for propKey, prop := range group.Properties {
-			if prop.Type == "path" && prop.Default != nil {
+			if (prop.Type == "path" || prop.Secret) && prop.Default != nil {
 				if _, ok := prop.Default.(string); !ok {
+					constraint := "type [path]"
+					if prop.Secret {
+						constraint = "secret"
+					}
 					return nil, fmt.Errorf(
-						"env reference [%s.%s]: type [path] requires default to be null or string, got %T",
-						groupKey, propKey, prop.Default,
+						"env reference [%s.%s]: %s requires default to be null or string, got %T",
+						groupKey, propKey, constraint, prop.Default,
+					)
+				}
+			}
+			if prop.Secret && prop.Default != nil {
+				if s, ok := prop.Default.(string); ok && strings.HasPrefix(s, "file:") {
+					return nil, fmt.Errorf(
+						"env reference [%s.%s]: secret properties cannot declare a [file:] default literal",
+						groupKey, propKey,
 					)
 				}
 			}
@@ -103,15 +121,21 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 				Delimiter:       prop.Delimiter,
 				Description:     prop.Description,
 				LongDescription: prop.LongDescription,
+				Secret:          prop.Secret,
+				Group:           groupKey,
+				Name:            propKey,
 			}
 		}
 	}
 
 	for alias, dep := range raw.Deprecated {
-		ref.Deprecations[alias] = Deprecation{Use: dep.Use, Message: dep.Message}
+		ref.Deprecations[alias] = Deprecation{Use: dep.Use, Message: dep.Message, Removed: dep.Removed}
 	}
 
 	for alias, dep := range ref.Deprecations {
+		if dep.Removed != "" {
+			continue
+		}
 		canonical, err := resolveCanonical(alias, dep.Use, ref.Deprecations)
 		if err != nil {
 			return nil, err

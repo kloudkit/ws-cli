@@ -643,3 +643,255 @@ func TestResolveListKey_TypePath_PerElementExpansion(t *testing.T) {
 	assert.NilError(t, err)
 	assert.DeepEqual(t, []string{"/home/kloud/local/bin", "/opt/bin"}, items)
 }
+
+const secretYAML = `
+envs:
+  auth:
+    properties:
+      password:
+        type: string
+        default: null
+        secret: true
+      password_hashed:
+        type: string
+        default: null
+        secret: true
+      github_token:
+        type: string
+        default: null
+        secret: true
+  secrets:
+    properties:
+      master_key:
+        type: string
+        default: null
+        secret: true
+  server:
+    properties:
+      root:
+        type: string
+        default: /workspace
+      ssl_cert:
+        type: path
+        default: null
+        secret: true
+      ssl_key:
+        type: path
+        default: null
+        secret: true
+  features:
+    properties:
+      list:
+        type: path
+        delimiter: ":"
+        default: null
+        secret: true
+deprecated:
+  WS_AUTH_PASSWORD_FILE:
+    use: WS_AUTH_PASSWORD
+    since: 0.3.0
+    removed: 0.3.0
+    message: tombstone
+`
+
+func _installSecretFixture(t *testing.T) {
+	t.Helper()
+	_installFixture(t, secretYAML)
+}
+
+func _newSecretRoot(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	t.Setenv("WS__INTERNAL_SECRETS_ROOT", root)
+	return root
+}
+
+func _writeAt(t *testing.T, path, contents string) {
+	t.Helper()
+	assert.NilError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	assert.NilError(t, os.WriteFile(path, []byte(contents), 0o600))
+}
+
+func TestResolve_FilePrefix_ReadsFileContents(t *testing.T) {
+	_installSecretFixture(t)
+	_newSecretRoot(t)
+	pwFile := filepath.Join(t.TempDir(), "pw")
+	_writeAt(t, pwFile, "payload\n")
+	t.Setenv("WS_AUTH_PASSWORD", "file:"+pwFile)
+
+	value, source, err := ResolveKeyWithSource("WS_AUTH_PASSWORD")
+	assert.NilError(t, err)
+	assert.Equal(t, "payload", value)
+	assert.Equal(t, SourceEnvFile, source)
+}
+
+func TestResolve_FilePrefix_TrimsTrailingNewline(t *testing.T) {
+	_installSecretFixture(t)
+	_newSecretRoot(t)
+	pwFile := filepath.Join(t.TempDir(), "pw")
+	_writeAt(t, pwFile, "secret\n\n")
+	t.Setenv("WS_AUTH_PASSWORD", "file:"+pwFile)
+
+	value, _, err := ResolveKeyWithSource("WS_AUTH_PASSWORD")
+	assert.NilError(t, err)
+	assert.Equal(t, "secret\n", value)
+}
+
+func TestResolve_FilePrefix_PreservesInternalWhitespace(t *testing.T) {
+	_installSecretFixture(t)
+	_newSecretRoot(t)
+	pwFile := filepath.Join(t.TempDir(), "pw")
+	_writeAt(t, pwFile, "multi\nline\nvalue\n")
+	t.Setenv("WS_AUTH_PASSWORD", "file:"+pwFile)
+
+	value, _, err := ResolveKeyWithSource("WS_AUTH_PASSWORD")
+	assert.NilError(t, err)
+	assert.Equal(t, "multi\nline\nvalue", value)
+}
+
+func TestResolve_FilePrefix_MissingFileErrors(t *testing.T) {
+	_installSecretFixture(t)
+	_newSecretRoot(t)
+	t.Setenv("WS_AUTH_PASSWORD", "file:/no/such/path")
+
+	_, _, err := ResolveKeyWithSource("WS_AUTH_PASSWORD")
+	assert.Assert(t, err != nil)
+	assert.ErrorContains(t, err, "/no/such/path")
+}
+
+func TestResolve_FilePrefix_OnNonSecretPropertyErrors(t *testing.T) {
+	_installSecretFixture(t)
+	_newSecretRoot(t)
+	t.Setenv("WS_SERVER_ROOT", "file:/tmp/x")
+
+	_, _, err := ResolveKeyWithSource("WS_SERVER_ROOT")
+	assert.Assert(t, err != nil)
+	assert.ErrorContains(t, err, "file: prefix is only valid on secret properties")
+	assert.ErrorContains(t, err, "WS_SERVER_ROOT")
+}
+
+func TestResolve_FilePrefix_EmptyPathErrors(t *testing.T) {
+	_installSecretFixture(t)
+	_newSecretRoot(t)
+	t.Setenv("WS_AUTH_PASSWORD", "file:")
+
+	_, _, err := ResolveKeyWithSource("WS_AUTH_PASSWORD")
+	assert.Assert(t, err != nil)
+	assert.ErrorContains(t, err, "file: prefix requires a path")
+}
+
+func TestResolve_SecretConventionDefault_FileExists(t *testing.T) {
+	_installSecretFixture(t)
+	root := _newSecretRoot(t)
+	_writeAt(t, filepath.Join(root, "auth/password"), "fromconv\n")
+	t.Setenv("WS_AUTH_PASSWORD", "")
+
+	value, source, err := ResolveKeyWithSource("WS_AUTH_PASSWORD")
+	assert.NilError(t, err)
+	assert.Equal(t, "fromconv", value)
+	assert.Equal(t, SourceSecretFileDefault, source)
+}
+
+func TestResolve_SecretConventionDefault_FileMissingFallsThroughToYAMLDefault(t *testing.T) {
+	_installSecretFixture(t)
+	_newSecretRoot(t)
+	t.Setenv("WS_AUTH_PASSWORD", "")
+
+	value, source, err := ResolveKeyWithSource("WS_AUTH_PASSWORD")
+	assert.NilError(t, err)
+	assert.Equal(t, "", value)
+	assert.Equal(t, SourceDefault, source)
+}
+
+func TestResolve_SecretConventionDefault_NotConsultedForNonSecretProperty(t *testing.T) {
+	_installSecretFixture(t)
+	root := _newSecretRoot(t)
+	_writeAt(t, filepath.Join(root, "server/root"), "/from/convention/path\n")
+	t.Setenv("WS_SERVER_ROOT", "")
+
+	value, source, err := ResolveKeyWithSource("WS_SERVER_ROOT")
+	assert.NilError(t, err)
+	assert.Equal(t, "/workspace", value)
+	assert.Equal(t, SourceDefault, source)
+}
+
+func TestResolve_DeprecatedTombstone_NoRuntimeEffect(t *testing.T) {
+	_installSecretFixture(t)
+	_newSecretRoot(t)
+	t.Setenv("WS_AUTH_PASSWORD", "")
+	t.Setenv("WS_AUTH_PASSWORD_FILE", "/tmp/pw")
+
+	value, source, err := ResolveKeyWithSource("WS_AUTH_PASSWORD")
+	assert.NilError(t, err)
+	assert.Equal(t, "", value)
+	assert.Equal(t, SourceDefault, source)
+}
+
+func TestResolve_FilePrefix_AppliesAfterTildeExpansionForTypePath(t *testing.T) {
+	_installSecretFixture(t)
+	_newSecretRoot(t)
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	_writeAt(t, filepath.Join(homeDir, "secrets/server.crt"), "PEM-BODY\n")
+	t.Setenv("WS_SERVER_SSL_CERT", "file:~/secrets/server.crt")
+
+	value, source, err := ResolveKeyWithSource("WS_SERVER_SSL_CERT")
+	assert.NilError(t, err)
+	assert.Equal(t, "PEM-BODY", value)
+	assert.Equal(t, SourceEnvFile, source)
+}
+
+func TestResolve_SecretConventionDefault_NoLegacyMasterKeyFallback(t *testing.T) {
+	_installSecretFixture(t)
+	_newSecretRoot(t)
+	t.Setenv("WS_SECRETS_MASTER_KEY", "")
+
+	value, source, err := ResolveKeyWithSource("WS_SECRETS_MASTER_KEY")
+	assert.NilError(t, err)
+	assert.Equal(t, "", value)
+	assert.Equal(t, SourceDefault, source)
+}
+
+func TestResolve_NilRef_SecretFastPathIsNoOp(t *testing.T) {
+	t.Setenv("WS__INTERNAL_ENV_REFERENCE", filepath.Join(t.TempDir(), "missing.yaml"))
+	t.Setenv("WS_AUTH_PASSWORD", "file:/tmp/x")
+
+	value, source, err := ResolveKeyWithSource("WS_AUTH_PASSWORD")
+	assert.NilError(t, err)
+	assert.Equal(t, "file:/tmp/x", value)
+	assert.Equal(t, SourceEnv, source)
+}
+
+func TestConventionPath_FromRuntimeKey(t *testing.T) {
+	cases := []struct {
+		runtimeKey string
+		want       string
+	}{
+		{"WS_AUTH_PASSWORD", "/run/secrets/workspace/auth/password"},
+		{"WS_AUTH_PASSWORD_HASHED", "/run/secrets/workspace/auth/password_hashed"},
+		{"WS_AUTH_GITHUB_TOKEN", "/run/secrets/workspace/auth/github_token"},
+		{"WS_SECRETS_MASTER_KEY", "/run/secrets/workspace/secrets/master_key"},
+		{"WS_SERVER_SSL_CERT", "/run/secrets/workspace/server/ssl_cert"},
+		{"WS_SERVER_SSL_KEY", "/run/secrets/workspace/server/ssl_key"},
+	}
+	_installSecretFixture(t)
+	t.Setenv("WS__INTERNAL_SECRETS_ROOT", defaultSecretConventionRoot)
+	ref, err := LoadEnvReference()
+	assert.NilError(t, err)
+	for _, c := range cases {
+		prop := ref.Properties[c.runtimeKey]
+		assert.Equal(t, c.want, conventionSecretPath(prop), "key %s", c.runtimeKey)
+	}
+}
+
+func TestResolveListKey_Secret_HandlesFilePrefix(t *testing.T) {
+	_installSecretFixture(t)
+	_newSecretRoot(t)
+	listFile := filepath.Join(t.TempDir(), "list")
+	_writeAt(t, listFile, "a:b:c\n")
+	t.Setenv("WS_FEATURES_LIST", "file:"+listFile)
+
+	items, err := ResolveListKey("WS_FEATURES_LIST", "")
+	assert.NilError(t, err)
+	assert.DeepEqual(t, []string{"a", "b", "c"}, items)
+}
