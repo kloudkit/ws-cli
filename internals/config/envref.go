@@ -89,6 +89,14 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 
 	for groupKey, group := range raw.Envs {
 		for propKey, prop := range group.Properties {
+			if prop.Type == "path" && prop.Default != nil {
+				if _, ok := prop.Default.(string); !ok {
+					return nil, fmt.Errorf(
+						"env reference [%s.%s]: type [path] requires default to be null or string, got %T",
+						groupKey, propKey, prop.Default,
+					)
+				}
+			}
 			ref.Properties[RuntimeKey(groupKey, propKey)] = Property{
 				Type:            prop.Type,
 				Default:         defaultFromAny(prop.Default),

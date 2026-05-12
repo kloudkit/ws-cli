@@ -62,6 +62,54 @@ func _newReference(t *testing.T) *EnvReference {
 	return r
 }
 
+const pathYAML = `
+envs:
+  secrets:
+    properties:
+      vault:
+        type: path
+        default: "~/.ws/vault/secrets.yaml"
+      master_key_file:
+        type: path
+        default: null
+  server:
+    properties:
+      ssl_cert:
+        type: path
+        default: "/etc/workspace/ssl/cert.pem"
+      ssl_root:
+        type: path
+        default: null
+  features:
+    properties:
+      dir:
+        type: path
+        default: "~"
+      extra_paths:
+        type: path
+        delimiter: ":"
+        default: "~/local/bin:/opt/bin"
+  paths:
+    properties:
+      midstring:
+        type: path
+        default: "/foo/~/bar"
+      dollarhome:
+        type: path
+        default: "$HOME/.ws"
+      otheruser:
+        type: path
+        default: "~root/x"
+deprecated:
+  WS_VAULT:
+    use: WS_SECRETS_VAULT
+`
+
+func _installPathFixture(t *testing.T) {
+	t.Helper()
+	_installFixture(t, pathYAML)
+}
+
 func _installFixture(t *testing.T, content string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -446,4 +494,152 @@ func TestBothSetLine(t *testing.T) {
 		"Both [WS_OLD] (deprecated) and [WS_NEW] are set\n. Aborting",
 		BothSetLine("WS_OLD", "WS_NEW"),
 	)
+}
+
+func TestResolve_TypePath_TildeExpansion(t *testing.T) {
+	_installPathFixture(t)
+	t.Setenv("HOME", "/home/kloud")
+	t.Setenv("WS_SECRETS_VAULT", "")
+
+	value, err := ResolveKey("WS_SECRETS_VAULT")
+	assert.NilError(t, err)
+	assert.Equal(t, "/home/kloud/.ws/vault/secrets.yaml", value)
+}
+
+func TestResolve_TypePath_BareTilde(t *testing.T) {
+	_installPathFixture(t)
+	t.Setenv("HOME", "/home/kloud")
+	t.Setenv("WS_FEATURES_DIR", "")
+
+	value, err := ResolveKey("WS_FEATURES_DIR")
+	assert.NilError(t, err)
+	assert.Equal(t, "/home/kloud", value)
+}
+
+func TestResolve_TypePath_AbsoluteUnchanged(t *testing.T) {
+	_installPathFixture(t)
+	t.Setenv("HOME", "/home/kloud")
+	t.Setenv("WS_SERVER_SSL_CERT", "")
+
+	value, err := ResolveKey("WS_SERVER_SSL_CERT")
+	assert.NilError(t, err)
+	assert.Equal(t, "/etc/workspace/ssl/cert.pem", value)
+}
+
+func TestResolve_TypePath_MidStringNotExpanded(t *testing.T) {
+	_installPathFixture(t)
+	t.Setenv("HOME", "/home/kloud")
+	t.Setenv("WS_PATHS_MIDSTRING", "")
+
+	value, err := ResolveKey("WS_PATHS_MIDSTRING")
+	assert.NilError(t, err)
+	assert.Equal(t, "/foo/~/bar", value)
+}
+
+func TestResolve_TypePath_NoVarInterpolation(t *testing.T) {
+	_installPathFixture(t)
+	t.Setenv("HOME", "/home/kloud")
+	t.Setenv("WS_PATHS_DOLLARHOME", "")
+
+	value, err := ResolveKey("WS_PATHS_DOLLARHOME")
+	assert.NilError(t, err)
+	assert.Equal(t, "$HOME/.ws", value)
+}
+
+func TestResolve_TypePath_HomeFallback(t *testing.T) {
+	_installPathFixture(t)
+	t.Setenv("HOME", "")
+	t.Setenv("WS_SECRETS_VAULT", "")
+
+	value, err := ResolveKey("WS_SECRETS_VAULT")
+	assert.NilError(t, err)
+	assert.Equal(t, "/home/kloud/.ws/vault/secrets.yaml", value)
+}
+
+func TestResolve_TypePath_HomeFallback_SourceStaysDefault(t *testing.T) {
+	_installPathFixture(t)
+	t.Setenv("HOME", "")
+	t.Setenv("WS_SECRETS_VAULT", "")
+
+	value, source, err := ResolveKeyWithSource("WS_SECRETS_VAULT")
+	assert.NilError(t, err)
+	assert.Equal(t, "/home/kloud/.ws/vault/secrets.yaml", value)
+	assert.Equal(t, SourceDefault, source)
+}
+
+func TestResolve_TypePath_EnvOverride_TildeStillExpands(t *testing.T) {
+	_installPathFixture(t)
+	t.Setenv("HOME", "/home/kloud")
+	t.Setenv("WS_SECRETS_VAULT", "~/custom/vault.yaml")
+
+	value, source, err := ResolveKeyWithSource("WS_SECRETS_VAULT")
+	assert.NilError(t, err)
+	assert.Equal(t, "/home/kloud/custom/vault.yaml", value)
+	assert.Equal(t, SourceEnv, source)
+}
+
+func TestResolve_TypePath_EnvOverride_AbsolutePassesThrough(t *testing.T) {
+	_installPathFixture(t)
+	t.Setenv("HOME", "/home/kloud")
+	t.Setenv("WS_SECRETS_VAULT", "/custom/path/secrets.yaml")
+
+	value, source, err := ResolveKeyWithSource("WS_SECRETS_VAULT")
+	assert.NilError(t, err)
+	assert.Equal(t, "/custom/path/secrets.yaml", value)
+	assert.Equal(t, SourceEnv, source)
+}
+
+func TestResolve_TypePath_OtherUserTildeUnchanged(t *testing.T) {
+	_installPathFixture(t)
+	t.Setenv("HOME", "/home/kloud")
+	t.Setenv("WS_PATHS_OTHERUSER", "")
+
+	value, err := ResolveKey("WS_PATHS_OTHERUSER")
+	assert.NilError(t, err)
+	assert.Equal(t, "~root/x", value)
+}
+
+func TestResolve_TypePath_EmptyEnvExpandsDefault(t *testing.T) {
+	_installPathFixture(t)
+	t.Setenv("HOME", "/home/kloud")
+	t.Setenv("WS_SECRETS_VAULT", "")
+
+	value, source, err := ResolveKeyWithSource("WS_SECRETS_VAULT")
+	assert.NilError(t, err)
+	assert.Equal(t, "/home/kloud/.ws/vault/secrets.yaml", value)
+	assert.Equal(t, SourceDefault, source)
+}
+
+func TestResolve_TypePath_EmptyDefaultStaysEmpty(t *testing.T) {
+	_installPathFixture(t)
+	t.Setenv("HOME", "/home/kloud")
+	t.Setenv("WS_SECRETS_MASTER_KEY_FILE", "")
+
+	value, source, err := ResolveKeyWithSource("WS_SECRETS_MASTER_KEY_FILE")
+	assert.NilError(t, err)
+	assert.Equal(t, "", value)
+	assert.Equal(t, SourceDefault, source)
+}
+
+func TestResolve_TypePath_ExpandsAfterDeprecatedAlias(t *testing.T) {
+	_installPathFixture(t)
+	_captureWarnings(t)
+	t.Setenv("HOME", "/home/kloud")
+	t.Setenv("WS_SECRETS_VAULT", "")
+	t.Setenv("WS_VAULT", "~/legacy/vault.yaml")
+
+	value, source, err := ResolveKeyWithSource("WS_SECRETS_VAULT")
+	assert.NilError(t, err)
+	assert.Equal(t, "/home/kloud/legacy/vault.yaml", value)
+	assert.Equal(t, SourceDeprecatedAlias, source)
+}
+
+func TestResolveListKey_TypePath_PerElementExpansion(t *testing.T) {
+	_installPathFixture(t)
+	t.Setenv("HOME", "/home/kloud")
+	t.Setenv("WS_FEATURES_EXTRA_PATHS", "")
+
+	items, err := ResolveListKey("WS_FEATURES_EXTRA_PATHS", "")
+	assert.NilError(t, err)
+	assert.DeepEqual(t, []string{"/home/kloud/local/bin", "/opt/bin"}, items)
 }

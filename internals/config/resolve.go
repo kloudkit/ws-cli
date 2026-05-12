@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/kloudkit/ws-cli/internals/env"
@@ -81,14 +82,8 @@ func ResolveList(group, prop, override string) ([]string, error) {
 }
 
 func ResolveKey(runtimeKey string) (string, error) {
-	if v := env.String(runtimeKey); v != "" {
-		return v, nil
-	}
-	ref, err := LoadEnvReference()
-	if err != nil {
-		return "", err
-	}
-	return ref.Resolve(runtimeKey), nil
+	value, _, err := ResolveKeyWithSource(runtimeKey)
+	return value, err
 }
 
 func LookupProperty(runtimeKey string) (Property, bool, error) {
@@ -101,12 +96,25 @@ func LookupProperty(runtimeKey string) (Property, bool, error) {
 }
 
 func ResolveKeyWithSource(runtimeKey string) (string, ResolveSource, error) {
+	ref, refErr := LoadEnvReference()
+	value, source, err := resolveValueAndSource(ref, refErr, runtimeKey)
+	if err != nil {
+		return value, source, err
+	}
+	if ref != nil {
+		if prop, ok := ref.Properties[runtimeKey]; ok && prop.Type == "path" {
+			value = expandPath(value)
+		}
+	}
+	return value, source, nil
+}
+
+func resolveValueAndSource(ref *EnvReference, refErr error, runtimeKey string) (string, ResolveSource, error) {
 	if v := env.String(runtimeKey); v != "" {
 		return v, SourceEnv, nil
 	}
-	ref, err := LoadEnvReference()
-	if err != nil {
-		return "", SourceDefault, err
+	if refErr != nil {
+		return "", SourceDefault, refErr
 	}
 	for _, alias := range ref.AliasesByPreferred[runtimeKey] {
 		if v := env.String(alias); v != "" {
@@ -118,6 +126,23 @@ func ResolveKeyWithSource(runtimeKey string) (string, ResolveSource, error) {
 		return *prop.Default, SourceDefault, nil
 	}
 	return "", SourceDefault, nil
+}
+
+func expandPath(s string) string {
+	if s == "" {
+		return ""
+	}
+	if s == "~" {
+		return resolveHome()
+	}
+	if strings.HasPrefix(s, "~/") {
+		return resolveHome() + s[1:]
+	}
+	return s
+}
+
+func resolveHome() string {
+	return env.String("HOME", "/home/kloud")
 }
 
 func MustResolve(group, prop string) string {
@@ -141,7 +166,13 @@ func ResolveListKey(runtimeKey, override string) ([]string, error) {
 	if delim == "" {
 		delim = ref.Properties[runtimeKey].Delimiter
 	}
-	return ParseList(ref.Resolve(runtimeKey), delim), nil
+	items := ParseList(ref.Resolve(runtimeKey), delim)
+	if prop, ok := ref.Properties[runtimeKey]; ok && prop.Type == "path" {
+		for i, item := range items {
+			items[i] = expandPath(item)
+		}
+	}
+	return items, nil
 }
 
 func Check(preferred, deprecated string) CheckState {

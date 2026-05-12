@@ -39,6 +39,18 @@ envs:
         type: string
         default: null
         delimiter: " "
+  secrets:
+    properties:
+      vault:
+        type: path
+        default: "~/.ws/vault/secrets.yaml"
+        description: Path to the encrypted vault file.
+  auth:
+    properties:
+      github_token_file:
+        type: path
+        default: null
+        description: Path to the GitHub token file.
 deprecated:
   WS_PORT:
     use: WS_SERVER_PORT
@@ -48,6 +60,16 @@ var _ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*[A-Za-z]`)
 
 func _stripANSI(s string) string {
 	return _ansiRE.ReplaceAllString(s, "")
+}
+
+func _extractField(plain, label string) string {
+	prefix := label + ":"
+	for line := range strings.SplitSeq(plain, "\n") {
+		if rest, ok := strings.CutPrefix(strings.TrimSpace(line), prefix); ok {
+			return strings.TrimSpace(rest)
+		}
+	}
+	return ""
 }
 
 func _installEnvFixture(t *testing.T) {
@@ -384,6 +406,40 @@ func TestShowEnv_CheckUnset(t *testing.T) {
 
 	_, _, exit := _runShow(t, "env", "WS_SERVER_PORT", "--check", "--deprecated", "WS_PORT")
 	assert.Equal(t, 1, exit)
+}
+
+func TestShowEnv_TypePath_DefaultMode_RendersExpandedValue(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("HOME", "/home/kloud")
+	t.Setenv("WS_SECRETS_VAULT", "")
+
+	stdout, _, exit := _runShow(t, "env", "WS_SECRETS_VAULT")
+	assert.Equal(t, 0, exit)
+	plain := _stripANSI(stdout)
+	assert.Assert(t, strings.Contains(plain, "/home/kloud/.ws/vault/secrets.yaml"), "want expanded value, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "yaml-default"), "want yaml-default source label, got: %q", plain)
+}
+
+func TestShowEnv_TypePath_ValueFlag_ReturnsExpanded(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("HOME", "/home/kloud")
+	t.Setenv("WS_SECRETS_VAULT", "")
+
+	stdout, _, exit := _runShow(t, "env", "WS_SECRETS_VAULT", "--value")
+	assert.Equal(t, 0, exit)
+	assert.Equal(t, "/home/kloud/.ws/vault/secrets.yaml", strings.TrimSpace(stdout))
+}
+
+func TestShowEnv_TypePath_SourceLabel_NullDefault_TypePath(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("HOME", "/home/kloud")
+	t.Setenv("WS_AUTH_GITHUB_TOKEN_FILE", "")
+
+	stdout, _, exit := _runShow(t, "env", "WS_AUTH_GITHUB_TOKEN_FILE")
+	assert.Equal(t, 0, exit)
+	plain := _stripANSI(stdout)
+	assert.Assert(t, strings.Contains(plain, "yaml-default"), "want yaml-default source label, got: %q", plain)
+	assert.Equal(t, "", _extractField(plain, "Value"), "want empty Value field, got: %q", plain)
 }
 
 func TestShowEnv_CheckUnchanged(t *testing.T) {
