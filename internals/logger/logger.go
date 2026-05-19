@@ -44,7 +44,7 @@ func formatLevel(level string) string {
 	return level
 }
 
-var Pipe = func(reader io.Reader, writer io.Writer, level string, indent int, withStamp bool) {
+func Pipe(reader io.Reader, writer io.Writer, level string, indent int, withStamp bool) {
 	scanner := bufio.NewScanner(reader)
 
 	for scanner.Scan() {
@@ -52,7 +52,7 @@ var Pipe = func(reader io.Reader, writer io.Writer, level string, indent int, wi
 	}
 }
 
-var Log = func(writer io.Writer, level, message string, indent int, withStamp bool) {
+func Log(writer io.Writer, level, message string, indent int, withStamp bool) {
 	var parts []string
 	if withStamp {
 		parts = append(parts, timestamp())

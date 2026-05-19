@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -146,6 +148,44 @@ envs:
 	_, err := parseEnvReference([]byte(yamlData))
 	assert.Assert(t, err != nil)
 	assert.ErrorContains(t, err, "secret")
+}
+
+func TestLoadEnvReference_RereadsOverrideEachCall(t *testing.T) {
+	fixtureA := `
+envs:
+  server:
+    properties:
+      root:
+        type: string
+        default: /workspace
+`
+	fixtureB := `
+envs:
+  metrics:
+    properties:
+      port:
+        type: integer
+        default: 9100
+`
+	dir := t.TempDir()
+	pathA := filepath.Join(dir, "a.yaml")
+	pathB := filepath.Join(dir, "b.yaml")
+	assert.NilError(t, os.WriteFile(pathA, []byte(fixtureA), 0o644))
+	assert.NilError(t, os.WriteFile(pathB, []byte(fixtureB), 0o644))
+
+	t.Setenv("WS__INTERNAL_ENV_REFERENCE", pathA)
+	first, err := LoadEnvReference()
+	assert.NilError(t, err)
+	_, hasRoot := first.Properties["WS_SERVER_ROOT"]
+	assert.Assert(t, hasRoot, "first load should reflect fixture A")
+
+	t.Setenv("WS__INTERNAL_ENV_REFERENCE", pathB)
+	second, err := LoadEnvReference()
+	assert.NilError(t, err)
+	_, hasPort := second.Properties["WS_METRICS_PORT"]
+	assert.Assert(t, hasPort, "no-cache contract: second load re-reads the re-pointed override")
+	_, stillHasRoot := second.Properties["WS_SERVER_ROOT"]
+	assert.Assert(t, !stillHasRoot, "no-cache contract: re-pointed load must not return the first fixture")
 }
 
 func TestParse_DeprecatedTombstone_NotRegisteredAsAlias(t *testing.T) {
