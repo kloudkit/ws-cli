@@ -10,6 +10,23 @@ import (
 	"gotest.tools/v3/assert"
 )
 
+func TestFormatAddr(t *testing.T) {
+	cases := []struct {
+		bind string
+		port int
+		want string
+	}{
+		{"127.0.0.1", 8080, "127.0.0.1:8080"},
+		{"::1", 8080, "[::1]:8080"},
+		{"", 0, ":0"},
+		{"0.0.0.0", 80, "0.0.0.0:80"},
+	}
+
+	for _, c := range cases {
+		assert.Equal(t, c.want, formatAddr(Config{Port: c.port, Bind: c.bind}))
+	}
+}
+
 func TestConfig(t *testing.T) {
 	t.Run("ConfigFields", func(t *testing.T) {
 		config := Config{

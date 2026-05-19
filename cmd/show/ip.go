@@ -11,53 +11,34 @@ var ipCmd = &cobra.Command{
 	Short: "Display IP addresses",
 }
 
-var ipInternalCmd = &cobra.Command{
-	Use:   "internal",
-	Short: "Display the internal IP address",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ip, err := net.GetInternalIP()
-		if err != nil {
-			return err
-		}
+func makeIPCmd(use, short, title string, getter func() (string, error)) *cobra.Command {
+	return &cobra.Command{
+		Use:   use,
+		Short: short,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ip, err := getter()
+			if err != nil {
+				return err
+			}
 
-		raw, _ := cmd.Flags().GetBool("raw")
-		if styles.OutputRaw(cmd.OutOrStdout(), raw, ip) {
+			raw, _ := cmd.Flags().GetBool("raw")
+			if styles.OutputRaw(cmd.OutOrStdout(), raw, ip) {
+				return nil
+			}
+
+			styles.PrintTitle(cmd.OutOrStdout(), title)
+			styles.PrintKeyCode(cmd.OutOrStdout(), "Address", ip)
+
 			return nil
-		}
-
-		styles.PrintTitle(cmd.OutOrStdout(), "Internal IP Address")
-		styles.PrintKeyCode(cmd.OutOrStdout(), "Address", ip)
-
-		return nil
-	},
-}
-
-var ipNodeCmd = &cobra.Command{
-	Use:   "node",
-	Short: "Display the node/host IP address",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ip, err := net.GetNodeIP()
-		if err != nil {
-			return err
-		}
-
-		raw, _ := cmd.Flags().GetBool("raw")
-		if styles.OutputRaw(cmd.OutOrStdout(), raw, ip) {
-			return nil
-		}
-
-		styles.PrintTitle(cmd.OutOrStdout(), "Node IP Address")
-		styles.PrintKeyCode(cmd.OutOrStdout(), "Address", ip)
-
-		return nil
-	},
+		},
+	}
 }
 
 func init() {
-	ipInternalCmd.Flags().Bool("raw", false, "Output raw value without styling")
-	ipNodeCmd.Flags().Bool("raw", false, "Output raw value without styling")
-
-	ipCmd.AddCommand(ipInternalCmd, ipNodeCmd)
+	ipCmd.AddCommand(
+		makeIPCmd("internal", "Display the internal IP address", "Internal IP Address", net.GetInternalIP),
+		makeIPCmd("node", "Display the node/host IP address", "Node IP Address", net.GetNodeIP),
+	)
 
 	ShowCmd.AddCommand(ipCmd)
 }

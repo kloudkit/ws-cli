@@ -101,6 +101,11 @@ func _runShow(t *testing.T, args ...string) (stdout, stderr string, exit int) {
 		_ = f.Value.Set(f.DefValue)
 	})
 
+	ShowCmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
+		f.Changed = false
+		_ = f.Value.Set(f.DefValue)
+	})
+
 	var outBuf, errBuf bytes.Buffer
 	ShowCmd.SetOut(&outBuf)
 	ShowCmd.SetErr(&errBuf)
@@ -488,6 +493,23 @@ func TestShowEnv_NonSecret_FilePrefix_ErrorPath(t *testing.T) {
 	assert.Assert(t, strings.Contains(stderr, "file: prefix is only valid on secret properties"),
 		"want foot-gun error, got stderr=%q", stderr)
 	assert.Assert(t, strings.Contains(stderr, "WS_SERVER_ROOT"), "want runtimeKey in stderr, got: %q", stderr)
+}
+
+func TestShow_RawFlagInheritedByAllLeaves(t *testing.T) {
+	cases := []struct{ args []string }{
+		{[]string{"path", "home", "--raw"}},
+		{[]string{"path", "vscode-settings", "--raw"}},
+		{[]string{"ip", "internal", "--raw"}},
+		{[]string{"ip", "node", "--raw"}},
+		{[]string{"env", "WS_SERVER_ROOT", "--raw"}},
+	}
+
+	for _, c := range cases {
+		_installEnvFixture(t)
+		_, stderr, exit := _runShow(t, c.args...)
+		assert.Equal(t, 0, exit, "args=%v stderr=%q", c.args, stderr)
+		assert.Assert(t, !strings.Contains(stderr, "unknown flag"), "args=%v stderr=%q", c.args, stderr)
+	}
 }
 
 func TestShowEnv_CheckUnchanged(t *testing.T) {

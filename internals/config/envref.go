@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/kloudkit/ws-cli/internals/env"
 	"gopkg.in/yaml.v3"
@@ -37,24 +36,9 @@ func RuntimeKey(group, prop string) string {
 	return "WS_" + strings.ToUpper(group) + "_" + strings.ToUpper(prop)
 }
 
-var (
-	cacheMu    sync.Mutex
-	cachedPath string
-	cachedVal  *EnvReference
-	cachedErr  error
-)
-
 func LoadEnvReference() (*EnvReference, error) {
-	cacheMu.Lock()
-	defer cacheMu.Unlock()
-
 	path := env.String("WS__INTERNAL_ENV_REFERENCE", DefaultEnvReferencePath)
-	if cachedVal != nil && cachedPath == path {
-		return cachedVal, cachedErr
-	}
-	cachedPath = path
-	cachedVal, cachedErr = readEnvReference(path)
-	return cachedVal, cachedErr
+	return readEnvReference(path)
 }
 
 func readEnvReference(path string) (*EnvReference, error) {

@@ -11,13 +11,14 @@ import (
 	"github.com/kloudkit/ws-cli/internals/env"
 )
 
+var slashRunRe = regexp.MustCompile(`/+`)
+
 func AppendSegments(root string, segments ...string) string {
 	if len(segments) != 0 {
 		root += "/" + strings.Join(segments, "/")
 	}
 
-	re := regexp.MustCompile(`/+`)
-	root = re.ReplaceAllString(root, "/")
+	root = slashRunRe.ReplaceAllString(root, "/")
 
 	return strings.TrimSuffix(root, "/")
 }
