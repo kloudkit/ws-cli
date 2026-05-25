@@ -32,15 +32,15 @@ const (
 func (s ResolveSource) Label() string {
 	switch s {
 	case SourceEnv:
-		return "env-set"
+		return "process"
 	case SourceDeprecatedAlias:
-		return "deprecated-alias"
+		return "alias"
 	case SourceDefault:
-		return "yaml-default"
+		return "declared"
 	case SourceEnvFile:
-		return "env-file"
+		return "file"
 	case SourceSecretFileDefault:
-		return "secret-file-default"
+		return "mount"
 	}
 	return ""
 }
@@ -207,16 +207,12 @@ func expandPath(s string) string {
 		return ""
 	}
 	if s == "~" {
-		return resolveHome()
+		return env.Home()
 	}
 	if strings.HasPrefix(s, "~/") {
-		return resolveHome() + s[1:]
+		return env.Home() + s[1:]
 	}
 	return s
-}
-
-func resolveHome() string {
-	return env.String("HOME", "/home/kloud")
 }
 
 func MustResolve(group, prop string) string {

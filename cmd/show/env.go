@@ -136,24 +136,40 @@ func runPretty(cmd *cobra.Command, key string, prop config.Property) error {
 	}
 
 	styles.PrintTitle(out, "Workspace Environment")
-	fmt.Fprintf(out, "  %s %s\n\n",
+	fmt.Fprintf(out, "  %s %s\n",
 		styles.Key().Render(key),
 		styles.Muted().Render("("+formatGroupProp(key)+")"))
 
 	if prop.Description != "" {
-		fmt.Fprintf(out, "  %s\n\n", styles.Value().Render(prop.Description))
+		if err := styles.RenderMarkdown(out, prop.Description); err != nil {
+			return err
+		}
 	}
 
 	if prop.LongDescription != "" {
+		fmt.Fprintln(out)
 		if err := styles.RenderMarkdown(out, prop.LongDescription); err != nil {
 			return err
 		}
 	}
 
-	styles.PrintKeyValue(out, "Value", value)
-	styles.PrintKeyValue(out, "Source", source.Label())
+	fmt.Fprintln(out)
+	displayValue := value
+	if prop.Secret && value != "" {
+		displayValue = styles.Muted().Render("<redacted>")
+	}
+	styles.PrintKeyValue(out, "Value", displayValue)
+	styles.PrintKeyValue(out, "Source", sourceLabel(prop, source, value))
 
 	return nil
+}
+
+func sourceLabel(prop config.Property, source config.ResolveSource, value string) string {
+	label := source.Label()
+	if source == config.SourceEnv && prop.Default != nil && value == *prop.Default {
+		label += " (matches declared)"
+	}
+	return label
 }
 
 func formatGroupProp(key string) string {

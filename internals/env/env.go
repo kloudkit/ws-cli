@@ -50,3 +50,7 @@ func IsValidName(name string) bool {
 		MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`).
 		MatchString(name)
 }
+
+func Home() string {
+	return String("HOME", "/home/kloud")
+}

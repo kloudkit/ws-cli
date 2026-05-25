@@ -24,7 +24,7 @@ func AppendSegments(root string, segments ...string) string {
 }
 
 func GetHomeDirectory(segments ...string) string {
-	return AppendSegments(env.String("HOME", "/home/kloud"), segments...)
+	return AppendSegments(env.Home(), segments...)
 }
 
 func GetIPCSocket() string {

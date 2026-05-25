@@ -332,7 +332,7 @@ func TestShowEnv_SourceLabel_EnvSet(t *testing.T) {
 	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
-	assert.Assert(t, strings.Contains(plain, "env-set"), "want env-set source label, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "process"), "want env-set source label, got: %q", plain)
 }
 
 func TestShowEnv_SourceLabel_YAMLDefault(t *testing.T) {
@@ -342,7 +342,7 @@ func TestShowEnv_SourceLabel_YAMLDefault(t *testing.T) {
 	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
-	assert.Assert(t, strings.Contains(plain, "yaml-default"), "want yaml-default source label, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "declared"), "want yaml-default source label, got: %q", plain)
 }
 
 func TestShowEnv_SourceLabel_DeprecatedAlias(t *testing.T) {
@@ -353,7 +353,7 @@ func TestShowEnv_SourceLabel_DeprecatedAlias(t *testing.T) {
 	stdout, _, exit := _runShow(t, "env", "WS_SERVER_PORT")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
-	assert.Assert(t, strings.Contains(plain, "deprecated-alias"), "want deprecated-alias label, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "alias"), "want deprecated-alias label, got: %q", plain)
 }
 
 func TestShowEnv_SourceLabel_EmptyEnvFallsBackToYAML(t *testing.T) {
@@ -363,7 +363,7 @@ func TestShowEnv_SourceLabel_EmptyEnvFallsBackToYAML(t *testing.T) {
 	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
-	assert.Assert(t, strings.Contains(plain, "yaml-default"))
+	assert.Assert(t, strings.Contains(plain, "declared"))
 	assert.Assert(t, strings.Contains(plain, "/workspace"))
 }
 
@@ -375,7 +375,7 @@ func TestShowEnv_DeprecatedAlias_StderrAndLabel(t *testing.T) {
 	stdout, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
-	assert.Assert(t, strings.Contains(plain, "deprecated-alias"), "want source label, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "alias"), "want source label, got: %q", plain)
 	assert.Assert(t, strings.Contains(stderr, "Deprecated: [WS_PORT] use [WS_SERVER_PORT] instead"), "want deprecation warn, got: %q", stderr)
 }
 
@@ -427,7 +427,7 @@ func TestShowEnv_TypePath_DefaultMode_RendersExpandedValue(t *testing.T) {
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
 	assert.Assert(t, strings.Contains(plain, "/home/kloud/.ws/vault/secrets.yaml"), "want expanded value, got: %q", plain)
-	assert.Assert(t, strings.Contains(plain, "yaml-default"), "want yaml-default source label, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "declared"), "want yaml-default source label, got: %q", plain)
 }
 
 func TestShowEnv_TypePath_ValueFlag_ReturnsExpanded(t *testing.T) {
@@ -448,7 +448,7 @@ func TestShowEnv_TypePath_SourceLabel_NullDefault_TypePath(t *testing.T) {
 	stdout, _, exit := _runShow(t, "env", "WS_AUTH_GITHUB_TOKEN_FILE")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
-	assert.Assert(t, strings.Contains(plain, "yaml-default"), "want yaml-default source label, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "declared"), "want yaml-default source label, got: %q", plain)
 	assert.Equal(t, "", _extractField(plain, "Value"), "want empty Value field, got: %q", plain)
 }
 
@@ -466,8 +466,9 @@ func TestShowEnv_Secret_FilePrefix_ValueFlag(t *testing.T) {
 	stdout, _, exit = _runShow(t, "env", "WS_AUTH_PASSWORD")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
-	assert.Assert(t, strings.Contains(plain, "env-file"), "want env-file source label, got: %q", plain)
-	assert.Assert(t, strings.Contains(plain, "super-secret"), "want resolved value, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "file"), "want env-file source label, got: %q", plain)
+	assert.Assert(t, !strings.Contains(plain, "super-secret"), "want secret value redacted, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "<redacted>"), "want redaction marker, got: %q", plain)
 }
 
 func TestShowEnv_Secret_ConventionDefault_SourceLabel(t *testing.T) {
@@ -481,8 +482,9 @@ func TestShowEnv_Secret_ConventionDefault_SourceLabel(t *testing.T) {
 	stdout, _, exit := _runShow(t, "env", "WS_AUTH_PASSWORD")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
-	assert.Assert(t, strings.Contains(plain, "secret-file-default"), "want secret-file-default source label, got: %q", plain)
-	assert.Assert(t, strings.Contains(plain, "conv-secret"), "want resolved value, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "mount"), "want secret-file-default source label, got: %q", plain)
+	assert.Assert(t, !strings.Contains(plain, "conv-secret"), "want secret value redacted, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "<redacted>"), "want redaction marker, got: %q", plain)
 }
 
 func TestShowEnv_NonSecret_FilePrefix_ErrorPath(t *testing.T) {

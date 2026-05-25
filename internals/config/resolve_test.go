@@ -326,9 +326,11 @@ func TestResolveKeyWithSource_NullDefaultReturnsEmpty(t *testing.T) {
 }
 
 func TestResolveSource_Label(t *testing.T) {
-	assert.Equal(t, "env-set", SourceEnv.Label())
-	assert.Equal(t, "deprecated-alias", SourceDeprecatedAlias.Label())
-	assert.Equal(t, "yaml-default", SourceDefault.Label())
+	assert.Equal(t, "process", SourceEnv.Label())
+	assert.Equal(t, "alias", SourceDeprecatedAlias.Label())
+	assert.Equal(t, "declared", SourceDefault.Label())
+	assert.Equal(t, "file", SourceEnvFile.Label())
+	assert.Equal(t, "mount", SourceSecretFileDefault.Label())
 }
 
 func TestParse_DescriptionAndLongDescriptionRoundTrip(t *testing.T) {
