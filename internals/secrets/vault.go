@@ -1,7 +1,6 @@
 package secrets
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -131,21 +130,14 @@ func ResolveDestination(secret VaultSecret) (string, error) {
 	return resolved, nil
 }
 
+const DefaultVaultPath = "~/.ws/vault/secrets.yaml"
+
 func ResolveVaultPath(inputFlag string) (string, error) {
 	if inputFlag != "" {
 		return inputFlag, nil
 	}
 
-	if envPath, ok := os.LookupEnv("WS_SECRETS_VAULT"); ok && envPath != "" {
-		return envPath, nil
-	}
-
-	defaultPath, _ := config.Resolve("secrets", "vault")
-	if defaultPath == "" {
-		return "", errors.New("vault file not specified (use --input or WS_SECRETS_VAULT)")
-	}
-
-	expanded, err := path.Expand(defaultPath)
+	expanded, err := path.Expand(DefaultVaultPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve default vault path: %w", err)
 	}
@@ -154,7 +146,7 @@ func ResolveVaultPath(inputFlag string) (string, error) {
 		return expanded, nil
 	}
 
-	return "", errors.New("vault file not specified (use --input or WS_SECRETS_VAULT)")
+	return "", fmt.Errorf("vault file not specified (use --input or place at %s)", DefaultVaultPath)
 }
 
 func ValidateSecret(name string, secret VaultSecret) error {

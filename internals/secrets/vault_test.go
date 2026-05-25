@@ -273,17 +273,9 @@ func TestResolveVaultPath(t *testing.T) {
 		assert.Equal(t, "/path/to/vault.yaml", path)
 	})
 
-	t.Run("FromEnv", func(t *testing.T) {
-		t.Setenv("WS_SECRETS_VAULT", "/env/vault.yaml")
-		path, err := ResolveVaultPath("")
-		assert.NilError(t, err)
-		assert.Equal(t, "/env/vault.yaml", path)
-	})
-
-	t.Run("FromDefault", func(t *testing.T) {
+	t.Run("FromConventionDefault", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
-		t.Setenv("WS_SECRETS_VAULT", "")
 
 		defaultVault := filepath.Join(home, ".ws", "vault", "secrets.yaml")
 		assert.NilError(t, os.MkdirAll(filepath.Dir(defaultVault), 0o755))
@@ -294,9 +286,16 @@ func TestResolveVaultPath(t *testing.T) {
 		assert.Equal(t, defaultVault, path)
 	})
 
-	t.Run("NotSpecified", func(t *testing.T) {
+	t.Run("ConventionDefaultAbsent", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
-		t.Setenv("WS_SECRETS_VAULT", "")
+		_, err := ResolveVaultPath("")
+		assert.ErrorContains(t, err, "vault file not specified")
+		assert.ErrorContains(t, err, "~/.ws/vault/secrets.yaml")
+	})
+
+	t.Run("EnvIsIgnored", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		t.Setenv("WS_SECRETS_VAULT", "/env/ignored/vault.yaml")
 		_, err := ResolveVaultPath("")
 		assert.ErrorContains(t, err, "vault file not specified")
 	})
