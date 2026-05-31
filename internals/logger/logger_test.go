@@ -98,7 +98,7 @@ Plain text error message`
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reader, err := NewReader(100, tt.levelFilter)
+			reader, err := NewReader(100, tt.levelFilter, "main")
 			assert.NilError(t, err)
 
 			var buf bytes.Buffer
@@ -109,4 +109,76 @@ Plain text error message`
 			assert.Equal(t, tt.expected, len(lines))
 		})
 	}
+}
+
+func TestReaderTargets(t *testing.T) {
+	tempDir := t.TempDir()
+
+	files := map[string]string{
+		"workspace.log": "main marker line",
+		"metrics.log":   "metrics marker line",
+		"dockerd.log":   "docker marker line",
+	}
+
+	for name, content := range files {
+		assert.NilError(t, os.WriteFile(filepath.Join(tempDir, name), []byte(content+"\n"), 0644))
+	}
+
+	t.Setenv("WS_LOGGING_DIR", tempDir)
+	t.Setenv("WS_LOGGING_MAIN_FILE", "workspace.log")
+	t.Setenv("WS_LOGGING_METRICS_FILE", "metrics.log")
+	t.Setenv("WS_LOGGING_DOCKER_FILE", "dockerd.log")
+
+	tests := []struct {
+		name     string
+		target   string
+		expected string
+	}{
+		{"main", "main", "main marker line"},
+		{"metrics", "metrics", "metrics marker line"},
+		{"docker", "docker", "docker marker line"},
+		{"empty defaults to main", "", "main marker line"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader, err := NewReader(0, "", tt.target)
+			assert.NilError(t, err)
+
+			var buf bytes.Buffer
+			err = reader.ReadLogs(&buf)
+			assert.NilError(t, err)
+
+			assert.Equal(t, tt.expected, strings.TrimSpace(buf.String()))
+		})
+	}
+}
+
+func TestReaderTargetMissingFile(t *testing.T) {
+	tempDir := t.TempDir()
+
+	t.Setenv("WS_LOGGING_DIR", tempDir)
+	t.Setenv("WS_LOGGING_METRICS_FILE", "metrics.log")
+
+	_, err := NewReader(0, "", "metrics")
+
+	assert.ErrorContains(t, err, "log file not found")
+}
+
+func TestReaderEmptyFile(t *testing.T) {
+	tempDir := t.TempDir()
+
+	assert.NilError(t, os.WriteFile(filepath.Join(tempDir, "metrics.log"), []byte{}, 0644))
+
+	t.Setenv("WS_LOGGING_DIR", tempDir)
+	t.Setenv("WS_LOGGING_METRICS_FILE", "metrics.log")
+
+	reader, err := NewReader(0, "", "metrics")
+	assert.NilError(t, err)
+
+	var buf bytes.Buffer
+	err = reader.ReadLogs(&buf)
+	assert.NilError(t, err)
+
+	assert.Equal(t, "", buf.String())
 }

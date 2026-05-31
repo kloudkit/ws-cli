@@ -71,10 +71,14 @@ func Log(writer io.Writer, level, message string, indent int, withStamp bool) {
 	fmt.Fprintln(writer, strings.Join(parts, " "))
 }
 
-func NewReader(tailLines int, levelFilter string) (*Reader, error) {
+func NewReader(tailLines int, levelFilter, target string) (*Reader, error) {
+	if target == "" {
+		target = "main"
+	}
+
 	logPath := filepath.Join(
 		config.MustResolve("logging", "dir"),
-		config.MustResolve("logging", "main_file"),
+		config.MustResolve("logging", target+"_file"),
 	)
 
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
