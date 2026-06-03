@@ -22,7 +22,7 @@ var fontCmd = &cobra.Command{
 			Bind: bind,
 		}
 
-		return server.ServeDirectory(config, "/usr/share/fonts/", "fonts")
+		return server.ServeDirectory(config, "/usr/share/fonts/", "fonts", cmd.OutOrStdout())
 	},
 }
 

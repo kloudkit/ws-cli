@@ -2,9 +2,9 @@ package serve
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/kloudkit/ws-cli/internals/metrics"
+	"github.com/kloudkit/ws-cli/internals/server"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
@@ -38,13 +38,9 @@ var metricsCmd = &cobra.Command{
 		}
 		fmt.Fprintln(out)
 
-		addr := fmt.Sprintf(":%d", port)
-		http.Handle("/", promhttp.HandlerFor(result.Registry, promhttp.HandlerOpts{}))
+		handler := promhttp.HandlerFor(result.Registry, promhttp.HandlerOpts{})
 
-		styles.PrintSuccess(out, fmt.Sprintf("Serving metrics at http://0.0.0.0%s", addr))
-		fmt.Fprintln(out, styles.Info().Render("Press Ctrl+C to stop"))
-
-		return http.ListenAndServe(addr, nil)
+		return server.Serve(server.Config{Port: port, Bind: "0.0.0.0"}, handler, "metrics", out)
 	},
 }
 

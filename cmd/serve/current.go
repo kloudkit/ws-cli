@@ -28,7 +28,7 @@ var currentCmd = &cobra.Command{
 			return fmt.Errorf("error getting current directory: %v", err)
 		}
 
-		return server.ServeDirectory(config, currentDir, "current directory")
+		return server.ServeDirectory(config, currentDir, "current directory", cmd.OutOrStdout())
 	},
 }
 

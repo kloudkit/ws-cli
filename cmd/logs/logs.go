@@ -12,7 +12,7 @@ import (
 
 var validLogLevels = []string{"debug", "info", "warn", "error"}
 
-var validLogTargets = []string{"main", "metrics", "docker"}
+var validLogTargets = []string{"main", "metrics", "docker", "auth_proxy"}
 
 var LogsCmd = &cobra.Command{
 	Use:   "logs",
@@ -42,6 +42,7 @@ func execute(cmd *cobra.Command, args []string) error {
 			{"main", "Combined workspace log"},
 			{"metrics", "Metrics exporter log"},
 			{"docker", "In-container Docker daemon log"},
+			{"auth_proxy", "OIDC authentication proxy log"},
 		})
 		return fmt.Errorf("invalid log target")
 	}
@@ -70,5 +71,5 @@ func init() {
 	LogsCmd.Flags().BoolP("follow", "f", false, "Follow log output in real-time")
 	LogsCmd.Flags().IntP("tail", "t", 0, "Number of lines to show from the end (0 for all)")
 	LogsCmd.Flags().StringP("level", "l", "", "Filter by log level (debug|info|warn|error)")
-	LogsCmd.Flags().String("target", "main", "Log target to read (main|metrics|docker)")
+	LogsCmd.Flags().String("target", "main", "Log target to read (main|metrics|docker|auth_proxy)")
 }
