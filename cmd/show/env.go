@@ -3,9 +3,11 @@ package show
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/kloudkit/ws-cli/internals/config"
+	"github.com/kloudkit/ws-cli/internals/logger"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
@@ -22,8 +24,11 @@ var envCmd = &cobra.Command{
 		config.SetDeprecationWriter(cmd.ErrOrStderr())
 
 		check, _ := cmd.Flags().GetBool("check")
-		if check {
-			deprecated, _ := cmd.Flags().GetString("deprecated")
+		value, _ := cmd.Flags().GetBool("value")
+		orSkip, _ := cmd.Flags().GetBool("or-skip")
+		deprecated, _ := cmd.Flags().GetString("deprecated")
+
+		if check && !value {
 			return runCheck(cmd, key, deprecated)
 		}
 
@@ -37,18 +42,25 @@ var envCmd = &cobra.Command{
 			return nil
 		}
 
-		value, _ := cmd.Flags().GetBool("value")
+		if value && check {
+			return runValueChecked(cmd, key, deprecated, orSkip)
+		}
+
 		if value {
-			return runValue(cmd, key)
+			return runValue(cmd, key, orSkip)
 		}
 
 		asType, _ := cmd.Flags().GetString("as")
 		if asType != "" {
-			return runAs(cmd, key, asType)
+			return runAs(cmd, key, asType, orSkip)
 		}
 
 		return runPretty(cmd, key, prop)
 	},
+}
+
+func skipBreadcrumb(cmd *cobra.Command, key string) {
+	logger.Log(cmd.ErrOrStderr(), "debug", fmt.Sprintf("Skipped: env [%s] not set", key), 1, true)
 }
 
 func runCheck(cmd *cobra.Command, preferred, deprecated string) error {
@@ -67,34 +79,74 @@ func runCheck(cmd *cobra.Command, preferred, deprecated string) error {
 	return nil
 }
 
-func runValue(cmd *cobra.Command, key string) error {
+func runValue(cmd *cobra.Command, key string, orSkip bool) error {
 	value, err := config.ResolveKey(key)
 	if err != nil {
 		return err
+	}
+	if orSkip && value == "" {
+		skipBreadcrumb(cmd, key)
+		osExit(1)
+		return nil
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), value)
 	return nil
 }
 
-func runAs(cmd *cobra.Command, key, asType string) error {
+func runValueChecked(cmd *cobra.Command, key, deprecated string, orSkip bool) error {
+	switch config.Check(key, deprecated) {
+	case config.CheckPreferredSet, config.CheckDeprecatedOnly:
+		return runValue(cmd, key, false)
+	case config.CheckBothSet:
+		fmt.Fprintln(cmd.ErrOrStderr(), config.BothSetLine(deprecated, key))
+		osExit(2)
+	case config.CheckUnset:
+		if orSkip {
+			skipBreadcrumb(cmd, key)
+		}
+		osExit(1)
+	}
+	return nil
+}
+
+func runAs(cmd *cobra.Command, key, asType string, orSkip bool) error {
 	switch asType {
 	case "bool":
-		return runBool(cmd, key)
+		return runBool(cmd, key, orSkip)
 	case "int":
 		return runInt(cmd, key)
 	case "list":
 		delimiter, _ := cmd.Flags().GetString("delimiter")
-		return runList(cmd, key, delimiter)
+		validate, _ := cmd.Flags().GetString("validate")
+		return runList(cmd, key, delimiter, validate)
 	}
 	return fmt.Errorf("invalid --as value %q (accepted: bool, int, list)", asType)
 }
 
-func runBool(_ *cobra.Command, key string) error {
+func runBool(cmd *cobra.Command, key string, orSkip bool) error {
 	value, err := config.ResolveKey(key)
 	if err != nil {
 		return err
 	}
-	parsed, err := config.ParseBool(value)
+
+	if !orSkip {
+		parsed, err := config.ParseBool(value)
+		if err != nil {
+			return err
+		}
+		if !parsed {
+			osExit(1)
+		}
+		return nil
+	}
+
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		skipBreadcrumb(cmd, key)
+		osExit(1)
+		return nil
+	}
+	parsed, err := config.ParseBool(trimmed)
 	if err != nil {
 		return err
 	}
@@ -117,11 +169,26 @@ func runInt(cmd *cobra.Command, key string) error {
 	return nil
 }
 
-func runList(cmd *cobra.Command, key, delimiter string) error {
+func runList(cmd *cobra.Command, key, delimiter, validate string) error {
 	items, err := config.ResolveListKey(key, delimiter)
 	if err != nil {
 		return err
 	}
+
+	if validate != "" {
+		re, err := regexp.Compile("^(?:" + validate + ")$")
+		if err != nil {
+			return fmt.Errorf("invalid --validate pattern %q: %w", validate, err)
+		}
+		for _, item := range items {
+			if !re.MatchString(item) {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Rejected: invalid item [%s]\n", item)
+				osExit(3)
+				return nil
+			}
+		}
+	}
+
 	for _, item := range items {
 		fmt.Fprintln(cmd.OutOrStdout(), item)
 	}
@@ -183,12 +250,17 @@ func formatGroupProp(key string) string {
 
 func init() {
 	envCmd.Flags().Bool("value", false, "Emit the raw resolved value as a single line")
-	envCmd.Flags().String("as", "", "Validate and emit as one of: bool, int, list (mutex with --value/--check)")
+	envCmd.Flags().String("as", "", "Validate and emit as one of: bool, int, list (mutex with --value)")
 	envCmd.Flags().Bool("check", false, "Check whether the variable (or its --deprecated alias) is set")
 	envCmd.Flags().String("delimiter", "", "Override delimiter for --as=list (defaults to YAML delimiter or space)")
 	envCmd.Flags().String("deprecated", "", "Deprecated alias paired with --check")
+	envCmd.Flags().Bool("or-skip", false, "Exit 1 (not error) on the natural absence of the chosen projection")
+	envCmd.Flags().String("validate", "", "Anchored regex each --as=list token must full-match; rejects fail-closed")
 
-	envCmd.MarkFlagsMutuallyExclusive("value", "as", "check")
+	// --value --check is now permitted ("emit value, but only when set"); --as
+	// stays exclusive with both.
+	envCmd.MarkFlagsMutuallyExclusive("value", "as")
+	envCmd.MarkFlagsMutuallyExclusive("as", "check")
 
 	ShowCmd.AddCommand(envCmd)
 }

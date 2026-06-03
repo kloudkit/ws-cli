@@ -514,6 +514,277 @@ func TestShow_RawFlagInheritedByAllLeaves(t *testing.T) {
 	}
 }
 
+func _hasSkip(stderr, key string) bool {
+	return strings.Contains(_stripANSI(stderr), "Skipped: env ["+key+"] not set")
+}
+
+func TestShowEnv_ValueOrSkip_ValueSet_PrintsExitsZero(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_ROOT", "/custom")
+
+	stdout, stderr, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--value", "--or-skip")
+	assert.Equal(t, 0, exit)
+	assert.Equal(t, "/custom", strings.TrimSpace(stdout))
+	assert.Equal(t, "", stderr)
+}
+
+func TestShowEnv_ValueOrSkip_DefaultPresent_PrintsExitsZero(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_ROOT", "")
+
+	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--value", "--or-skip")
+	assert.Equal(t, 0, exit)
+	assert.Equal(t, "/workspace", strings.TrimSpace(stdout))
+}
+
+func TestShowEnv_ValueOrSkip_Unset_Skips(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "")
+
+	stdout, stderr, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--value", "--or-skip")
+	assert.Equal(t, 1, exit)
+	assert.Equal(t, "", strings.TrimSpace(stdout))
+	assert.Assert(t, _hasSkip(stderr, "WS_FEATURES_ADDITIONAL_FEATURES"), "want skip breadcrumb, got: %q", stderr)
+}
+
+func TestShowEnv_ValueCheckOrSkip_PreferredSet_ExitsZeroPrints(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_PORT", "9000")
+	t.Setenv("WS_PORT", "")
+
+	stdout, _, exit := _runShow(t, "env", "WS_SERVER_PORT", "--value", "--check")
+	assert.Equal(t, 0, exit)
+	assert.Equal(t, "9000", strings.TrimSpace(stdout))
+}
+
+func TestShowEnv_ValueCheckOrSkip_DeprecatedAliasOnly_ExitsZeroPrints(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_PORT", "")
+	t.Setenv("WS_PORT", "9001")
+
+	stdout, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT", "--value", "--check", "--deprecated", "WS_PORT", "--or-skip")
+	assert.Equal(t, 0, exit)
+	assert.Equal(t, "9001", strings.TrimSpace(stdout))
+	assert.Assert(t, strings.Contains(stderr, "Deprecated: [WS_PORT] use [WS_SERVER_PORT] instead"), "want deprecation line, got: %q", stderr)
+}
+
+func TestShowEnv_ValueCheckOrSkip_NeitherSet_Skips(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_PORT", "")
+	t.Setenv("WS_PORT", "")
+
+	stdout, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT", "--value", "--check", "--or-skip")
+	assert.Equal(t, 1, exit)
+	assert.Equal(t, "", strings.TrimSpace(stdout))
+	assert.Assert(t, _hasSkip(stderr, "WS_SERVER_PORT"), "want skip breadcrumb, got: %q", stderr)
+}
+
+func TestShowEnv_ValueCheckOrSkip_BothSet_ExitsTwo(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_PORT", "9000")
+	t.Setenv("WS_PORT", "9001")
+
+	_, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT", "--value", "--check", "--deprecated", "WS_PORT", "--or-skip")
+	assert.Equal(t, 2, exit)
+	assert.Equal(t, "Both [WS_PORT] (deprecated) and [WS_SERVER_PORT] are set\n. Aborting\n", stderr)
+}
+
+func TestShowEnv_ValueCheckOrSkip_UnknownKey_ExitsTwo(t *testing.T) {
+	_installEnvFixture(t)
+
+	_, stderr, exit := _runShow(t, "env", "WS_NOT_DECLARED", "--value", "--check", "--or-skip")
+	assert.Equal(t, 2, exit)
+	assert.Equal(t, "Unknown env var [WS_NOT_DECLARED]\n", stderr)
+}
+
+func TestShowEnv_ValueAndCheckNowCompatible(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_PORT", "9000")
+
+	_, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT", "--value", "--check")
+	assert.Equal(t, 0, exit)
+	assert.Assert(t, !strings.Contains(stderr, "none of the others can be"), "want no mutex error, got: %q", stderr)
+}
+
+func TestShowEnv_AsBoolOrSkip_Truthy_ExitsZero(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_ROOT", "true")
+
+	_, stderr, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "bool", "--or-skip")
+	assert.Equal(t, 0, exit)
+	assert.Equal(t, "", stderr)
+}
+
+func TestShowEnv_AsBoolOrSkip_Falsy_ExitsOne_NotSkip(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_ROOT", "false")
+
+	_, stderr, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "bool", "--or-skip")
+	assert.Equal(t, 1, exit)
+	assert.Assert(t, !_hasSkip(stderr, "WS_SERVER_ROOT"), "set-to-false must be silent (not a skip), got: %q", stderr)
+}
+
+func TestShowEnv_AsBoolOrSkip_Unset_Skips(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "")
+
+	_, stderr, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "bool", "--or-skip")
+	assert.Equal(t, 1, exit)
+	assert.Assert(t, _hasSkip(stderr, "WS_FEATURES_ADDITIONAL_FEATURES"), "want skip breadcrumb, got: %q", stderr)
+}
+
+func TestShowEnv_AsBoolOrSkip_OperatorOnlyDefault_Skips(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_AUTH_GITHUB_TOKEN_FILE", "")
+
+	_, stderr, exit := _runShow(t, "env", "WS_AUTH_GITHUB_TOKEN_FILE", "--as", "bool", "--or-skip")
+	assert.Equal(t, 1, exit)
+	assert.Assert(t, _hasSkip(stderr, "WS_AUTH_GITHUB_TOKEN_FILE"), "want skip breadcrumb, got: %q", stderr)
+}
+
+func TestShowEnv_AsBoolOrSkip_PaddedTruthy_Trims(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_ROOT", "  true  ")
+
+	_, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "bool", "--or-skip")
+	assert.Equal(t, 0, exit)
+}
+
+func TestShowEnv_AsBoolOrSkip_PaddedFalsy_Trims(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_ROOT", "  false  ")
+
+	_, stderr, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "bool", "--or-skip")
+	assert.Equal(t, 1, exit)
+	assert.Assert(t, !_hasSkip(stderr, "WS_SERVER_ROOT"), "padded-false is definite-false, not a skip, got: %q", stderr)
+}
+
+func TestShowEnv_AsBoolOrSkip_WhitespaceOnly_TreatedAsUnset(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_ROOT", "   ")
+
+	_, stderr, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "bool", "--or-skip")
+	assert.Equal(t, 1, exit)
+	assert.Assert(t, _hasSkip(stderr, "WS_SERVER_ROOT"), "whitespace-only resolves as unset → skip, got: %q", stderr)
+}
+
+func TestShowEnv_AsBool_Unset_NoOrSkip_StillErrors(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "")
+
+	_, stderr, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "bool")
+	assert.Assert(t, exit != 0 || stderr != "", "without --or-skip, unset bool must error/non-zero, got exit=%d stderr=%q", exit, stderr)
+}
+
+func TestShowEnv_Value_NoOrSkip_EmptyStillPrintsExitsZero(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "")
+
+	stdout, stderr, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--value")
+	assert.Equal(t, 0, exit)
+	assert.Equal(t, "", strings.TrimSpace(stdout))
+	assert.Equal(t, "", stderr)
+}
+
+const (
+	_charsetPackage    = `[a-zA-Z0-9][a-zA-Z0-9._+-]*`
+	_charsetDomain     = `[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?`
+	_charsetIdentifier = `[a-zA-Z0-9_-]+`
+)
+
+func _runValidate(t *testing.T, value, charset string) (stdout, stderr string, exit int) {
+	t.Helper()
+	_installEnvFixture(t)
+	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", value)
+	return _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "list", "--delimiter", "|", "--validate", charset)
+}
+
+func _assertRejected(t *testing.T, stdout, stderr string, exit int, token string) {
+	t.Helper()
+	assert.Assert(t, exit != 0, "want non-zero reject exit, got 0; stdout=%q", stdout)
+	assert.Equal(t, "", strings.TrimSpace(stdout), "fail-closed: no tokens emitted, got: %q", stdout)
+	assert.Assert(t, strings.Contains(stderr, "Rejected: invalid item ["+token+"]"), "want rejection line for %q, got: %q", token, stderr)
+}
+
+func TestShowEnv_Validate_Semicolon_Rejected(t *testing.T) {
+	stdout, stderr, exit := _runValidate(t, "bad;rm", _charsetPackage)
+	_assertRejected(t, stdout, stderr, exit, "bad;rm")
+}
+
+func TestShowEnv_Validate_CommandSub_Rejected(t *testing.T) {
+	stdout, stderr, exit := _runValidate(t, "x$(touch /tmp/pwn)", _charsetPackage)
+	_assertRejected(t, stdout, stderr, exit, "x$(touch /tmp/pwn)")
+}
+
+func TestShowEnv_Validate_Backtick_Rejected(t *testing.T) {
+	stdout, stderr, exit := _runValidate(t, "x`id`", _charsetPackage)
+	_assertRejected(t, stdout, stderr, exit, "x`id`")
+}
+
+func TestShowEnv_Validate_IFS_Rejected(t *testing.T) {
+	stdout, stderr, exit := _runValidate(t, "x$(touch${IFS}/tmp/pwn)", _charsetIdentifier)
+	_assertRejected(t, stdout, stderr, exit, "x$(touch${IFS}/tmp/pwn)")
+}
+
+func TestShowEnv_Validate_Glob_Rejected(t *testing.T) {
+	stdout, stderr, exit := _runValidate(t, "pkg*", _charsetPackage)
+	_assertRejected(t, stdout, stderr, exit, "pkg*")
+}
+
+func TestShowEnv_Validate_Newline_Rejected(t *testing.T) {
+	stdout, stderr, exit := _runValidate(t, "abc\ndef", _charsetIdentifier)
+	_assertRejected(t, stdout, stderr, exit, "abc\ndef")
+}
+
+func TestShowEnv_Validate_LeadingDash_Rejected(t *testing.T) {
+	stdout, stderr, exit := _runValidate(t, "-rf", _charsetPackage)
+	_assertRejected(t, stdout, stderr, exit, "-rf")
+}
+
+func TestShowEnv_Validate_DomainCharset_RejectsMetachar(t *testing.T) {
+	stdout, stderr, exit := _runValidate(t, "evil.com;drop", _charsetDomain)
+	_assertRejected(t, stdout, stderr, exit, "evil.com;drop")
+}
+
+func TestShowEnv_Validate_LegalTokens_PassThrough(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "tshark gh helm-extras")
+
+	stdout, stderr, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "list", "--validate", _charsetPackage)
+	assert.Equal(t, 0, exit)
+	assert.Equal(t, "tshark\ngh\nhelm-extras", strings.TrimSpace(stdout))
+	assert.Equal(t, "", stderr)
+}
+
+func TestShowEnv_Validate_LegalDomains_PassThrough(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "example.com api.example.org")
+
+	stdout, _, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "list", "--validate", _charsetDomain)
+	assert.Equal(t, 0, exit)
+	assert.Equal(t, "example.com\napi.example.org", strings.TrimSpace(stdout))
+}
+
+func TestShowEnv_Validate_OneBadToken_FailsWholeListClosed(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "good evil;rm alsogood")
+
+	stdout, stderr, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "list", "--validate", _charsetPackage)
+	assert.Assert(t, exit != 0)
+	assert.Equal(t, "", strings.TrimSpace(stdout), "fail-closed: no partial emission, got: %q", stdout)
+	assert.Assert(t, strings.Contains(stderr, "Rejected: invalid item [evil;rm]"), "want rejection of offending token, got: %q", stderr)
+}
+
+func TestShowEnv_AsList_NoValidate_Unchanged(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "a;b c")
+
+	stdout, _, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "list")
+	assert.Equal(t, 0, exit)
+	// default space delimiter, no validation → tokens emitted verbatim
+	assert.Equal(t, "a;b\nc", strings.TrimSpace(stdout))
+}
+
 func TestShowEnv_CheckUnchanged(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_PORT", "")
