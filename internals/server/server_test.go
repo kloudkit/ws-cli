@@ -1,6 +1,7 @@
 package server
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -62,7 +63,7 @@ func TestServeDirectory(t *testing.T) {
 
 		done := make(chan error, 1)
 		go func() {
-			err := ServeDirectory(config, "/nonexistent/directory", "test")
+			err := ServeDirectory(config, "/nonexistent/directory", "test", io.Discard)
 			done <- err
 		}()
 
