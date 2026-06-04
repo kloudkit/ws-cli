@@ -147,9 +147,12 @@ func ResolveKeyWithSource(runtimeKey string) (string, ResolveSource, error) {
 		return value, source, err
 	}
 	if ref != nil {
-		if prop, ok := ref.Properties[runtimeKey]; ok && prop.Type == "path" {
-			if source != SourceEnvFile && source != SourceSecretFileDefault {
+		if prop, ok := ref.Properties[runtimeKey]; ok {
+			if prop.Type == "path" && source != SourceEnvFile && source != SourceSecretFileDefault {
 				value = expandPath(value)
+			}
+			if err := prop.Validate(value); err != nil {
+				return value, source, err
 			}
 		}
 	}
@@ -232,12 +235,19 @@ func ResolveListKey(runtimeKey, override string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	prop, hasProp := ref.Properties[runtimeKey]
 	delim := override
 	if delim == "" {
-		delim = ref.Properties[runtimeKey].Delimiter
+		delim = prop.Delimiter
 	}
-	items := ParseList(ref.Resolve(runtimeKey), delim)
-	if prop, ok := ref.Properties[runtimeKey]; ok && prop.Type == "path" {
+	raw := ref.Resolve(runtimeKey)
+	if hasProp {
+		if err := prop.Validate(raw); err != nil {
+			return nil, err
+		}
+	}
+	items := ParseList(raw, delim)
+	if hasProp && prop.Type == "path" {
 		for i, item := range items {
 			items[i] = expandPath(item)
 		}

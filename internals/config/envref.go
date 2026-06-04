@@ -3,7 +3,9 @@ package config
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/kloudkit/ws-cli/internals/env"
 	"gopkg.in/yaml.v3"
@@ -13,6 +15,7 @@ type Property struct {
 	Type            string
 	Default         *string
 	Delimiter       string
+	Pattern         string
 	Description     string
 	LongDescription string
 	Secret          bool
@@ -56,6 +59,7 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 				Type            string `yaml:"type"`
 				Default         any    `yaml:"default"`
 				Delimiter       string `yaml:"delimiter"`
+				Pattern         string `yaml:"pattern"`
 				Description     string `yaml:"description"`
 				LongDescription string `yaml:"longDescription"`
 				Secret          bool   `yaml:"secret"`
@@ -103,6 +107,7 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 				Type:            prop.Type,
 				Default:         defaultFromAny(prop.Default),
 				Delimiter:       prop.Delimiter,
+				Pattern:         prop.Pattern,
 				Description:     prop.Description,
 				LongDescription: prop.LongDescription,
 				Secret:          prop.Secret,
@@ -155,4 +160,44 @@ func defaultFromAny(v any) *string {
 	}
 	s := fmt.Sprint(v)
 	return &s
+}
+
+func (p Property) Validate(value string) error {
+	if p.Secret || value == "" {
+		return nil
+	}
+
+	key := RuntimeKey(p.Group, p.Name)
+
+	switch p.Type {
+	case "integer":
+		if _, err := ParseInt(value); err != nil {
+			return fmt.Errorf("env [%s]: %w", key, err)
+		}
+	case "boolean":
+		if _, err := ParseBool(value); err != nil {
+			return fmt.Errorf("env [%s]: %w", key, err)
+		}
+	case "path":
+		if strings.IndexFunc(value, unicode.IsControl) >= 0 {
+			return fmt.Errorf("env [%s]: path contains a control character", key)
+		}
+	}
+
+	if p.Pattern == "" {
+		return nil
+	}
+
+	re, err := regexp.Compile("^(?:" + p.Pattern + ")$")
+	if err != nil {
+		return fmt.Errorf("env [%s]: invalid declared pattern %q: %w", key, p.Pattern, err)
+	}
+
+	for _, token := range ParseList(value, p.Delimiter) {
+		if !re.MatchString(token) {
+			return fmt.Errorf("env [%s]: value [%s] rejected by pattern", key, token)
+		}
+	}
+
+	return nil
 }
