@@ -83,6 +83,14 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 
 	for groupKey, group := range raw.Envs {
 		for propKey, prop := range group.Properties {
+			switch prop.Type {
+			case "string", "boolean", "integer", "path":
+			default:
+				return nil, fmt.Errorf(
+					"env reference [%s.%s]: unknown type [%s]",
+					groupKey, propKey, prop.Type,
+				)
+			}
 			if (prop.Type == "path" || prop.Secret) && prop.Default != nil {
 				if _, ok := prop.Default.(string); !ok {
 					constraint := "type [path]"

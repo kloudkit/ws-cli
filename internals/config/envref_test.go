@@ -84,6 +84,20 @@ envs:
 	assert.ErrorContains(t, err, "path")
 }
 
+func TestParse_UnknownType_Rejected(t *testing.T) {
+	yamlData := `
+envs:
+  server:
+    properties:
+      root:
+        type: bogus
+        default: /workspace
+`
+	_, err := parseEnvReference([]byte(yamlData))
+	assert.Assert(t, err != nil)
+	assert.ErrorContains(t, err, "bogus")
+}
+
 func TestParse_SecretTrue_AcceptsBoolean(t *testing.T) {
 	yamlData := `
 envs:
