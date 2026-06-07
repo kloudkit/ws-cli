@@ -19,9 +19,19 @@ var envCmd = &cobra.Command{
 	Short: "Display the resolved value of a workspace environment variable",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		key := args[0]
+		dotted := args[0]
 
 		config.SetDeprecationWriter(cmd.ErrOrStderr())
+
+		group, prop, ok := strings.Cut(dotted, ".")
+		if !ok || strings.HasPrefix(dotted, "WS_") {
+			fmt.Fprintf(cmd.ErrOrStderr(),
+				"Use dotted key [%s] instead of [%s]\n", formatGroupProp(dotted), dotted)
+			osExit(2)
+			return nil
+		}
+
+		key := config.RuntimeKey(group, prop)
 
 		check, _ := cmd.Flags().GetBool("check")
 		value, _ := cmd.Flags().GetBool("value")
@@ -32,12 +42,12 @@ var envCmd = &cobra.Command{
 			return runCheck(cmd, key, deprecated)
 		}
 
-		prop, exists, err := config.LookupProperty(key)
+		propMeta, exists, err := config.LookupProperty(key)
 		if err != nil {
 			return err
 		}
 		if !exists {
-			fmt.Fprintf(cmd.ErrOrStderr(), "Unknown env var [%s]\n", key)
+			fmt.Fprintf(cmd.ErrOrStderr(), "Unknown env var [%s]\n", dotted)
 			osExit(2)
 			return nil
 		}
@@ -55,7 +65,7 @@ var envCmd = &cobra.Command{
 			return runAs(cmd, key, asType, orSkip)
 		}
 
-		return runPretty(cmd, key, prop)
+		return runPretty(cmd, dotted, key, propMeta)
 	},
 }
 
@@ -195,7 +205,7 @@ func runList(cmd *cobra.Command, key, delimiter, validate string) error {
 	return nil
 }
 
-func runPretty(cmd *cobra.Command, key string, prop config.Property) error {
+func runPretty(cmd *cobra.Command, dotted, key string, prop config.Property) error {
 	out := cmd.OutOrStdout()
 	value, source, err := config.ResolveKeyWithSource(key)
 	if err != nil {
@@ -204,8 +214,8 @@ func runPretty(cmd *cobra.Command, key string, prop config.Property) error {
 
 	styles.PrintTitle(out, "Workspace Environment")
 	fmt.Fprintf(out, "  %s %s\n",
-		styles.Key().Render(key),
-		styles.Muted().Render("("+formatGroupProp(key)+")"))
+		styles.Key().Render(dotted),
+		styles.Muted().Render("("+key+")"))
 
 	if prop.Description != "" {
 		if err := styles.RenderMarkdown(out, prop.Description); err != nil {

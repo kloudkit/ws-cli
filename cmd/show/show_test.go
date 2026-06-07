@@ -165,7 +165,7 @@ func TestShowEnv_ValueDefault(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "")
 
-	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--value")
+	stdout, _, exit := _runShow(t, "env", "server.root", "--value")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "/workspace", strings.TrimSpace(stdout))
 }
@@ -174,7 +174,7 @@ func TestShowEnv_ValueHonorsEnv(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "/custom")
 
-	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--value")
+	stdout, _, exit := _runShow(t, "env", "server.root", "--value")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "/custom", strings.TrimSpace(stdout))
 }
@@ -183,7 +183,7 @@ func TestShowEnv_AsBool_TruthyExitsZero(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "true")
 
-	_, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "bool")
+	_, _, exit := _runShow(t, "env", "server.root", "--as", "bool")
 	assert.Equal(t, 0, exit)
 }
 
@@ -191,7 +191,7 @@ func TestShowEnv_AsBool_FalsyExitsOne(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "false")
 
-	_, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "bool")
+	_, _, exit := _runShow(t, "env", "server.root", "--as", "bool")
 	assert.Equal(t, 1, exit)
 }
 
@@ -199,7 +199,7 @@ func TestShowEnv_AsInt_PrintsCanonical(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_METRICS_PORT", "")
 
-	stdout, _, exit := _runShow(t, "env", "WS_METRICS_PORT", "--as", "int")
+	stdout, _, exit := _runShow(t, "env", "metrics.port", "--as", "int")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "9100", strings.TrimSpace(stdout))
 }
@@ -208,7 +208,7 @@ func TestShowEnv_AsList_WithYAMLDelimiter(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "tshark gh helm-extras")
 
-	stdout, _, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "list")
+	stdout, _, exit := _runShow(t, "env", "features.additional_features", "--as", "list")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "tshark\ngh\nhelm-extras", strings.TrimSpace(stdout))
 }
@@ -217,70 +217,70 @@ func TestShowEnv_AsRejectsUnknownType(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "anything")
 
-	_, stderr, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "garbage")
+	_, stderr, exit := _runShow(t, "env", "server.root", "--as", "garbage")
 	assert.Assert(t, exit != 0 || stderr != "")
 }
 
 func TestShowEnv_AsAndValueMutuallyExclusive(t *testing.T) {
 	_installEnvFixture(t)
 
-	_, stderr, _ := _runShow(t, "env", "WS_SERVER_ROOT", "--value", "--as", "int")
+	_, stderr, _ := _runShow(t, "env", "server.root", "--value", "--as", "int")
 	assert.Assert(t, strings.Contains(stderr, "none of the others can be"), "want cobra mutex error, got: %q", stderr)
 }
 
 func TestShowEnv_UnknownKey_Default(t *testing.T) {
 	_installEnvFixture(t)
 
-	stdout, stderr, exit := _runShow(t, "env", "WS_NOT_DECLARED")
+	stdout, stderr, exit := _runShow(t, "env", "server.bogus")
 	assert.Equal(t, 2, exit)
 	assert.Equal(t, "", stdout)
-	assert.Equal(t, "Unknown env var [WS_NOT_DECLARED]\n", stderr)
+	assert.Equal(t, "Unknown env var [server.bogus]\n", stderr)
 }
 
 func TestShowEnv_UnknownKey_Value(t *testing.T) {
 	_installEnvFixture(t)
 
-	_, stderr, exit := _runShow(t, "env", "WS_NOT_DECLARED", "--value")
+	_, stderr, exit := _runShow(t, "env", "server.bogus", "--value")
 	assert.Equal(t, 2, exit)
-	assert.Equal(t, "Unknown env var [WS_NOT_DECLARED]\n", stderr)
+	assert.Equal(t, "Unknown env var [server.bogus]\n", stderr)
 }
 
 func TestShowEnv_UnknownKey_AsBool(t *testing.T) {
 	_installEnvFixture(t)
 
-	_, stderr, exit := _runShow(t, "env", "WS_NOT_DECLARED", "--as", "bool")
+	_, stderr, exit := _runShow(t, "env", "server.bogus", "--as", "bool")
 	assert.Equal(t, 2, exit)
-	assert.Equal(t, "Unknown env var [WS_NOT_DECLARED]\n", stderr)
+	assert.Equal(t, "Unknown env var [server.bogus]\n", stderr)
 }
 
 func TestShowEnv_UnknownKey_AsInt(t *testing.T) {
 	_installEnvFixture(t)
 
-	_, stderr, exit := _runShow(t, "env", "WS_NOT_DECLARED", "--as", "int")
+	_, stderr, exit := _runShow(t, "env", "server.bogus", "--as", "int")
 	assert.Equal(t, 2, exit)
-	assert.Equal(t, "Unknown env var [WS_NOT_DECLARED]\n", stderr)
+	assert.Equal(t, "Unknown env var [server.bogus]\n", stderr)
 }
 
 func TestShowEnv_UnknownKey_AsList(t *testing.T) {
 	_installEnvFixture(t)
 
-	_, stderr, exit := _runShow(t, "env", "WS_NOT_DECLARED", "--as", "list")
+	_, stderr, exit := _runShow(t, "env", "server.bogus", "--as", "list")
 	assert.Equal(t, 2, exit)
-	assert.Equal(t, "Unknown env var [WS_NOT_DECLARED]\n", stderr)
+	assert.Equal(t, "Unknown env var [server.bogus]\n", stderr)
 }
 
 func TestShowEnv_UnknownKey_StderrNotStdout(t *testing.T) {
 	_installEnvFixture(t)
 
-	stdout, _, _ := _runShow(t, "env", "WS_NOT_DECLARED")
+	stdout, _, _ := _runShow(t, "env", "server.bogus")
 	assert.Equal(t, "", stdout)
 }
 
 func TestShowEnv_UnknownKey_NotConflatedWithCheck(t *testing.T) {
 	_installEnvFixture(t)
-	t.Setenv("WS_NOT_DECLARED", "")
+	t.Setenv("WS_SERVER_BOGUS", "")
 
-	_, stderr, exit := _runShow(t, "env", "WS_NOT_DECLARED", "--check")
+	_, stderr, exit := _runShow(t, "env", "server.bogus", "--check")
 	assert.Equal(t, 1, exit)
 	assert.Assert(t, !strings.Contains(stderr, "Unknown env var"))
 }
@@ -288,23 +288,70 @@ func TestShowEnv_UnknownKey_NotConflatedWithCheck(t *testing.T) {
 func TestShowEnv_UnknownKey_ExitCode(t *testing.T) {
 	_installEnvFixture(t)
 
-	_, _, exit := _runShow(t, "env", "WS_BOGUS_KEY_42")
+	_, _, exit := _runShow(t, "env", "server.bogus")
 	assert.Equal(t, 2, exit)
 }
 
-func TestShowEnv_InternalKeyAlsoErrors(t *testing.T) {
+func TestShowEnv_InternalKeyRejectedAsWSQuery(t *testing.T) {
 	_installEnvFixture(t)
 
 	_, stderr, exit := _runShow(t, "env", "WS__INTERNAL_ENV_REFERENCE")
 	assert.Equal(t, 2, exit)
-	assert.Equal(t, "Unknown env var [WS__INTERNAL_ENV_REFERENCE]\n", stderr)
+	assert.Assert(t, strings.Contains(stderr, "Use dotted key"), "want WS_*-reject hint, got: %q", stderr)
+	assert.Assert(t, strings.Contains(stderr, "WS__INTERNAL_ENV_REFERENCE"), "want echoed input, got: %q", stderr)
+}
+
+func TestShowEnv_WSQueryKey_Rejected_Value(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_PORT", "9000")
+
+	stdout, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT", "--value")
+	assert.Equal(t, 2, exit)
+	assert.Equal(t, "", strings.TrimSpace(stdout))
+	assert.Equal(t, "Use dotted key [server.port] instead of [WS_SERVER_PORT]\n", stderr)
+}
+
+func TestShowEnv_WSQueryKey_Rejected_Pretty(t *testing.T) {
+	_installEnvFixture(t)
+
+	_, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT")
+	assert.Equal(t, 2, exit)
+	assert.Equal(t, "Use dotted key [server.port] instead of [WS_SERVER_PORT]\n", stderr)
+}
+
+func TestShowEnv_Dotted_ResolverReadsWSEnvVar(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_PORT", "7777")
+
+	stdout, _, exit := _runShow(t, "env", "server.port", "--value")
+	assert.Equal(t, 0, exit)
+	assert.Equal(t, "7777", strings.TrimSpace(stdout))
+}
+
+func TestShowEnv_Dotted_MultiSegmentProp(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_AUTH_GITHUB_TOKEN_FILE", "/run/secrets/gh")
+
+	stdout, _, exit := _runShow(t, "env", "auth.github_token_file", "--value")
+	assert.Equal(t, 0, exit)
+	assert.Equal(t, "/run/secrets/gh", strings.TrimSpace(stdout))
+}
+
+func TestShowEnv_Dotted_CheckDeprecated_StaysRawWS(t *testing.T) {
+	_installEnvFixture(t)
+	t.Setenv("WS_SERVER_PORT", "")
+	t.Setenv("WS_PORT", "9000")
+
+	_, stderr, exit := _runShow(t, "env", "server.port", "--check", "--deprecated", "WS_PORT")
+	assert.Equal(t, 1, exit)
+	assert.Equal(t, "Deprecated: [WS_PORT] use [WS_SERVER_PORT] instead\n", stderr)
 }
 
 func TestShowEnv_LongDescriptionRenders_Default(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "")
 
-	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT")
+	stdout, _, exit := _runShow(t, "env", "server.root")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
 	assert.Assert(t, strings.Contains(plain, "WS_SERVER_ROOT"), "want key in output, got: %q", plain)
@@ -317,7 +364,7 @@ func TestShowEnv_LongDescriptionAbsent_DefaultStillRenders(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_METRICS_PORT", "")
 
-	stdout, _, exit := _runShow(t, "env", "WS_METRICS_PORT")
+	stdout, _, exit := _runShow(t, "env", "metrics.port")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
 	assert.Assert(t, strings.Contains(plain, "WS_METRICS_PORT"))
@@ -329,7 +376,7 @@ func TestShowEnv_SourceLabel_EnvSet(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "/from-env")
 
-	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT")
+	stdout, _, exit := _runShow(t, "env", "server.root")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
 	assert.Assert(t, strings.Contains(plain, "process"), "want env-set source label, got: %q", plain)
@@ -339,7 +386,7 @@ func TestShowEnv_SourceLabel_YAMLDefault(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "")
 
-	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT")
+	stdout, _, exit := _runShow(t, "env", "server.root")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
 	assert.Assert(t, strings.Contains(plain, "declared"), "want yaml-default source label, got: %q", plain)
@@ -350,7 +397,7 @@ func TestShowEnv_SourceLabel_DeprecatedAlias(t *testing.T) {
 	t.Setenv("WS_SERVER_PORT", "")
 	t.Setenv("WS_PORT", "9000")
 
-	stdout, _, exit := _runShow(t, "env", "WS_SERVER_PORT")
+	stdout, _, exit := _runShow(t, "env", "server.port")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
 	assert.Assert(t, strings.Contains(plain, "alias"), "want deprecated-alias label, got: %q", plain)
@@ -360,7 +407,7 @@ func TestShowEnv_SourceLabel_EmptyEnvFallsBackToYAML(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "")
 
-	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT")
+	stdout, _, exit := _runShow(t, "env", "server.root")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
 	assert.Assert(t, strings.Contains(plain, "declared"))
@@ -372,7 +419,7 @@ func TestShowEnv_DeprecatedAlias_StderrAndLabel(t *testing.T) {
 	t.Setenv("WS_SERVER_PORT", "")
 	t.Setenv("WS_PORT", "9000")
 
-	stdout, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT")
+	stdout, stderr, exit := _runShow(t, "env", "server.port")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
 	assert.Assert(t, strings.Contains(plain, "alias"), "want source label, got: %q", plain)
@@ -384,7 +431,7 @@ func TestShowEnv_CheckPreferredSet(t *testing.T) {
 	t.Setenv("WS_SERVER_PORT", "9000")
 	t.Setenv("WS_PORT", "")
 
-	_, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT", "--check", "--deprecated", "WS_PORT")
+	_, stderr, exit := _runShow(t, "env", "server.port", "--check", "--deprecated", "WS_PORT")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "", stderr)
 }
@@ -394,7 +441,7 @@ func TestShowEnv_CheckDeprecatedOnly(t *testing.T) {
 	t.Setenv("WS_SERVER_PORT", "")
 	t.Setenv("WS_PORT", "9000")
 
-	_, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT", "--check", "--deprecated", "WS_PORT")
+	_, stderr, exit := _runShow(t, "env", "server.port", "--check", "--deprecated", "WS_PORT")
 	assert.Equal(t, 1, exit)
 	assert.Equal(t, "Deprecated: [WS_PORT] use [WS_SERVER_PORT] instead\n", stderr)
 }
@@ -404,7 +451,7 @@ func TestShowEnv_CheckBothSet(t *testing.T) {
 	t.Setenv("WS_SERVER_PORT", "9000")
 	t.Setenv("WS_PORT", "9001")
 
-	_, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT", "--check", "--deprecated", "WS_PORT")
+	_, stderr, exit := _runShow(t, "env", "server.port", "--check", "--deprecated", "WS_PORT")
 	assert.Equal(t, 2, exit)
 	assert.Equal(t, "Both [WS_PORT] (deprecated) and [WS_SERVER_PORT] are set\n. Aborting\n", stderr)
 }
@@ -414,7 +461,7 @@ func TestShowEnv_CheckUnset(t *testing.T) {
 	t.Setenv("WS_SERVER_PORT", "")
 	t.Setenv("WS_PORT", "")
 
-	_, _, exit := _runShow(t, "env", "WS_SERVER_PORT", "--check", "--deprecated", "WS_PORT")
+	_, _, exit := _runShow(t, "env", "server.port", "--check", "--deprecated", "WS_PORT")
 	assert.Equal(t, 1, exit)
 }
 
@@ -423,7 +470,7 @@ func TestShowEnv_TypePath_DefaultMode_RendersExpandedValue(t *testing.T) {
 	t.Setenv("HOME", "/home/kloud")
 	t.Setenv("WS_SECRETS_VAULT", "")
 
-	stdout, _, exit := _runShow(t, "env", "WS_SECRETS_VAULT")
+	stdout, _, exit := _runShow(t, "env", "secrets.vault")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
 	assert.Assert(t, strings.Contains(plain, "/home/kloud/.ws/vault/secrets.yaml"), "want expanded value, got: %q", plain)
@@ -435,7 +482,7 @@ func TestShowEnv_TypePath_ValueFlag_ReturnsExpanded(t *testing.T) {
 	t.Setenv("HOME", "/home/kloud")
 	t.Setenv("WS_SECRETS_VAULT", "")
 
-	stdout, _, exit := _runShow(t, "env", "WS_SECRETS_VAULT", "--value")
+	stdout, _, exit := _runShow(t, "env", "secrets.vault", "--value")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "/home/kloud/.ws/vault/secrets.yaml", strings.TrimSpace(stdout))
 }
@@ -445,7 +492,7 @@ func TestShowEnv_TypePath_SourceLabel_NullDefault_TypePath(t *testing.T) {
 	t.Setenv("HOME", "/home/kloud")
 	t.Setenv("WS_AUTH_GITHUB_TOKEN_FILE", "")
 
-	stdout, _, exit := _runShow(t, "env", "WS_AUTH_GITHUB_TOKEN_FILE")
+	stdout, _, exit := _runShow(t, "env", "auth.github_token_file")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
 	assert.Assert(t, strings.Contains(plain, "declared"), "want yaml-default source label, got: %q", plain)
@@ -458,12 +505,12 @@ func TestShowEnv_Secret_FilePrefix_ValueFlag(t *testing.T) {
 	assert.NilError(t, os.WriteFile(pwFile, []byte("super-secret\n"), 0o600))
 	t.Setenv("WS_AUTH_PASSWORD", "file:"+pwFile)
 
-	stdout, _, exit := _runShow(t, "env", "WS_AUTH_PASSWORD", "--value")
+	stdout, _, exit := _runShow(t, "env", "auth.password", "--value")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "super-secret", strings.TrimSpace(stdout))
 
 	t.Setenv("WS_AUTH_PASSWORD", "file:"+pwFile)
-	stdout, _, exit = _runShow(t, "env", "WS_AUTH_PASSWORD")
+	stdout, _, exit = _runShow(t, "env", "auth.password")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
 	assert.Assert(t, strings.Contains(plain, "file"), "want env-file source label, got: %q", plain)
@@ -479,7 +526,7 @@ func TestShowEnv_Secret_ConventionDefault_SourceLabel(t *testing.T) {
 	assert.NilError(t, os.WriteFile(filepath.Join(root, "auth/password"), []byte("conv-secret\n"), 0o600))
 	t.Setenv("WS_AUTH_PASSWORD", "")
 
-	stdout, _, exit := _runShow(t, "env", "WS_AUTH_PASSWORD")
+	stdout, _, exit := _runShow(t, "env", "auth.password")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
 	assert.Assert(t, strings.Contains(plain, "mount"), "want secret-file-default source label, got: %q", plain)
@@ -491,7 +538,7 @@ func TestShowEnv_NonSecret_FilePrefix_ErrorPath(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "file:/tmp/x")
 
-	_, stderr, _ := _runShow(t, "env", "WS_SERVER_ROOT", "--value")
+	_, stderr, _ := _runShow(t, "env", "server.root", "--value")
 	assert.Assert(t, strings.Contains(stderr, "file: prefix is only valid on secret properties"),
 		"want foot-gun error, got stderr=%q", stderr)
 	assert.Assert(t, strings.Contains(stderr, "WS_SERVER_ROOT"), "want runtimeKey in stderr, got: %q", stderr)
@@ -503,7 +550,7 @@ func TestShow_RawFlagInheritedByAllLeaves(t *testing.T) {
 		{[]string{"path", "vscode-settings", "--raw"}},
 		{[]string{"ip", "internal", "--raw"}},
 		{[]string{"ip", "node", "--raw"}},
-		{[]string{"env", "WS_SERVER_ROOT", "--raw"}},
+		{[]string{"env", "server.root", "--raw"}},
 	}
 
 	for _, c := range cases {
@@ -522,7 +569,7 @@ func TestShowEnv_ValueOrSkip_ValueSet_PrintsExitsZero(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "/custom")
 
-	stdout, stderr, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--value", "--or-skip")
+	stdout, stderr, exit := _runShow(t, "env", "server.root", "--value", "--or-skip")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "/custom", strings.TrimSpace(stdout))
 	assert.Equal(t, "", stderr)
@@ -532,7 +579,7 @@ func TestShowEnv_ValueOrSkip_DefaultPresent_PrintsExitsZero(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "")
 
-	stdout, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--value", "--or-skip")
+	stdout, _, exit := _runShow(t, "env", "server.root", "--value", "--or-skip")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "/workspace", strings.TrimSpace(stdout))
 }
@@ -541,7 +588,7 @@ func TestShowEnv_ValueOrSkip_Unset_Skips(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "")
 
-	stdout, stderr, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--value", "--or-skip")
+	stdout, stderr, exit := _runShow(t, "env", "features.additional_features", "--value", "--or-skip")
 	assert.Equal(t, 1, exit)
 	assert.Equal(t, "", strings.TrimSpace(stdout))
 	assert.Assert(t, _hasSkip(stderr, "WS_FEATURES_ADDITIONAL_FEATURES"), "want skip breadcrumb, got: %q", stderr)
@@ -552,7 +599,7 @@ func TestShowEnv_ValueCheckOrSkip_PreferredSet_ExitsZeroPrints(t *testing.T) {
 	t.Setenv("WS_SERVER_PORT", "9000")
 	t.Setenv("WS_PORT", "")
 
-	stdout, _, exit := _runShow(t, "env", "WS_SERVER_PORT", "--value", "--check")
+	stdout, _, exit := _runShow(t, "env", "server.port", "--value", "--check")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "9000", strings.TrimSpace(stdout))
 }
@@ -562,7 +609,7 @@ func TestShowEnv_ValueCheckOrSkip_DeprecatedAliasOnly_ExitsZeroPrints(t *testing
 	t.Setenv("WS_SERVER_PORT", "")
 	t.Setenv("WS_PORT", "9001")
 
-	stdout, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT", "--value", "--check", "--deprecated", "WS_PORT", "--or-skip")
+	stdout, stderr, exit := _runShow(t, "env", "server.port", "--value", "--check", "--deprecated", "WS_PORT", "--or-skip")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "9001", strings.TrimSpace(stdout))
 	assert.Assert(t, strings.Contains(stderr, "Deprecated: [WS_PORT] use [WS_SERVER_PORT] instead"), "want deprecation line, got: %q", stderr)
@@ -573,7 +620,7 @@ func TestShowEnv_ValueCheckOrSkip_NeitherSet_Skips(t *testing.T) {
 	t.Setenv("WS_SERVER_PORT", "")
 	t.Setenv("WS_PORT", "")
 
-	stdout, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT", "--value", "--check", "--or-skip")
+	stdout, stderr, exit := _runShow(t, "env", "server.port", "--value", "--check", "--or-skip")
 	assert.Equal(t, 1, exit)
 	assert.Equal(t, "", strings.TrimSpace(stdout))
 	assert.Assert(t, _hasSkip(stderr, "WS_SERVER_PORT"), "want skip breadcrumb, got: %q", stderr)
@@ -584,7 +631,7 @@ func TestShowEnv_ValueCheckOrSkip_BothSet_ExitsTwo(t *testing.T) {
 	t.Setenv("WS_SERVER_PORT", "9000")
 	t.Setenv("WS_PORT", "9001")
 
-	_, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT", "--value", "--check", "--deprecated", "WS_PORT", "--or-skip")
+	_, stderr, exit := _runShow(t, "env", "server.port", "--value", "--check", "--deprecated", "WS_PORT", "--or-skip")
 	assert.Equal(t, 2, exit)
 	assert.Equal(t, "Both [WS_PORT] (deprecated) and [WS_SERVER_PORT] are set\n. Aborting\n", stderr)
 }
@@ -592,16 +639,16 @@ func TestShowEnv_ValueCheckOrSkip_BothSet_ExitsTwo(t *testing.T) {
 func TestShowEnv_ValueCheckOrSkip_UnknownKey_ExitsTwo(t *testing.T) {
 	_installEnvFixture(t)
 
-	_, stderr, exit := _runShow(t, "env", "WS_NOT_DECLARED", "--value", "--check", "--or-skip")
+	_, stderr, exit := _runShow(t, "env", "server.bogus", "--value", "--check", "--or-skip")
 	assert.Equal(t, 2, exit)
-	assert.Equal(t, "Unknown env var [WS_NOT_DECLARED]\n", stderr)
+	assert.Equal(t, "Unknown env var [server.bogus]\n", stderr)
 }
 
 func TestShowEnv_ValueAndCheckNowCompatible(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_PORT", "9000")
 
-	_, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT", "--value", "--check")
+	_, stderr, exit := _runShow(t, "env", "server.port", "--value", "--check")
 	assert.Equal(t, 0, exit)
 	assert.Assert(t, !strings.Contains(stderr, "none of the others can be"), "want no mutex error, got: %q", stderr)
 }
@@ -610,7 +657,7 @@ func TestShowEnv_AsBoolOrSkip_Truthy_ExitsZero(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "true")
 
-	_, stderr, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "bool", "--or-skip")
+	_, stderr, exit := _runShow(t, "env", "server.root", "--as", "bool", "--or-skip")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "", stderr)
 }
@@ -619,7 +666,7 @@ func TestShowEnv_AsBoolOrSkip_Falsy_ExitsOne_NotSkip(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "false")
 
-	_, stderr, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "bool", "--or-skip")
+	_, stderr, exit := _runShow(t, "env", "server.root", "--as", "bool", "--or-skip")
 	assert.Equal(t, 1, exit)
 	assert.Assert(t, !_hasSkip(stderr, "WS_SERVER_ROOT"), "set-to-false must be silent (not a skip), got: %q", stderr)
 }
@@ -628,7 +675,7 @@ func TestShowEnv_AsBoolOrSkip_Unset_Skips(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "")
 
-	_, stderr, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "bool", "--or-skip")
+	_, stderr, exit := _runShow(t, "env", "features.additional_features", "--as", "bool", "--or-skip")
 	assert.Equal(t, 1, exit)
 	assert.Assert(t, _hasSkip(stderr, "WS_FEATURES_ADDITIONAL_FEATURES"), "want skip breadcrumb, got: %q", stderr)
 }
@@ -637,7 +684,7 @@ func TestShowEnv_AsBoolOrSkip_OperatorOnlyDefault_Skips(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_AUTH_GITHUB_TOKEN_FILE", "")
 
-	_, stderr, exit := _runShow(t, "env", "WS_AUTH_GITHUB_TOKEN_FILE", "--as", "bool", "--or-skip")
+	_, stderr, exit := _runShow(t, "env", "auth.github_token_file", "--as", "bool", "--or-skip")
 	assert.Equal(t, 1, exit)
 	assert.Assert(t, _hasSkip(stderr, "WS_AUTH_GITHUB_TOKEN_FILE"), "want skip breadcrumb, got: %q", stderr)
 }
@@ -646,7 +693,7 @@ func TestShowEnv_AsBoolOrSkip_PaddedTruthy_Trims(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "  true  ")
 
-	_, _, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "bool", "--or-skip")
+	_, _, exit := _runShow(t, "env", "server.root", "--as", "bool", "--or-skip")
 	assert.Equal(t, 0, exit)
 }
 
@@ -654,7 +701,7 @@ func TestShowEnv_AsBoolOrSkip_PaddedFalsy_Trims(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "  false  ")
 
-	_, stderr, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "bool", "--or-skip")
+	_, stderr, exit := _runShow(t, "env", "server.root", "--as", "bool", "--or-skip")
 	assert.Equal(t, 1, exit)
 	assert.Assert(t, !_hasSkip(stderr, "WS_SERVER_ROOT"), "padded-false is definite-false, not a skip, got: %q", stderr)
 }
@@ -663,7 +710,7 @@ func TestShowEnv_AsBoolOrSkip_WhitespaceOnly_TreatedAsUnset(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_SERVER_ROOT", "   ")
 
-	_, stderr, exit := _runShow(t, "env", "WS_SERVER_ROOT", "--as", "bool", "--or-skip")
+	_, stderr, exit := _runShow(t, "env", "server.root", "--as", "bool", "--or-skip")
 	assert.Equal(t, 1, exit)
 	assert.Assert(t, _hasSkip(stderr, "WS_SERVER_ROOT"), "whitespace-only resolves as unset → skip, got: %q", stderr)
 }
@@ -672,7 +719,7 @@ func TestShowEnv_AsBool_Unset_NoOrSkip_StillErrors(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "")
 
-	_, stderr, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "bool")
+	_, stderr, exit := _runShow(t, "env", "features.additional_features", "--as", "bool")
 	assert.Assert(t, exit != 0 || stderr != "", "without --or-skip, unset bool must error/non-zero, got exit=%d stderr=%q", exit, stderr)
 }
 
@@ -680,7 +727,7 @@ func TestShowEnv_Value_NoOrSkip_EmptyStillPrintsExitsZero(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "")
 
-	stdout, stderr, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--value")
+	stdout, stderr, exit := _runShow(t, "env", "features.additional_features", "--value")
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "", strings.TrimSpace(stdout))
 	assert.Equal(t, "", stderr)
@@ -696,7 +743,7 @@ func _runValidate(t *testing.T, value, charset string) (stdout, stderr string, e
 	t.Helper()
 	_installEnvFixture(t)
 	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", value)
-	return _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "list", "--delimiter", "|", "--validate", charset)
+	return _runShow(t, "env", "features.additional_features", "--as", "list", "--delimiter", "|", "--validate", charset)
 }
 
 func _assertRejected(t *testing.T, stdout, stderr string, exit int, token string) {
@@ -750,7 +797,7 @@ func TestShowEnv_Validate_LegalTokens_PassThrough(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "tshark gh helm-extras")
 
-	stdout, stderr, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "list", "--validate", _charsetPackage)
+	stdout, stderr, exit := _runShow(t, "env", "features.additional_features", "--as", "list", "--validate", _charsetPackage)
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "tshark\ngh\nhelm-extras", strings.TrimSpace(stdout))
 	assert.Equal(t, "", stderr)
@@ -760,7 +807,7 @@ func TestShowEnv_Validate_LegalDomains_PassThrough(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "example.com api.example.org")
 
-	stdout, _, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "list", "--validate", _charsetDomain)
+	stdout, _, exit := _runShow(t, "env", "features.additional_features", "--as", "list", "--validate", _charsetDomain)
 	assert.Equal(t, 0, exit)
 	assert.Equal(t, "example.com\napi.example.org", strings.TrimSpace(stdout))
 }
@@ -769,7 +816,7 @@ func TestShowEnv_Validate_OneBadToken_FailsWholeListClosed(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "good evil;rm alsogood")
 
-	stdout, stderr, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "list", "--validate", _charsetPackage)
+	stdout, stderr, exit := _runShow(t, "env", "features.additional_features", "--as", "list", "--validate", _charsetPackage)
 	assert.Assert(t, exit != 0)
 	assert.Equal(t, "", strings.TrimSpace(stdout), "fail-closed: no partial emission, got: %q", stdout)
 	assert.Assert(t, strings.Contains(stderr, "Rejected: invalid item [evil;rm]"), "want rejection of offending token, got: %q", stderr)
@@ -779,7 +826,7 @@ func TestShowEnv_AsList_NoValidate_Unchanged(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "a;b c")
 
-	stdout, _, exit := _runShow(t, "env", "WS_FEATURES_ADDITIONAL_FEATURES", "--as", "list")
+	stdout, _, exit := _runShow(t, "env", "features.additional_features", "--as", "list")
 	assert.Equal(t, 0, exit)
 	// default space delimiter, no validation → tokens emitted verbatim
 	assert.Equal(t, "a;b\nc", strings.TrimSpace(stdout))
@@ -790,14 +837,14 @@ func TestShowEnv_CheckUnchanged(t *testing.T) {
 	t.Setenv("WS_SERVER_PORT", "")
 	t.Setenv("WS_PORT", "9000")
 
-	_, stderr, exit := _runShow(t, "env", "WS_SERVER_PORT", "--check", "--deprecated", "WS_PORT")
+	_, stderr, exit := _runShow(t, "env", "server.port", "--check", "--deprecated", "WS_PORT")
 	assert.Equal(t, 1, exit)
 	assert.Equal(t, "Deprecated: [WS_PORT] use [WS_SERVER_PORT] instead\n", stderr)
 
 	t.Setenv("WS_SERVER_PORT", "9000")
 	t.Setenv("WS_PORT", "9001")
 
-	_, stderr, exit = _runShow(t, "env", "WS_SERVER_PORT", "--check", "--deprecated", "WS_PORT")
+	_, stderr, exit = _runShow(t, "env", "server.port", "--check", "--deprecated", "WS_PORT")
 	assert.Equal(t, 2, exit)
 	assert.Equal(t, "Both [WS_PORT] (deprecated) and [WS_SERVER_PORT] are set\n. Aborting\n", stderr)
 }
