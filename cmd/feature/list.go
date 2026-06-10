@@ -13,9 +13,7 @@ var listCmd = &cobra.Command{
 	Short:   "List available features that can be installed",
 	Aliases: []string{"ls"},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		featuresDir, _ := cmd.Flags().GetString("root")
-
-		result, err := features.ListFeatures(featuresDir)
+		result, err := features.ListFeatures(featureDirs(cmd))
 		if err != nil {
 			return fmt.Errorf("failed to list features: %w", err)
 		}
@@ -33,7 +31,7 @@ var listCmd = &cobra.Command{
 
 		items := make([]styles.DescriptionItem, len(result.Features))
 		for i, f := range result.Features {
-			items[i] = styles.DescriptionItem{Name: f.Name, Description: f.Description}
+			items[i] = styles.DescriptionItem{Name: f.Name, Description: describeSource(f)}
 		}
 
 		fmt.Fprintln(cmd.OutOrStdout(), styles.List(styles.DescriptionList(items)...))
@@ -45,4 +43,15 @@ var listCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+func describeSource(f *features.Feature) string {
+	switch f.Source {
+	case features.SourceUser:
+		return f.Description + " (user)"
+	case features.SourceOverride:
+		return f.Description + " (override)"
+	default:
+		return f.Description
+	}
 }

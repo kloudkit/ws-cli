@@ -112,7 +112,7 @@ func TestListFeatures(t *testing.T) {
 		assert.NilError(t, err)
 	}
 
-	result, err := ListFeatures(tmpDir)
+	result, err := ListFeatures([]string{tmpDir})
 	assert.NilError(t, err)
 	assert.Equal(t, 2, len(result.Features))
 	assert.Equal(t, 0, len(result.Warnings))
@@ -143,7 +143,7 @@ func TestListFeaturesWithWarnings(t *testing.T) {
 		assert.NilError(t, err)
 	}
 
-	result, err := ListFeatures(tmpDir)
+	result, err := ListFeatures([]string{tmpDir})
 	assert.NilError(t, err)
 	assert.Equal(t, 1, len(result.Features))
 	assert.Equal(t, "good", result.Features[0].Name)
@@ -172,7 +172,7 @@ func TestInfoFeature(t *testing.T) {
 	err := os.WriteFile(testFile, []byte(content), 0644)
 	assert.NilError(t, err)
 
-	feature, err := InfoFeature(tmpDir, "test-feature")
+	feature, err := InfoFeature([]string{tmpDir}, "test-feature")
 	assert.NilError(t, err)
 
 	assert.Equal(t, "test-feature", feature.Name)
@@ -183,6 +183,168 @@ func TestInfoFeature(t *testing.T) {
 func TestInfoFeatureNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	_, err := InfoFeature(tmpDir, "nonexistent")
+	_, err := InfoFeature([]string{tmpDir}, "nonexistent")
 	assert.ErrorContains(t, err, "feature 'nonexistent' not found")
+}
+
+func _writeFeature(t *testing.T, dir, name, desc string) {
+	t.Helper()
+	content := "---\n- name: " + desc + "\n  gather_facts: false\n  hosts: workspace\n"
+	assert.NilError(t, os.WriteFile(filepath.Join(dir, name+".yaml"), []byte(content), 0644))
+}
+
+func _writeRaw(t *testing.T, dir, name, content string) {
+	t.Helper()
+	assert.NilError(t, os.WriteFile(filepath.Join(dir, name+".yaml"), []byte(content), 0644))
+}
+
+func TestListFeaturesUserOverridesSystem(t *testing.T) {
+	system, user := t.TempDir(), t.TempDir()
+	_writeFeature(t, system, "git", "System Git")
+	_writeFeature(t, user, "git", "User Git")
+
+	result, err := ListFeatures([]string{system, user})
+	assert.NilError(t, err)
+	assert.Equal(t, 1, len(result.Features))
+	assert.Equal(t, "git", result.Features[0].Name)
+	assert.Equal(t, "User Git", result.Features[0].Description)
+	assert.Equal(t, SourceOverride, result.Features[0].Source)
+}
+
+func TestListFeaturesUnionDistinctNames(t *testing.T) {
+	system, user := t.TempDir(), t.TempDir()
+	_writeFeature(t, system, "only-system", "System Only")
+	_writeFeature(t, user, "only-user", "User Only")
+
+	result, err := ListFeatures([]string{system, user})
+	assert.NilError(t, err)
+	assert.Equal(t, 2, len(result.Features))
+}
+
+func TestListFeaturesUserDirAbsent(t *testing.T) {
+	system := t.TempDir()
+	_writeFeature(t, system, "git", "System Git")
+	missing := filepath.Join(t.TempDir(), "nope")
+
+	result, err := ListFeatures([]string{system, missing})
+	assert.NilError(t, err)
+	assert.Equal(t, 1, len(result.Features))
+	assert.Equal(t, SourceSystem, result.Features[0].Source)
+}
+
+func TestListFeaturesSystemDirAbsent(t *testing.T) {
+	user := t.TempDir()
+	_writeFeature(t, user, "git", "User Git")
+	missing := filepath.Join(t.TempDir(), "nope")
+
+	result, err := ListFeatures([]string{missing, user})
+	assert.NilError(t, err)
+	assert.Equal(t, 1, len(result.Features))
+	assert.Equal(t, SourceUser, result.Features[0].Source)
+}
+
+func TestListFeaturesUserDirEmpty(t *testing.T) {
+	system, user := t.TempDir(), t.TempDir()
+	_writeFeature(t, system, "git", "System Git")
+
+	result, err := ListFeatures([]string{system, user})
+	assert.NilError(t, err)
+	assert.Equal(t, 1, len(result.Features))
+	assert.Equal(t, 0, len(result.Warnings))
+}
+
+func TestListFeaturesMalformedUserNoTwin(t *testing.T) {
+	system, user := t.TempDir(), t.TempDir()
+	_writeFeature(t, system, "good", "Good Feature")
+	_writeRaw(t, user, "bad", "invalid yaml [[[")
+
+	result, err := ListFeatures([]string{system, user})
+	assert.NilError(t, err)
+	assert.Equal(t, 1, len(result.Features))
+	assert.Equal(t, "good", result.Features[0].Name)
+	assert.Equal(t, 1, len(result.Warnings))
+}
+
+func TestListFeaturesMalformedUserShadowsSystem_NoFallback(t *testing.T) {
+	system, user := t.TempDir(), t.TempDir()
+	_writeFeature(t, system, "git", "System Git")
+	_writeRaw(t, user, "git", "invalid yaml [[[")
+
+	result, err := ListFeatures([]string{system, user})
+	assert.NilError(t, err)
+	assert.Equal(t, 0, len(result.Features))
+	assert.Equal(t, 1, len(result.Warnings))
+}
+
+func TestListFeaturesMarksSource(t *testing.T) {
+	system, user := t.TempDir(), t.TempDir()
+	_writeFeature(t, system, "sys-only", "System Only")
+	_writeFeature(t, system, "shared", "System Shared")
+	_writeFeature(t, user, "shared", "User Shared")
+	_writeFeature(t, user, "usr-only", "User Only")
+
+	result, err := ListFeatures([]string{system, user})
+	assert.NilError(t, err)
+
+	byName := map[string]*Feature{}
+	for _, f := range result.Features {
+		byName[f.Name] = f
+	}
+	assert.Equal(t, SourceSystem, byName["sys-only"].Source)
+	assert.Equal(t, SourceOverride, byName["shared"].Source)
+	assert.Equal(t, SourceUser, byName["usr-only"].Source)
+}
+
+func TestInfoFeatureUserWins(t *testing.T) {
+	system, user := t.TempDir(), t.TempDir()
+	_writeFeature(t, system, "git", "System Git")
+	_writeFeature(t, user, "git", "User Git")
+
+	feature, err := InfoFeature([]string{system, user}, "git")
+	assert.NilError(t, err)
+	assert.Equal(t, "User Git", feature.Description)
+	assert.Equal(t, SourceOverride, feature.Source)
+}
+
+func TestInfoFeatureSystemFallback(t *testing.T) {
+	system, user := t.TempDir(), t.TempDir()
+	_writeFeature(t, system, "git", "System Git")
+
+	feature, err := InfoFeature([]string{system, user}, "git")
+	assert.NilError(t, err)
+	assert.Equal(t, "System Git", feature.Description)
+	assert.Equal(t, SourceSystem, feature.Source)
+}
+
+func TestInfoFeatureMalformedUserShadow_Errors(t *testing.T) {
+	system, user := t.TempDir(), t.TempDir()
+	_writeFeature(t, system, "git", "System Git")
+	_writeRaw(t, user, "git", "invalid yaml [[[")
+
+	_, err := InfoFeature([]string{system, user}, "git")
+	assert.Assert(t, err != nil)
+}
+
+func TestInfoFeatureNotFoundInEither(t *testing.T) {
+	system, user := t.TempDir(), t.TempDir()
+
+	_, err := InfoFeature([]string{system, user}, "nope")
+	assert.ErrorContains(t, err, "feature 'nope' not found")
+}
+
+func TestResolveFeaturePathUserWins(t *testing.T) {
+	system, user := t.TempDir(), t.TempDir()
+	_writeFeature(t, system, "git", "System Git")
+	_writeFeature(t, user, "git", "User Git")
+
+	path, err := ResolveFeaturePath([]string{system, user}, "git")
+	assert.NilError(t, err)
+	assert.Equal(t, filepath.Join(user, "git.yaml"), path)
+}
+
+func TestResolveFeaturePathNotFound(t *testing.T) {
+	system := t.TempDir()
+
+	_, err := ResolveFeaturePath([]string{system}, "nope")
+	assert.ErrorContains(t, err, "feature 'nope' not found")
 }

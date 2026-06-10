@@ -13,10 +13,9 @@ var infoCmd = &cobra.Command{
 	Short: "Show detailed information about a feature",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		featuresDir, _ := cmd.Flags().GetString("root")
 		featureName := args[0]
 
-		feature, err := features.InfoFeature(featuresDir, featureName)
+		feature, err := features.InfoFeature(featureDirs(cmd), featureName)
 		if err != nil {
 			return fmt.Errorf("failed to get feature info: %w", err)
 		}

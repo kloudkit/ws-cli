@@ -10,10 +10,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type FeatureSource string
+
+const (
+	SourceSystem   FeatureSource = "system"
+	SourceUser     FeatureSource = "user"
+	SourceOverride FeatureSource = "override"
+)
+
 type Feature struct {
 	Name        string
 	Description string
 	Vars        []string
+	Source      FeatureSource
 }
 
 type PlaybookTask struct {
@@ -53,14 +62,60 @@ func ParseFeatureFile(filePath string) (*Feature, error) {
 	}, nil
 }
 
-func InfoFeature(featuresDir, name string) (*Feature, error) {
-	featurePath := filepath.Join(featuresDir, name+".yaml")
+func resolveOwner(dirs []string, name string) (ownerPath string, ownerIdx, presentCount int) {
+	ownerIdx = -1
 
-	if _, err := os.Stat(featurePath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("feature '%s' not found at %s", name, featurePath)
+	for idx, dir := range dirs {
+		candidate := filepath.Join(dir, name+".yaml")
+
+		info, err := os.Stat(candidate)
+		if err != nil || info.IsDir() {
+			continue
+		}
+
+		ownerPath = candidate
+		ownerIdx = idx
+		presentCount++
 	}
 
-	return ParseFeatureFile(featurePath)
+	return ownerPath, ownerIdx, presentCount
+}
+
+func sourceFor(ownerIdx, presentCount, numDirs int) FeatureSource {
+	if numDirs < 2 || ownerIdx < numDirs-1 {
+		return SourceSystem
+	}
+
+	if presentCount > 1 {
+		return SourceOverride
+	}
+
+	return SourceUser
+}
+
+func InfoFeature(dirs []string, name string) (*Feature, error) {
+	ownerPath, ownerIdx, presentCount := resolveOwner(dirs, name)
+	if ownerPath == "" {
+		return nil, fmt.Errorf("feature '%s' not found", name)
+	}
+
+	feature, err := ParseFeatureFile(ownerPath)
+	if err != nil {
+		return nil, err
+	}
+
+	feature.Source = sourceFor(ownerIdx, presentCount, len(dirs))
+
+	return feature, nil
+}
+
+func ResolveFeaturePath(dirs []string, name string) (string, error) {
+	ownerPath, _, _ := resolveOwner(dirs, name)
+	if ownerPath == "" {
+		return "", fmt.Errorf("feature '%s' not found", name)
+	}
+
+	return ownerPath, nil
 }
 
 type ListResult struct {
@@ -68,24 +123,48 @@ type ListResult struct {
 	Warnings []string
 }
 
-func ListFeatures(featuresDir string) (*ListResult, error) {
-	entries, err := os.ReadDir(featuresDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read features directory %s: %w", featuresDir, err)
+func ListFeatures(dirs []string) (*ListResult, error) {
+	owners := map[string]string{}
+	ownerIdx := map[string]int{}
+	presentCount := map[string]int{}
+	names := []string{}
+
+	for idx, dir := range dirs {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to read features directory %s: %w", dir, err)
+		}
+
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+				continue
+			}
+
+			name := strings.TrimSuffix(entry.Name(), ".yaml")
+			if _, seen := owners[name]; !seen {
+				names = append(names, name)
+			}
+
+			owners[name] = filepath.Join(dir, entry.Name())
+			ownerIdx[name] = idx
+			presentCount[name]++
+		}
 	}
 
+	slices.Sort(names)
+
 	result := &ListResult{}
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
-			continue
-		}
-
-		feature, err := ParseFeatureFile(filepath.Join(featuresDir, entry.Name()))
+	for _, name := range names {
+		feature, err := ParseFeatureFile(owners[name])
 		if err != nil {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("skipped %s: %v", entry.Name(), err))
+			result.Warnings = append(result.Warnings, fmt.Sprintf("skipped %s: %v", filepath.Base(owners[name]), err))
 			continue
 		}
 
+		feature.Source = sourceFor(ownerIdx[name], presentCount[name], len(dirs))
 		result.Features = append(result.Features, feature)
 	}
 
