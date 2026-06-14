@@ -2,12 +2,25 @@ package feature
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/kloudkit/ws-cli/internals/features"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
+
+// skippableSections maps each --skip-* flag to the Ansible extra-var that gates
+// the corresponding shared role task. The flags are sugar over the --opt map:
+// each lowers to skip_<section>=true, reaching the playbook through the same
+// --extra-vars channel as --opt (and the WS_FEATURES_<NAME>_OPTS env channel).
+var skippableSections = []struct {
+	flag string
+	key  string
+	desc string
+}{
+	{"skip-extensions", "skip_extensions", "Skip installing VSCode extensions"},
+	{"skip-completion", "skip_completion", "Skip configuring shell completion"},
+	{"skip-repository", "skip_repository", "Skip enabling the vendor APT repository"},
+}
 
 var installCmd = &cobra.Command{
 	Use:   "install",
@@ -25,6 +38,26 @@ var installCmd = &cobra.Command{
 	},
 }
 
+// buildVars assembles the Ansible extra-vars from --opt plus any --skip-* flags.
+// An explicit --skip-* flag wins over a colliding --opt skip_<section>=… value.
+func buildVars(cmd *cobra.Command) map[string]any {
+	rawVars, _ := cmd.Flags().GetStringToString("opt")
+
+	vars := make(map[string]any, len(rawVars)+len(skippableSections))
+
+	for key, value := range rawVars {
+		vars[key] = value
+	}
+
+	for _, section := range skippableSections {
+		if skip, _ := cmd.Flags().GetBool(section.flag); skip {
+			vars[section.key] = "true"
+		}
+	}
+
+	return vars
+}
+
 func installFeatureByName(cmd *cobra.Command, featureName, featurePath string) error {
 	if _, err := features.ParseFeatureFile(featurePath); err != nil {
 		return fmt.Errorf("installation failed: %w", err)
@@ -32,21 +65,7 @@ func installFeatureByName(cmd *cobra.Command, featureName, featurePath string) e
 
 	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Title().Render(fmt.Sprintf("Installing %s", featureName)))
 
-	rawVars, _ := cmd.Flags().GetStringToString("opt")
-
-	vars := make(map[string]any, len(rawVars))
-
-	keys := make([]string, 0, len(rawVars))
-	for key := range rawVars {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	for _, key := range keys {
-		vars[key] = rawVars[key]
-	}
-
-	if err := features.RunPlaybook(featurePath, vars); err != nil {
+	if err := features.RunPlaybook(featurePath, buildVars(cmd)); err != nil {
 		return fmt.Errorf("installation failed: %w", err)
 	}
 
@@ -58,10 +77,18 @@ func installFeatureByName(cmd *cobra.Command, featureName, featurePath string) e
 	return nil
 }
 
-func init() {
-	installCmd.PersistentFlags().StringToString(
+func addInstallFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringToString(
 		"opt",
 		map[string]string{},
 		"Optional variables to use during installation",
 	)
+
+	for _, section := range skippableSections {
+		cmd.Flags().Bool(section.flag, false, section.desc)
+	}
+}
+
+func init() {
+	addInstallFlags(installCmd)
 }
