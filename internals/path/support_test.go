@@ -31,6 +31,20 @@ func TestGetHomeDirectory(t *testing.T) {
 	})
 }
 
+func TestGetIPCSocket(t *testing.T) {
+	t.Run("WithEnv", func(t *testing.T) {
+		t.Setenv("WS__INTERNAL_IPC_SOCKET", "/run/workspace.sock")
+
+		assert.Equal(t, "/run/workspace.sock", GetIPCSocket())
+	})
+
+	t.Run("WithoutEnv", func(t *testing.T) {
+		t.Setenv("WS__INTERNAL_IPC_SOCKET", "")
+
+		assert.Equal(t, "", GetIPCSocket())
+	})
+}
+
 func TestResolveConfigPath(t *testing.T) {
 	t.Run("AbsolutePath", func(t *testing.T) {
 		result := ResolveConfigPath("/etc/config")

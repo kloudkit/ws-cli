@@ -28,7 +28,7 @@ func GetHomeDirectory(segments ...string) string {
 }
 
 func GetIPCSocket() string {
-	return env.String(config.EnvIPCSocket, config.DefaultIPCSocket)
+	return env.String(config.EnvIPCSocket)
 }
 
 func ResolveConfigPath(configPath string) string {
