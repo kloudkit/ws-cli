@@ -36,10 +36,11 @@ func _seedLogs(t *testing.T) {
 	tempDir := t.TempDir()
 
 	files := map[string]string{
-		"workspace.log":  "main marker",
-		"metrics.log":    "metrics marker",
-		"dockerd.log":    "docker marker",
-		"auth-proxy.log": "auth proxy marker",
+		"workspace.log":   "main marker",
+		"metrics.log":     "metrics marker",
+		"dockerd.log":     "docker marker",
+		"auth-proxy.log":  "auth proxy marker",
+		"cloudflared.log": "cloudflared marker",
 	}
 
 	for name, content := range files {
@@ -51,6 +52,7 @@ func _seedLogs(t *testing.T) {
 	t.Setenv("WS_LOGGING_METRICS_FILE", "metrics.log")
 	t.Setenv("WS_LOGGING_DOCKER_FILE", "dockerd.log")
 	t.Setenv("WS_LOGGING_AUTH_PROXY_FILE", "auth-proxy.log")
+	t.Setenv("WS_LOGGING_CLOUDFLARED_FILE", "cloudflared.log")
 }
 
 func TestLogsDefaultTargetIsMain(t *testing.T) {
@@ -70,6 +72,7 @@ func TestLogsValidTargets(t *testing.T) {
 		{"metrics", "metrics marker"},
 		{"docker", "docker marker"},
 		{"auth_proxy", "auth proxy marker"},
+		{"cloudflared", "cloudflared marker"},
 	}
 
 	for _, tt := range tests {
