@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: 📥 Checkout repository
         uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.KLOUD_BOT_ORG_PAT }}
 
       - name: 🔢 Extract version from version.go
         id: extract_version
@@ -24,19 +26,12 @@ jobs:
           VERSION=$(grep -oP 'Version = "\K[^"]+' cmd/info/version.go)
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
-      - name: 🧪 Check if tag exists
-        id: check_tag
+      - name: 🔖 Tag if new
         run: |
-          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION"; then
-            echo "Tag v$VERSION already exists on origin. Skipping."
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "Tag v$VERSION already exists on origin — skipping."
             exit 0
           fi
 
-      - name: 🔖 Create and push tag
-        run: |
           git tag "v$VERSION"
           git push origin "v$VERSION"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REF: refs/tags/v$VERSION
-          GITHUB_REPOSITORY: ${{ github.repository }}
