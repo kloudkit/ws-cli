@@ -19,3 +19,13 @@ func RequireWorkspace() error {
 	}
 	return nil
 }
+
+func Bootstrap() error {
+	if err := RequireWorkspace(); err != nil {
+		return err
+	}
+
+	_, err := LoadEnvReference()
+
+	return err
+}

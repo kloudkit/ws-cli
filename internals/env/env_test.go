@@ -42,6 +42,34 @@ func TestMustString(t *testing.T) {
 	})
 }
 
+func TestIsSSHSession(t *testing.T) {
+	clear := func(t *testing.T) {
+		for _, key := range []string{"SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"} {
+			t.Setenv(key, "")
+		}
+	}
+
+	t.Run("NotSSH", func(t *testing.T) {
+		clear(t)
+
+		assert.Assert(t, !IsSSHSession())
+	})
+
+	t.Run("SSHConnection", func(t *testing.T) {
+		clear(t)
+		t.Setenv("SSH_CONNECTION", "1.2.3.4 51000 5.6.7.8 22")
+
+		assert.Assert(t, IsSSHSession())
+	})
+
+	t.Run("SSHTTY", func(t *testing.T) {
+		clear(t)
+		t.Setenv("SSH_TTY", "/dev/pts/0")
+
+		assert.Assert(t, IsSSHSession())
+	})
+}
+
 func TestGetAll(t *testing.T) {
 	t.Run("ReturnsAllEnvVars", func(t *testing.T) {
 		t.Setenv("TEST_KEY1", "value1")
