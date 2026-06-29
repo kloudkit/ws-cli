@@ -1,0 +1,17 @@
+[
+  {
+    "uri": "file:///workspace/main.go",
+    "items": [
+      {
+        "severity": { "code": 0, "label": "Error" },
+        "message": "undefined: foo",
+        "source": "compiler",
+        "code": "UndeclaredName",
+        "range": {
+          "start": { "line": 10, "character": 4 },
+          "end": { "line": 10, "character": 7 }
+        }
+      }
+    ]
+  }
+]

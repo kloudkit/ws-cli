@@ -1,0 +1,8 @@
+{
+  "path": "/workspace/main.go",
+  "text": "package main",
+  "range": {
+    "start": { "line": 0, "character": 0 },
+    "end": { "line": 0, "character": 12 }
+  }
+}

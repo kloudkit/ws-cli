@@ -6,6 +6,7 @@ import (
 
 	"charm.land/fang/v2"
 	"github.com/kloudkit/ws-cli/cmd/clip"
+	"github.com/kloudkit/ws-cli/cmd/editor"
 	"github.com/kloudkit/ws-cli/cmd/feature"
 	"github.com/kloudkit/ws-cli/cmd/info"
 	"github.com/kloudkit/ws-cli/cmd/log"
@@ -26,11 +27,7 @@ var rootCmd = &cobra.Command{
 	Aliases:       []string{"ws"},
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		if err := config.RequireWorkspace(); err != nil {
-			return err
-		}
-		_, err := config.LoadEnvReference()
-		return err
+		return config.Bootstrap()
 	},
 }
 
@@ -51,6 +48,7 @@ func Execute() {
 func init() {
 	rootCmd.AddCommand(
 		clip.ClipCmd,
+		editor.EditorCmd,
 		feature.FeatureCmd,
 		serve.ServeCmd,
 		show.ShowCmd,

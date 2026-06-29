@@ -54,3 +54,13 @@ func IsValidName(name string) bool {
 func Home() string {
 	return String("HOME", "/home/kloud")
 }
+
+func IsSSHSession() bool {
+	for _, key := range []string{"SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"} {
+		if String(key) != "" {
+			return true
+		}
+	}
+
+	return false
+}
