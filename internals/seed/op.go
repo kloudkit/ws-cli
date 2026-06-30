@@ -7,6 +7,7 @@ const (
 	OpMerge   Op = "merge"
 	OpAppend  Op = "append"
 	OpPrepend Op = "prepend"
+	OpBlock   Op = "block"
 )
 
 type SeedOp struct {
@@ -16,8 +17,13 @@ type SeedOp struct {
 	Op       Op      `yaml:"op"`
 	Template bool    `yaml:"template"`
 	Force    bool    `yaml:"force"`
+	Comment  string  `yaml:"comment"`
 }
 
 func (o SeedOp) hasBehavior() bool {
-	return o.Secret || o.Mode != "" || (o.Op != "" && o.Op != OpCopy) || o.Template
+	return o.Secret || o.Mode != "" || (o.Op != "" && o.Op != OpCopy) || o.Template || o.Content != nil
+}
+
+func (o Op) inPlace() bool {
+	return o == OpMerge || o == OpAppend || o == OpPrepend || o == OpBlock
 }

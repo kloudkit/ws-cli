@@ -74,9 +74,14 @@ func validateSecretValue(name, value string) error {
 
 func validateOp(dest string, op SeedOp) error {
 	switch op.Op {
-	case OpCopy, OpMerge, OpAppend, OpPrepend:
-		return nil
+	case OpCopy, OpMerge, OpAppend, OpPrepend, OpBlock:
+	default:
+		return fmt.Errorf("seed %q: unknown op %q", dest, op.Op)
 	}
 
-	return fmt.Errorf("seed %q: unknown op %q", dest, op.Op)
+	if op.Comment != "" && op.Op != OpBlock {
+		return fmt.Errorf("seed %q: comment is only valid with op: block", dest)
+	}
+
+	return nil
 }

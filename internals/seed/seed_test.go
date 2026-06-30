@@ -43,6 +43,14 @@ func apply(t *testing.T, opts Options) string {
 	return buffer.String()
 }
 
+func applyErr(t *testing.T, opts Options) string {
+	t.Helper()
+	var buffer bytes.Buffer
+	opts.Out = &buffer
+	assert.Assert(t, Apply(opts) != nil)
+	return buffer.String()
+}
+
 func encrypt(t *testing.T, plaintext, key string) string {
 	t.Helper()
 	master, err := secrets.ResolveMasterKey(key)
@@ -111,10 +119,24 @@ func TestApplyInline(t *testing.T) {
 
 		writeManifest(t, source, fmt.Sprintf("seeds:\n  %s:\n    mode: \"0o644\"\n", dest))
 
-		output := apply(t, Options{Source: source})
+		output := applyErr(t, Options{Source: source})
 
 		assert.Assert(t, !fileExists(dest))
 		assert.Assert(t, strings.Contains(output, "Skipping ["+dest+"] (no source available)"))
+	})
+
+	t.Run("SourceUnreadableReported", func(t *testing.T) {
+		setEnv(t, t.TempDir())
+		source := t.TempDir()
+		target := t.TempDir()
+		dest := filepath.Join(target, "out.txt")
+
+		assert.NilError(t, os.MkdirAll(rhyming(source, dest), 0o755))
+		writeManifest(t, source, fmt.Sprintf("seeds:\n  %s:\n    mode: \"0o644\"\n", dest))
+
+		output := applyErr(t, Options{Source: source})
+
+		assert.Assert(t, strings.Contains(output, "source unreadable"))
 	})
 }
 
@@ -170,6 +192,21 @@ func TestApplyOps(t *testing.T) {
 		assert.Equal(t, len(list), 1)
 	})
 
+	t.Run("MergePreservesExistingMode", func(t *testing.T) {
+		setEnv(t, t.TempDir())
+		source := t.TempDir()
+		target := t.TempDir()
+		dest := filepath.Join(target, "config.json")
+		write(t, dest, `{"a":1}`)
+		assert.NilError(t, os.Chmod(dest, 0o600))
+
+		writeManifest(t, source, fmt.Sprintf("seeds:\n  %s:\n    op: merge\n    force: true\n    content: '{\"b\":2}'\n", dest))
+
+		apply(t, Options{Source: source})
+
+		assert.Equal(t, mode(t, dest), os.FileMode(0o600))
+	})
+
 	t.Run("MergeScalarVsMapConflictLeavesDestUnchanged", func(t *testing.T) {
 		setEnv(t, t.TempDir())
 		source := t.TempDir()
@@ -179,7 +216,7 @@ func TestApplyOps(t *testing.T) {
 
 		writeManifest(t, source, fmt.Sprintf("seeds:\n  %s:\n    op: merge\n    force: true\n    content: '{\"k\":{\"nested\":1}}'\n", dest))
 
-		output := apply(t, Options{Source: source})
+		output := applyErr(t, Options{Source: source})
 
 		assert.Equal(t, readFile(t, dest), `{"k":"scalar"}`)
 		assert.Assert(t, strings.Contains(output, "merge conflict at key"))
@@ -215,7 +252,7 @@ func TestApplyTemplate(t *testing.T) {
 
 		writeManifest(t, source, fmt.Sprintf("seeds:\n  %s:\n    template: true\n    content: \"${bogus}\\n\"\n", dest))
 
-		output := apply(t, Options{Source: source})
+		output := applyErr(t, Options{Source: source})
 
 		assert.Assert(t, !fileExists(dest))
 		assert.Assert(t, strings.Contains(output, "unknown template token ${bogus}"))
@@ -253,7 +290,7 @@ func TestApplyTemplate(t *testing.T) {
 			ciphertext, dest,
 		))
 
-		output := apply(t, Options{Source: source, MasterKey: testMaster})
+		output := applyErr(t, Options{Source: source, MasterKey: testMaster})
 
 		assert.Equal(t, readFile(t, dest), `{"key":"scalar"}`)
 		assert.Assert(t, strings.Contains(output, "merge conflict at key"))
@@ -286,7 +323,7 @@ func TestApplySecrets(t *testing.T) {
 		write(t, rhyming(source, dest), encrypt(t, "PRIVATE", "a-totally-different-master-key-99"))
 		writeManifest(t, source, fmt.Sprintf("seeds:\n  %s:\n    secret: true\n", dest))
 
-		output := apply(t, Options{Source: source, MasterKey: testMaster})
+		output := applyErr(t, Options{Source: source, MasterKey: testMaster})
 
 		assert.Assert(t, !fileExists(dest))
 		assert.Assert(t, strings.Contains(output, "Skipping ["+dest+"] (decrypt failed)"))
@@ -320,7 +357,7 @@ func TestApplySecrets(t *testing.T) {
 			secretDest, plainDest,
 		))
 
-		output := apply(t, Options{Source: source})
+		output := applyErr(t, Options{Source: source})
 
 		assert.Assert(t, !fileExists(secretDest))
 		assert.Equal(t, readFile(t, plainDest), "plain\n")
@@ -353,7 +390,7 @@ func TestApplyOwnership(t *testing.T) {
 
 		writeManifest(t, source, fmt.Sprintf("seeds:\n  %s:\n    mode: \"0o644\"\n    content: \"x\\n\"\n", dest))
 
-		output := apply(t, Options{Source: source})
+		output := applyErr(t, Options{Source: source})
 
 		assert.Assert(t, !fileExists(dest))
 		assert.Assert(t, strings.Contains(output, "Skipping ["+dest+"] (destination not owned)"))

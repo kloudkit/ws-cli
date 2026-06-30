@@ -44,8 +44,26 @@ func TestParseManifest(t *testing.T) {
 		assert.Equal(t, manifest.Seeds["/tmp/x"].Op, OpCopy)
 	})
 
+	t.Run("InlineContentEntryAccepted", func(t *testing.T) {
+		manifest, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    content: \"hi\\n\"\n"))
+		assert.NilError(t, err)
+		assert.Equal(t, *manifest.Seeds["/tmp/x"].Content, "hi\n")
+		assert.Equal(t, manifest.Seeds["/tmp/x"].Op, OpCopy)
+	})
+
+	t.Run("BlockOpAccepted", func(t *testing.T) {
+		manifest, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    op: block\n    content: \"hi\\n\"\n"))
+		assert.NilError(t, err)
+		assert.Equal(t, manifest.Seeds["/tmp/x"].Op, OpBlock)
+	})
+
 	t.Run("UnknownOpRejected", func(t *testing.T) {
 		_, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    op: smash\n"))
 		assert.ErrorContains(t, err, `unknown op "smash"`)
+	})
+
+	t.Run("CommentOnNonBlockRejected", func(t *testing.T) {
+		_, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    op: append\n    comment: \"//\"\n    content: \"x\\n\"\n"))
+		assert.ErrorContains(t, err, "comment is only valid with op: block")
 	})
 }

@@ -10,9 +10,10 @@ import (
 )
 
 var applyCmd = &cobra.Command{
-	Use:   "apply [dest...]",
-	Short: "Project seed content onto the filesystem",
-	RunE:  runApply,
+	Use:          "apply [dest...]",
+	Short:        "Project seed content onto the filesystem",
+	SilenceUsage: true,
+	RunE:         runApply,
 }
 
 func runApply(cmd *cobra.Command, args []string) error {

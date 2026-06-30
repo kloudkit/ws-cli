@@ -32,6 +32,7 @@ func codecFor(dest string) (codec, error) {
 func marshalJSON(v any) ([]byte, error) {
 	var buffer bytes.Buffer
 	encoder := json.NewEncoder(&buffer)
+	encoder.SetEscapeHTML(false)
 	encoder.SetIndent("", "  ")
 
 	if err := encoder.Encode(v); err != nil {

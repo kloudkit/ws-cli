@@ -29,6 +29,7 @@ type ResolvedOp struct {
 	Op       Op
 	Template bool
 	Force    bool
+	Comment  string
 }
 
 type Plan struct {
@@ -124,6 +125,7 @@ func buildPlan(source string, manifest *Manifest, vars Vars, force bool) ([]Reso
 				Op:       op.Op,
 				Template: op.Template,
 				Force:    force || op.Force,
+				Comment:  op.Comment,
 			}
 
 			if op.Content == nil {
