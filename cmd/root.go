@@ -12,6 +12,7 @@ import (
 	"github.com/kloudkit/ws-cli/cmd/log"
 	"github.com/kloudkit/ws-cli/cmd/logs"
 	"github.com/kloudkit/ws-cli/cmd/secrets"
+	"github.com/kloudkit/ws-cli/cmd/seed"
 	"github.com/kloudkit/ws-cli/cmd/serve"
 	"github.com/kloudkit/ws-cli/cmd/show"
 	"github.com/kloudkit/ws-cli/cmd/template"
@@ -57,5 +58,6 @@ func init() {
 		log.LogCmd,
 		logs.LogsCmd,
 		secrets.SecretsCmd,
+		seed.SeedCmd,
 	)
 }

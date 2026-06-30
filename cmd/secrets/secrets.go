@@ -1,13 +1,12 @@
 package secrets
 
 import (
-	"github.com/kloudkit/ws-cli/cmd/secrets/vault"
 	"github.com/spf13/cobra"
 )
 
 var SecretsCmd = &cobra.Command{
 	Use:   "secrets",
-	Short: "Manage encryption, decryption, and vaults for secrets",
+	Short: "Manage encryption and decryption of secrets",
 }
 
 func init() {
@@ -17,5 +16,5 @@ func init() {
 	SecretsCmd.PersistentFlags().Bool("force", false, "Overwrite existing files")
 	SecretsCmd.PersistentFlags().Bool("raw", false, "Output without styling")
 
-	SecretsCmd.AddCommand(encryptCmd, decryptCmd, generateCmd, vault.VaultCmd)
+	SecretsCmd.AddCommand(encryptCmd, decryptCmd, generateCmd)
 }
