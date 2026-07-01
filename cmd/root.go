@@ -32,6 +32,10 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+func RootCmd() *cobra.Command {
+	return rootCmd
+}
+
 func Execute() {
 	ctx := context.Background()
 
