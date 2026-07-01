@@ -77,9 +77,9 @@ func TestEnsureLine(t *testing.T) {
 			want:     "FOO=1\nFOO\n",
 		},
 		{
-			name:     "MultiLineRejected",
-			body:     "A=1\nB=2\n",
-			err:      "single line",
+			name: "MultiLineRejected",
+			body: "A=1\nB=2\n",
+			err:  "single line",
 		},
 		{
 			name:     "EmptyRejected",

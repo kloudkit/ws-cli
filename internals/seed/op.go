@@ -3,8 +3,8 @@ package seed
 type Op string
 
 const (
-	OpCopy    Op = "copy"
-	OpMerge   Op = "merge"
+	OpCopy       Op = "copy"
+	OpMerge      Op = "merge"
 	OpAppend     Op = "append"
 	OpPrepend    Op = "prepend"
 	OpBlock      Op = "block"
