@@ -12,6 +12,7 @@ import (
 var uptimeCmd = &cobra.Command{
 	Use:   "uptime",
 	Short: "Display the workspace uptime",
+	Long:  "Show when the workspace session started and how long it has been running.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		started, running, err := config.GetSessionInfo()
 

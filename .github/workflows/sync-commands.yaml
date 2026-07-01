@@ -1,0 +1,19 @@
+---
+name: 🔄 Sync commands to ws-meta
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - commands.yaml
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔄 Sync to ws-meta
+        uses: kloudkit/ws-meta/.github/actions/sync@main
+        with:
+          token: ${{ secrets.KLOUD_BOT_ORG_PAT }}
+          files: |
+            commands.yaml

@@ -36,11 +36,13 @@ func showVersion(writer io.Writer) {
 var InfoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Display workspace information",
+	Long:  "Report facts about the running workspace — version, effective environment, installed extensions, live resource metrics, and uptime.",
 }
 
 var showVersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Display installed workspace version",
+	Long:  "Print the workspace version. --all expands to the full table — workspace, ws-cli, and VS Code.",
 	Run: func(cmd *cobra.Command, args []string) {
 		if all, _ := cmd.Flags().GetBool("all"); all {
 			showVersion(cmd.OutOrStdout())

@@ -17,6 +17,7 @@ var validLogTargets = []string{"main", "metrics", "docker", "auth_proxy", "cloud
 var LogsCmd = &cobra.Command{
 	Use:   "logs",
 	Short: "Retrieve workspace logs",
+	Long:  "Read a workspace daemon's log — the main log by default, or --target metrics|docker|auth_proxy|cloudflared. Filter by --level, limit with --tail, or stream live with --follow.",
 	Args:  cobra.NoArgs,
 	RunE:  execute,
 }

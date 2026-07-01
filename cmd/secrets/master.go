@@ -14,6 +14,7 @@ import (
 var masterCmd = &cobra.Command{
 	Use:   "master",
 	Short: "Generate a cryptographically secure master key",
+	Long:  "Generate a random master key, printed base64-encoded — the key encrypt, decrypt, and the seed engine use. --length sets the byte size (default 32).",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := getOutputConfig(cmd)

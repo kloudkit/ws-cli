@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/kloudkit/ws-cli/internals/io"
 	"github.com/kloudkit/ws-cli/internals/path"
@@ -45,6 +46,8 @@ func GetTemplateNames() []string {
 	for name := range SupportedTemplates {
 		names = append(names, name)
 	}
+
+	sort.Strings(names)
 
 	return names
 }

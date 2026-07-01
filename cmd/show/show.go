@@ -7,6 +7,7 @@ import (
 var ShowCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Display information about the current workspace instance",
+	Long:  "Resolve and print facts about this workspace instance — settings, IP addresses, and paths. --raw drops the styling for use in scripts.",
 }
 
 func init() {

@@ -7,5 +7,5 @@ import (
 var TemplateCmd = &cobra.Command{
 	Use:   "template",
 	Short: "Manage static configuration files",
-	Long:  "Copy and manage configuration files stored in global locations",
+	Long:  "Copy shared configuration files (linters, formatters) from their global locations into a project, and inspect what they hold.",
 }

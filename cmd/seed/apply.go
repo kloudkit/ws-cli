@@ -12,6 +12,7 @@ import (
 var applyCmd = &cobra.Command{
 	Use:          "apply [dest...]",
 	Short:        "Project seed content onto the filesystem",
+	Long:         "Apply the seed source to the filesystem — mirror bare files and run the .seed.yaml operations. Writes only where the destination is missing unless --force; pass destinations to limit the run to those paths.",
 	SilenceUsage: true,
 	RunE:         runApply,
 }

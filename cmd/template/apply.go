@@ -11,6 +11,7 @@ import (
 var applyCmd = &cobra.Command{
 	Use:               "apply <template>",
 	Short:             "Apply a configuration template to the current project",
+	Long:              "Copy a template into the project — a shared config like ruff or markdownlint — to --path (the current directory by default). --force overwrites an existing file.",
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: templateCompletion,
 	RunE:              runApply,

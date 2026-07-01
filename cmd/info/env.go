@@ -33,6 +33,7 @@ func showEnvironment(writer io.Writer) {
 var envCmd = &cobra.Command{
 	Use:   "env",
 	Short: "Display effective workspace environment variables",
+	Long:  "Print every WS_* variable in effect, sorted — the resolved environment the workspace booted with.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		showEnvironment(cmd.OutOrStdout())
 		return nil

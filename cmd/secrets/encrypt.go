@@ -12,6 +12,7 @@ import (
 var encryptCmd = &cobra.Command{
 	Use:   "encrypt <plaintext|->",
 	Short: "Encrypt a plaintext value",
+	Long:  "Encrypt a value under the master key. Reads the plaintext from the argument or stdin (-); writes the ciphertext to stdout, or a file with --output.",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := getOutputConfig(cmd)

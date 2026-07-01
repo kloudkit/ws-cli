@@ -8,6 +8,7 @@ import (
 var rotateCmd = &cobra.Command{
 	Use:          "rotate",
 	Short:        "Re-encrypt managed secrets under a new master key",
+	Long:         "Re-encrypt every managed secret from the old master key (--master) to a new one (--new-master), in place. All-or-nothing: it verifies every secret decrypts before writing anything.",
 	SilenceUsage: true,
 	RunE:         runRotate,
 }

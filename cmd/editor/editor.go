@@ -18,6 +18,7 @@ var errNoEditorOverSSH = errors.New(
 var EditorCmd = &cobra.Command{
 	Use:   "editor",
 	Short: "Inspect and drive the active editor session",
+	Long:  "Query and control the running VS Code / code-server window over the workspace IPC socket — list open tabs, read diagnostics and the current selection, or open a file. Blocked over SSH, where there is no browser editor to reach.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if env.IsSSHSession() {
 			return errNoEditorOverSSH
