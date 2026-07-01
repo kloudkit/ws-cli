@@ -1,6 +1,7 @@
 package docs
 
 import (
+	"path/filepath"
 	"sort"
 
 	"github.com/spf13/cobra"
@@ -48,10 +49,15 @@ func walk(c *cobra.Command) Command {
 			return
 		}
 
+		def := f.DefValue
+		if filepath.IsAbs(def) {
+			def = ""
+		}
+
 		command.Options = append(command.Options, Option{
 			Name:      f.Name,
 			Shorthand: f.Shorthand,
-			Default:   f.DefValue,
+			Default:   def,
 			Usage:     f.Usage,
 		})
 	})

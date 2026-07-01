@@ -56,7 +56,6 @@ commands:
       description: Install and inspect optional workspace features — Ansible playbooks that add tools on top of the base image. Ships a curated set; --root points at your own under ~/.ws/features.d.
       options:
         - name: root
-          default: /usr/share/workspace/features.d
           usage: Root directory of additional features
       commands:
         - name: ws-cli feature info
