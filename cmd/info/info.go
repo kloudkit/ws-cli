@@ -16,7 +16,7 @@ func showVersion(writer io.Writer) {
 		styles.PrintWarning(writer, fmt.Sprintf("Could not read workspace version: %v", err))
 		fmt.Fprintf(writer, "%s\n", styles.Title().Render("Versions"))
 		t := styles.Table().Rows(
-			[]string{"ws-cli", Version},
+			[]string{"ws-cli", Version()},
 		)
 		fmt.Fprintln(writer, t.Render())
 		return
@@ -26,7 +26,7 @@ func showVersion(writer io.Writer) {
 
 	t := styles.Table().Rows(
 		[]string{"workspace", manifest.Version},
-		[]string{"ws-cli", Version},
+		[]string{"ws-cli", Version()},
 		[]string{"VSCode", manifest.VSCode.Version},
 	)
 
@@ -47,7 +47,7 @@ var showVersionCmd = &cobra.Command{
 		if all, _ := cmd.Flags().GetBool("all"); all {
 			showVersion(cmd.OutOrStdout())
 		} else {
-			fmt.Fprintln(cmd.OutOrStdout(), Version)
+			fmt.Fprintln(cmd.OutOrStdout(), Version())
 		}
 	},
 }
