@@ -19,7 +19,7 @@ type codec struct {
 func codecFor(dest string) (codec, error) {
 	switch strings.ToLower(filepath.Ext(dest)) {
 	case ".json":
-		return codec{json.Unmarshal, marshalJSON}, nil
+		return codec{unmarshalJSON, marshalJSON}, nil
 	case ".yaml", ".yml":
 		return codec{yaml.Unmarshal, yaml.Marshal}, nil
 	case ".toml":
@@ -27,6 +27,13 @@ func codecFor(dest string) (codec, error) {
 	}
 
 	return codec{}, fmt.Errorf("cannot infer merge format from %q", dest)
+}
+
+func unmarshalJSON(data []byte, v any) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+
+	return decoder.Decode(v)
 }
 
 func marshalJSON(v any) ([]byte, error) {

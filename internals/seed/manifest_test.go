@@ -57,6 +57,17 @@ func TestParseManifest(t *testing.T) {
 		assert.Equal(t, manifest.Seeds["/tmp/x"].Op, OpBlock)
 	})
 
+	t.Run("LineinfileOpAccepted", func(t *testing.T) {
+		manifest, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    op: lineinfile\n    content: \"FOO=1\\n\"\n"))
+		assert.NilError(t, err)
+		assert.Equal(t, manifest.Seeds["/tmp/x"].Op, OpLineInfile)
+	})
+
+	t.Run("CommentOnLineinfileRejected", func(t *testing.T) {
+		_, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    op: lineinfile\n    comment: \"//\"\n    content: \"x\\n\"\n"))
+		assert.ErrorContains(t, err, "comment is only valid with op: block")
+	})
+
 	t.Run("UnknownOpRejected", func(t *testing.T) {
 		_, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    op: smash\n"))
 		assert.ErrorContains(t, err, `unknown op "smash"`)

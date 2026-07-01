@@ -1,6 +1,7 @@
 package seed
 
 import (
+	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -55,12 +56,56 @@ func TestMergeContent(t *testing.T) {
 		assert.ErrorContains(t, err, "merge conflict at key")
 	})
 
-	t.Run("JSONFloatNormalization", func(t *testing.T) {
+	t.Run("JSONNumberFidelity", func(t *testing.T) {
 		merged, err := mergeContent([]byte(`{"n":1}`), []byte(`{"n":2}`), "config.json")
 		assert.NilError(t, err)
+		assert.Assert(t, strings.Contains(string(merged), `"n": 2`))
+	})
 
-		out := decodeBack(t, merged, "config.json")
-		assert.Equal(t, out["n"], float64(2))
+	t.Run("LargeIntExistingSide", func(t *testing.T) {
+		merged, err := mergeContent([]byte(`{"big":9007199254740993}`), []byte(`{"x":1}`), "config.json")
+		assert.NilError(t, err)
+
+		out := string(merged)
+		assert.Assert(t, strings.Contains(out, "9007199254740993"))
+		assert.Assert(t, !strings.Contains(out, "e+"))
+		assert.Assert(t, !strings.Contains(out, "E"))
+	})
+
+	t.Run("LargeIntFragmentSide", func(t *testing.T) {
+		merged, err := mergeContent([]byte(`{"x":1}`), []byte(`{"big":9223372036854775807}`), "config.json")
+		assert.NilError(t, err)
+
+		out := string(merged)
+		assert.Assert(t, strings.Contains(out, "9223372036854775807"))
+		assert.Assert(t, !strings.Contains(out, "e+"))
+	})
+
+	t.Run("YamlTomlLargeIntControl", func(t *testing.T) {
+		cases := []struct {
+			dest     string
+			existing string
+			fragment string
+		}{
+			{"config.yaml", "keep: 1\n", "big: 9223372036854775807\n"},
+			{"config.toml", "keep = 1\n", "big = 9223372036854775807\n"},
+		}
+
+		for _, tc := range cases {
+			merged, err := mergeContent([]byte(tc.existing), []byte(tc.fragment), tc.dest)
+			assert.NilError(t, err)
+			assert.Assert(t, strings.Contains(string(merged), "9223372036854775807"))
+		}
+	})
+
+	t.Run("NegativeZeroFloatStillMerge", func(t *testing.T) {
+		merged, err := mergeContent([]byte(`{"x":1}`), []byte(`{"neg":-5,"zero":0,"frac":1.5}`), "config.json")
+		assert.NilError(t, err)
+
+		out := string(merged)
+		assert.Assert(t, strings.Contains(out, `"neg": -5`))
+		assert.Assert(t, strings.Contains(out, `"zero": 0`))
+		assert.Assert(t, strings.Contains(out, `"frac": 1.5`))
 	})
 
 	t.Run("UnknownExtensionRejected", func(t *testing.T) {

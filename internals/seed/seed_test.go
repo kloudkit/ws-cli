@@ -2,6 +2,7 @@ package seed
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/user"
@@ -185,8 +186,8 @@ func TestApplyOps(t *testing.T) {
 		apply(t, Options{Source: source})
 
 		out := decodeBack(t, []byte(readFile(t, dest)), dest)
-		assert.Equal(t, out["a"], float64(1))
-		assert.Equal(t, out["b"], float64(2))
+		assert.Equal(t, out["a"], json.Number("1"))
+		assert.Equal(t, out["b"], json.Number("2"))
 		list, ok := out["list"].([]any)
 		assert.Assert(t, ok)
 		assert.Equal(t, len(list), 1)

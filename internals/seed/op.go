@@ -5,9 +5,10 @@ type Op string
 const (
 	OpCopy    Op = "copy"
 	OpMerge   Op = "merge"
-	OpAppend  Op = "append"
-	OpPrepend Op = "prepend"
-	OpBlock   Op = "block"
+	OpAppend     Op = "append"
+	OpPrepend    Op = "prepend"
+	OpBlock      Op = "block"
+	OpLineInfile Op = "lineinfile"
 )
 
 type SeedOp struct {
@@ -25,5 +26,5 @@ func (o SeedOp) hasBehavior() bool {
 }
 
 func (o Op) inPlace() bool {
-	return o == OpMerge || o == OpAppend || o == OpPrepend || o == OpBlock
+	return o == OpMerge || o == OpAppend || o == OpPrepend || o == OpBlock || o == OpLineInfile
 }

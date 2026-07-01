@@ -148,7 +148,7 @@ func (p *Plan) applyOne(op ResolvedOp, keys *keyResolver, rep reporter) error {
 		return fmt.Errorf("destination not owned")
 	}
 
-	if op.Op != OpBlock && !internalIO.CanOverride(op.Dest, op.Force) {
+	if op.Op != OpBlock && op.Op != OpLineInfile && !internalIO.CanOverride(op.Dest, op.Force) {
 		rep.skip(op.Dest, "exists")
 		return nil
 	}
@@ -159,7 +159,7 @@ func (p *Plan) applyOne(op ResolvedOp, keys *keyResolver, rep reporter) error {
 		return err
 	}
 
-	if op.Op == OpBlock && bytes.Equal(content, readExisting(op.Dest)) {
+	if (op.Op == OpBlock || op.Op == OpLineInfile) && bytes.Equal(content, readExisting(op.Dest)) {
 		rep.seeded(op.Dest)
 		return nil
 	}
@@ -209,6 +209,10 @@ func (p *Plan) materialize(op ResolvedOp, keys *keyResolver) ([]byte, fs.FileMod
 		content = slices.Concat(content, readExisting(op.Dest))
 	case OpBlock:
 		if content, err = ensureBlock(readExisting(op.Dest), content, op.Comment); err != nil {
+			return nil, 0, err
+		}
+	case OpLineInfile:
+		if content, err = ensureLine(readExisting(op.Dest), content); err != nil {
 			return nil, 0, err
 		}
 	}
