@@ -8,6 +8,7 @@ import (
 var pasteCmd = &cobra.Command{
 	Use:   "paste",
 	Short: "Paste clipboard content",
+	Long:  "Read the browser clipboard over the workspace IPC socket and write it to stdout — redirect it to a file or pipe it onward. Pairs with the pbcopy/xclip/xsel shims for terminal clipboard access.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return clipboard.Paste(cmd.OutOrStdout())
 	},

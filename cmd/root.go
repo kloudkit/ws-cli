@@ -24,6 +24,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:           "ws-cli",
 	Short:         "⚡ CLI companion to charge the workspace batteries",
+	Long:          "The workspace command-line companion. Groups helpers for inspecting the running workspace, managing settings and secrets, driving the editor, and serving local assets — most are called by the startup scripts, all are yours in the terminal.",
 	Version:       "v" + info.Version,
 	Aliases:       []string{"ws"},
 	SilenceErrors: true,

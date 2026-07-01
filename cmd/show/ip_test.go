@@ -11,7 +11,7 @@ import (
 
 func _runIPCmd(t *testing.T, title string, getter func() (string, error)) (stdout, stderr string, err error) {
 	t.Helper()
-	cmd := makeIPCmd("ip", "Display an IP address", title, getter)
+	cmd := makeIPCmd("ip", "Display an IP address", "", title, getter)
 
 	var outBuf, errBuf bytes.Buffer
 	cmd.SetOut(&outBuf)

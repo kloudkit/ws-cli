@@ -9,12 +9,14 @@ import (
 var ipCmd = &cobra.Command{
 	Use:   "ip",
 	Short: "Display IP addresses",
+	Long:  "Print the workspace's IP addresses — the internal container address or the node it runs on.",
 }
 
-func makeIPCmd(use, short, title string, getter func() (string, error)) *cobra.Command {
+func makeIPCmd(use, short, long, title string, getter func() (string, error)) *cobra.Command {
 	return &cobra.Command{
 		Use:   use,
 		Short: short,
+		Long:  long,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ip, err := getter()
 			if err != nil {
@@ -36,8 +38,8 @@ func makeIPCmd(use, short, title string, getter func() (string, error)) *cobra.C
 
 func init() {
 	ipCmd.AddCommand(
-		makeIPCmd("internal", "Display the internal IP address", "Internal IP Address", net.GetInternalIP),
-		makeIPCmd("node", "Display the node/host IP address", "Node IP Address", net.GetNodeIP),
+		makeIPCmd("internal", "Display the internal IP address", "Print the workspace container's internal IP address.", "Internal IP Address", net.GetInternalIP),
+		makeIPCmd("node", "Display the node/host IP address", "Print the IP address of the node hosting the workspace.", "Node IP Address", net.GetNodeIP),
 	)
 
 	ShowCmd.AddCommand(ipCmd)

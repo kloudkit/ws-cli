@@ -13,6 +13,7 @@ import (
 var listCmd = &cobra.Command{
 	Use:     "list",
 	Short:   "List all available configuration templates",
+	Long:    "List the templates you can apply, with their source paths and whether one is already applied here.",
 	Aliases: []string{"ls"},
 	RunE:    runList,
 }

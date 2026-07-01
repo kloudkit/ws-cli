@@ -11,6 +11,7 @@ import (
 var lsCmd = &cobra.Command{
 	Use:   "ls",
 	Short: "List seed destinations and their behaviors",
+	Long:  "List what apply would write — each destination with its operation and whether it carries a secret or a template — without touching the filesystem.",
 	RunE:  runLs,
 }
 

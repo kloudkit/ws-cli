@@ -10,6 +10,7 @@ import (
 var LogCmd = &cobra.Command{
 	Use:   "log",
 	Short: "Log messages",
+	Long:  "Emit styled, level-tagged log lines — the same formatting the startup scripts use. --pipe runs each line of piped input through the logger.",
 }
 
 var debugCmd = createCommand("debug", "debugging")
@@ -19,6 +20,7 @@ var warnCmd = createCommand("warn", "warning")
 var stampCmd = &cobra.Command{
 	Use:   "stamp",
 	Short: "Log the current timestamp",
+	Long:  "Print just the current timestamp in the workspace log style — handy for marking phases in a startup log.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		withPipe, _ := cmd.Flags().GetBool("pipe")
@@ -36,6 +38,7 @@ func createCommand(short, long string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   fmt.Sprintf("%s message", short),
 		Short: fmt.Sprintf("Log %s messages", long),
+		Long:  fmt.Sprintf("Emit a log line at %s level in the workspace style — the same formatting the startup scripts use. --indent nests it under a preceding line, --stamp prefixes a timestamp.", short),
 		Args:  validate,
 		RunE:  execute(short),
 	}

@@ -11,6 +11,7 @@ import (
 var fontCmd = &cobra.Command{
 	Use:   "font",
 	Short: "Serve fonts for local download",
+	Long:  "Serve the installed fonts over HTTP so a browser can fetch them for local install.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		port, _ := cmd.Flags().GetInt("port")
 		bind, _ := cmd.Flags().GetString("bind")

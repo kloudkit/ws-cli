@@ -10,11 +10,13 @@ import (
 var pathCmd = &cobra.Command{
 	Use:   "path",
 	Short: "Display various paths",
+	Long:  "Print well-known workspace paths — the home root or the VS Code settings file.",
 }
 
 var pathHomeCmd = &cobra.Command{
 	Use:   "home",
 	Short: "Display the workspace home path",
+	Long:  "Print the workspace home (server root) path.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		homePath := config.MustResolve("server", "root")
 
@@ -33,6 +35,7 @@ var pathHomeCmd = &cobra.Command{
 var pathVscodeCmd = &cobra.Command{
 	Use:   "vscode-settings",
 	Short: "Display the VS Code settings path",
+	Long:  "Print the path to the VS Code settings file — the user file by default, or the folder's with --workspace.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		useWorkspace, _ := cmd.Flags().GetBool("workspace")
 
