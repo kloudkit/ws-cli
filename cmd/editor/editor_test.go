@@ -1,10 +1,32 @@
 package editor
 
 import (
+	"path/filepath"
 	"testing"
 
 	"gotest.tools/v3/assert"
 )
+
+func TestResolvePath(t *testing.T) {
+	t.Run("RelativeBecomesAbsolute", func(t *testing.T) {
+		got, err := resolvePath("Dockerfile")
+		assert.NilError(t, err)
+		assert.Assert(t, filepath.IsAbs(got), "expected absolute path, got %q", got)
+		assert.Equal(t, filepath.Base(got), "Dockerfile")
+	})
+
+	t.Run("AbsoluteIsPreserved", func(t *testing.T) {
+		got, err := resolvePath("/etc/hosts")
+		assert.NilError(t, err)
+		assert.Equal(t, got, "/etc/hosts")
+	})
+
+	t.Run("URIIsPassedThrough", func(t *testing.T) {
+		got, err := resolvePath("vscode-remote://editor.example.test/etc/hosts")
+		assert.NilError(t, err)
+		assert.Equal(t, got, "vscode-remote://editor.example.test/etc/hosts")
+	})
+}
 
 func TestPersistentPreRunEBlocksSSH(t *testing.T) {
 	t.Setenv("SSH_CONNECTION", "1.2.3.4 51000 5.6.7.8 22")

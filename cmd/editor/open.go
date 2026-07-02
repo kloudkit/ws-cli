@@ -2,6 +2,7 @@ package editor
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -20,8 +21,13 @@ var openCmd = &cobra.Command{
 		preview, _ := cmd.Flags().GetBool("preview")
 		selection, _ := cmd.Flags().GetString("selection")
 
+		path, err := resolvePath(args[0])
+		if err != nil {
+			return err
+		}
+
 		req := editoripc.OpenRequest{
-			Path:    args[0],
+			Path:    path,
 			Window:  "reuse",
 			Preview: preview,
 		}
@@ -41,6 +47,22 @@ var openCmd = &cobra.Command{
 
 		return editoripc.Open(req)
 	},
+}
+
+// resolvePath makes a filesystem path absolute against the caller's working
+// directory so the editor does not resolve a bare or relative path against the
+// workspace root. Explicit URIs (containing a scheme) are passed through as-is.
+func resolvePath(value string) (string, error) {
+	if strings.Contains(value, "://") {
+		return value, nil
+	}
+
+	abs, err := filepath.Abs(value)
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve path %q: %w", value, err)
+	}
+
+	return abs, nil
 }
 
 func parseSelection(value string) (*editoripc.Range, error) {
