@@ -10,9 +10,10 @@ import (
 )
 
 var metricsCmd = &cobra.Command{
-	Use:   "metrics",
-	Short: "Display workspace metrics",
-	Long:  "Show live resource usage — CPU, memory, disk, and file descriptors, plus GPU with --gpu.",
+	Use:         "metrics",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Display workspace metrics",
+	Long:        "Show live resource usage — CPU, memory, disk, and file descriptors, plus GPU with --gpu.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		includeGPU, _ := cmd.Flags().GetBool("gpu")
 

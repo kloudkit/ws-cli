@@ -23,10 +23,11 @@ var skippableSections = []struct {
 }
 
 var installCmd = &cobra.Command{
-	Use:   "install",
-	Short: "Install additional pre-configured features",
-	Long:  "Run a feature's playbook to install it. Pass variables with --opt KEY=VAL, and skip parts you do not want with --skip-extensions, --skip-completion, or --skip-repository.",
-	Args:  cobra.ExactArgs(1),
+	Use:         "install",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Install additional pre-configured features",
+	Long:        "Run a feature's playbook to install it. Pass variables with --opt KEY=VAL, and skip parts you do not want with --skip-extensions, --skip-completion, or --skip-repository.",
+	Args:        cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		featureName := args[0]
 

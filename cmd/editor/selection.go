@@ -11,9 +11,10 @@ import (
 )
 
 var selectionCmd = &cobra.Command{
-	Use:   "selection",
-	Short: "Show the active editor's current selection",
-	Long:  "Report the active editor's current selection — file, range, and selected text — over the IPC socket. Empty when nothing is selected.",
+	Use:         "selection",
+	Annotations: map[string]string{"since": "next"},
+	Short:       "Show the active editor's current selection",
+	Long:        "Report the active editor's current selection — file, range, and selected text — over the IPC socket. Empty when nothing is selected.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		body, err := editoripc.FetchSelection()
 		if err != nil {

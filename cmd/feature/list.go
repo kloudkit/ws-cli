@@ -9,10 +9,11 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:     "list",
-	Short:   "List available features that can be installed",
-	Long:    "List the features you can install, marking where each comes from — the shipped set, a workspace override, or your own ~/.ws/features.d.",
-	Aliases: []string{"ls"},
+	Use:         "list",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "List available features that can be installed",
+	Long:        "List the features you can install, marking where each comes from — the shipped set, a workspace override, or your own ~/.ws/features.d.",
+	Aliases:     []string{"ls"},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		result, err := features.ListFeatures(featureDirs(cmd))
 		if err != nil {

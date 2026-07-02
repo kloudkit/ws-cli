@@ -10,10 +10,11 @@ import (
 )
 
 var openCmd = &cobra.Command{
-	Use:   "open <file>",
-	Short: "Open a file in the editor",
-	Long:  "Open a file in the running editor window over the workspace IPC socket — a tab in the current window by default, a separate one with --new-window, jumping to a range with --selection. Fails fast over SSH, where there is no browser editor to open into.",
-	Args:  cobra.ExactArgs(1),
+	Use:         "open <file>",
+	Annotations: map[string]string{"since": "next"},
+	Short:       "Open a file in the editor",
+	Long:        "Open a file in the running editor window over the workspace IPC socket — a tab in the current window by default, a separate one with --new-window, jumping to a range with --selection. Fails fast over SSH, where there is no browser editor to open into.",
+	Args:        cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		newWindow, _ := cmd.Flags().GetBool("new-window")
 		preview, _ := cmd.Flags().GetBool("preview")

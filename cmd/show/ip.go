@@ -7,16 +7,18 @@ import (
 )
 
 var ipCmd = &cobra.Command{
-	Use:   "ip",
-	Short: "Display IP addresses",
-	Long:  "Print the workspace's IP addresses — the internal container address or the node it runs on.",
+	Use:         "ip",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Display IP addresses",
+	Long:        "Print the workspace's IP addresses — the internal container address or the node it runs on.",
 }
 
 func makeIPCmd(use, short, long, title string, getter func() (string, error)) *cobra.Command {
 	return &cobra.Command{
-		Use:   use,
-		Short: short,
-		Long:  long,
+		Use:         use,
+		Annotations: map[string]string{"since": "0.2.0"},
+		Short:       short,
+		Long:        long,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ip, err := getter()
 			if err != nil {

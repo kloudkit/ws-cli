@@ -10,9 +10,10 @@ import (
 )
 
 var storeCmd = &cobra.Command{
-	Use:   "store",
-	Short: "List packages available in the feature store",
-	Long:  "List the artifacts published to the feature store (WS_FEATURES_STORE_URL) — the offline mirror features install from when the network is locked down.",
+	Use:         "store",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "List packages available in the feature store",
+	Long:        "List the artifacts published to the feature store (WS_FEATURES_STORE_URL) — the offline mirror features install from when the network is locked down.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		storeURL, _ := config.Resolve("features", "store_url")
 		if storeURL == "" {

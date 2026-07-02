@@ -5,9 +5,10 @@ import (
 )
 
 var SecretsCmd = &cobra.Command{
-	Use:   "secrets",
-	Short: "Manage encryption and decryption of secrets",
-	Long:  "Encrypt and decrypt values under a master key, and generate the keys themselves. Encrypted values are what the seed engine's secrets: map stores and decrypts at boot.",
+	Use:         "secrets",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Manage encryption and decryption of secrets",
+	Long:        "Encrypt and decrypt values under a master key, and generate the keys themselves. Encrypted values are what the seed engine's secrets: map stores and decrypts at boot.",
 }
 
 func init() {

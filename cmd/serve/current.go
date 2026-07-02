@@ -10,9 +10,10 @@ import (
 )
 
 var currentCmd = &cobra.Command{
-	Use:   "current",
-	Short: "Serve current directory as a static site",
-	Long:  "Serve the current directory over HTTP as a static site — a quick way to preview built files.",
+	Use:         "current",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Serve current directory as a static site",
+	Long:        "Serve the current directory over HTTP as a static site — a quick way to preview built files.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		port, _ := cmd.Flags().GetInt("port")
 		bind, _ := cmd.Flags().GetString("bind")

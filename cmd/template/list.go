@@ -11,11 +11,12 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:     "list",
-	Short:   "List all available configuration templates",
-	Long:    "List the templates you can apply, with their source paths and whether one is already applied here.",
-	Aliases: []string{"ls"},
-	RunE:    runList,
+	Use:         "list",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "List all available configuration templates",
+	Long:        "List the templates you can apply, with their source paths and whether one is already applied here.",
+	Aliases:     []string{"ls"},
+	RunE:        runList,
 }
 
 func runList(cmd *cobra.Command, args []string) error {

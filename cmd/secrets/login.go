@@ -11,10 +11,11 @@ import (
 )
 
 var loginCmd = &cobra.Command{
-	Use:   "login",
-	Short: "Generate a workspace password hash for authentication",
-	Long:  "Prompt for a password and print its hash for the workspace server login (WS_AUTH_PASSWORD_HASHED). Store the hash, never the password.",
-	Args:  cobra.NoArgs,
+	Use:         "login",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Generate a workspace password hash for authentication",
+	Long:        "Prompt for a password and print its hash for the workspace server login (WS_AUTH_PASSWORD_HASHED). Store the hash, never the password.",
+	Args:        cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := getOutputConfig(cmd)
 		return generateLoginHash(cmd, cfg)

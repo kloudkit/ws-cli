@@ -15,11 +15,12 @@ var validLogLevels = []string{"debug", "info", "warn", "error"}
 var validLogTargets = []string{"main", "metrics", "docker", "auth_proxy", "cloudflared"}
 
 var LogsCmd = &cobra.Command{
-	Use:   "logs",
-	Short: "Retrieve workspace logs",
-	Long:  "Read a workspace daemon's log — the main log by default, or --target metrics|docker|auth_proxy|cloudflared. Filter by --level, limit with --tail, or stream live with --follow.",
-	Args:  cobra.NoArgs,
-	RunE:  execute,
+	Use:         "logs",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Retrieve workspace logs",
+	Long:        "Read a workspace daemon's log — the main log by default, or --target metrics|docker|auth_proxy|cloudflared. Filter by --level, limit with --tail, or stream live with --follow.",
+	Args:        cobra.NoArgs,
+	RunE:        execute,
 }
 
 func execute(cmd *cobra.Command, args []string) error {
