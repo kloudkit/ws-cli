@@ -7,10 +7,11 @@ import (
 )
 
 var decryptCmd = &cobra.Command{
-	Use:   "decrypt <encrypted|->",
-	Short: "Decrypt an encrypted value",
-	Long:  "Decrypt a value produced by encrypt, under the master key. Reads from the argument or stdin (-); writes the plaintext to stdout, or a file with --output.",
-	Args:  cobra.ExactArgs(1),
+	Use:         "decrypt <encrypted|->",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Decrypt an encrypted value",
+	Long:        "Decrypt a value produced by encrypt, under the master key. Reads from the argument or stdin (-); writes the plaintext to stdout, or a file with --output.",
+	Args:        cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := getOutputConfig(cmd)
 		masterKeyFlag, _ := cmd.Flags().GetString("master")

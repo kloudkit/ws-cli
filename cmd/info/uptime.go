@@ -10,9 +10,10 @@ import (
 )
 
 var uptimeCmd = &cobra.Command{
-	Use:   "uptime",
-	Short: "Display the workspace uptime",
-	Long:  "Show when the workspace session started and how long it has been running.",
+	Use:         "uptime",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Display the workspace uptime",
+	Long:        "Show when the workspace session started and how long it has been running.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		started, running, err := config.GetSessionInfo()
 

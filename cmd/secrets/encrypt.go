@@ -10,10 +10,11 @@ import (
 )
 
 var encryptCmd = &cobra.Command{
-	Use:   "encrypt <plaintext|->",
-	Short: "Encrypt a plaintext value",
-	Long:  "Encrypt a value under the master key. Reads the plaintext from the argument or stdin (-); writes the ciphertext to stdout, or a file with --output.",
-	Args:  cobra.ExactArgs(1),
+	Use:         "encrypt <plaintext|->",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Encrypt a plaintext value",
+	Long:        "Encrypt a value under the master key. Reads the plaintext from the argument or stdin (-); writes the ciphertext to stdout, or a file with --output.",
+	Args:        cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := getOutputConfig(cmd)
 		masterKeyFlag, _ := cmd.Flags().GetString("master")

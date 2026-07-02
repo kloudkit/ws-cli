@@ -18,6 +18,8 @@ type Option struct {
 
 type Command struct {
 	Name        string    `yaml:"name"`
+	Since       string    `yaml:"since,omitempty"`
+	Deprecated  string    `yaml:"deprecated,omitempty"`
 	Synopsis    string    `yaml:"synopsis,omitempty"`
 	Description string    `yaml:"description,omitempty"`
 	Usage       string    `yaml:"usage,omitempty"`
@@ -34,10 +36,16 @@ func Serialize(root *cobra.Command) ([]byte, error) {
 func walk(c *cobra.Command) Command {
 	command := Command{
 		Name:        c.CommandPath(),
+		Since:       c.Annotations["since"],
+		Deprecated:  c.Annotations["deprecated"],
 		Synopsis:    c.Short,
 		Description: c.Long,
 		Aliases:     c.Aliases,
 		Example:     c.Example,
+	}
+
+	if command.Deprecated != "" {
+		command.Since = ""
 	}
 
 	if c.Runnable() {

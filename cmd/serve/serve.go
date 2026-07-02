@@ -3,9 +3,10 @@ package serve
 import "github.com/spf13/cobra"
 
 var ServeCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "Serve internal assets",
-	Long:  "Run a small HTTP server for local assets — fonts or the current directory — on --port (default 38080).",
+	Use:         "serve",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Serve internal assets",
+	Long:        "Run a small HTTP server for local assets — fonts or the current directory — on --port (default 38080).",
 }
 
 func init() {

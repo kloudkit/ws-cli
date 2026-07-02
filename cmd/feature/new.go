@@ -18,8 +18,9 @@ const scaffoldTemplate = `---
 `
 
 var newCmd = &cobra.Command{
-	Use:   "new [name]",
-	Short: "Print boilerplate for a custom feature playbook",
+	Use:         "new [name]",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Print boilerplate for a custom feature playbook",
 	Long: `Print a starter feature playbook to stdout.
 
 Redirect it into ~/.ws/features.d/<name>.yaml, then extend it and install

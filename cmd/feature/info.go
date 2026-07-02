@@ -9,10 +9,11 @@ import (
 )
 
 var infoCmd = &cobra.Command{
-	Use:   "info <name>",
-	Short: "Show detailed information about a feature",
-	Long:  "Show a feature's description and the variables it accepts, so you know what --opt values install will take.",
-	Args:  cobra.ExactArgs(1),
+	Use:         "info <name>",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Show detailed information about a feature",
+	Long:        "Show a feature's description and the variables it accepts, so you know what --opt values install will take.",
+	Args:        cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		featureName := args[0]
 

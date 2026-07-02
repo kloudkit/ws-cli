@@ -11,8 +11,9 @@ import (
 )
 
 var metricsCmd = &cobra.Command{
-	Use:   "metrics",
-	Short: "Start the Prometheus metrics server",
+	Use:         "metrics",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Start the Prometheus metrics server",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		port, _ := cmd.Flags().GetInt("port")
 		collectors, _ := cmd.Flags().GetStringSlice("collectors")

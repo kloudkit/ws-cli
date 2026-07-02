@@ -10,8 +10,9 @@ import (
 )
 
 var showCmd = &cobra.Command{
-	Use:   "show <template>",
-	Short: "Display the contents of a configuration template",
+	Use:         "show <template>",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Display the contents of a configuration template",
 	Long: fmt.Sprintf(`Display the contents of a configuration template.
 
   Available templates: %s`, strings.Join(template.GetTemplateNames(), ", ")),

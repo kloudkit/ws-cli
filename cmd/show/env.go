@@ -15,10 +15,11 @@ import (
 var osExit = os.Exit
 
 var envCmd = &cobra.Command{
-	Use:   "env <KEY>",
-	Short: "Display the resolved value of a workspace environment variable",
-	Long:  "Resolve a setting by its dotted key (server.port) and print it with its source and description. --value emits just the value for scripts, --as bool|int|list validates the shape, --check tests whether it is set so a startup script can guard on it.",
-	Args:  cobra.ExactArgs(1),
+	Use:         "env <KEY>",
+	Annotations: map[string]string{"since": "0.2.0"},
+	Short:       "Display the resolved value of a workspace environment variable",
+	Long:        "Resolve a setting by its dotted key (server.port) and print it with its source and description. --value emits just the value for scripts, --as bool|int|list validates the shape, --check tests whether it is set so a startup script can guard on it.",
+	Args:        cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dotted := args[0]
 

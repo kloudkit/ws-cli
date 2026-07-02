@@ -11,9 +11,10 @@ import (
 )
 
 var diagnosticsCmd = &cobra.Command{
-	Use:   "diagnostics",
-	Short: "Show language diagnostics for the workspace (or a single file)",
-	Long:  "Pull language-server diagnostics (errors, warnings) from the editor over the IPC socket, across the whole workspace or a single file with --uri. Styled table by default, --raw for the JSON.",
+	Use:         "diagnostics",
+	Annotations: map[string]string{"since": "next"},
+	Short:       "Show language diagnostics for the workspace (or a single file)",
+	Long:        "Pull language-server diagnostics (errors, warnings) from the editor over the IPC socket, across the whole workspace or a single file with --uri. Styled table by default, --raw for the JSON.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		uri, _ := cmd.Flags().GetString("uri")
 
