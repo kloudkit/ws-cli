@@ -12,6 +12,11 @@ var LogCmd = &cobra.Command{
 	Annotations: map[string]string{"since": "0.2.0"},
 	Short:       "Log messages",
 	Long:        "Emit styled, level-tagged log lines — the same formatting the startup scripts use. --pipe runs each line of piped input through the logger.",
+	Example: `# Emit an info-level line
+ws log info "starting up"
+
+# Nest a warning under it with a timestamp
+ws log warn "slow response" --indent 1 --stamp`,
 }
 
 var debugCmd = createCommand("debug", "debugging")

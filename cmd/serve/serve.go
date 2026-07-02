@@ -7,6 +7,11 @@ var ServeCmd = &cobra.Command{
 	Annotations: map[string]string{"since": "0.2.0"},
 	Short:       "Serve internal assets",
 	Long:        "Run a small HTTP server for local assets — fonts or the current directory — on --port (default 38080).",
+	Example: `# Serve the current directory
+ws serve current
+
+# Serve fonts on a custom port
+ws serve font --port 38081`,
 }
 
 func init() {

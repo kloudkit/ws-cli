@@ -19,8 +19,13 @@ var LogsCmd = &cobra.Command{
 	Annotations: map[string]string{"since": "0.2.0"},
 	Short:       "Retrieve workspace logs",
 	Long:        "Read a workspace daemon's log — the main log by default, or --target metrics|docker|auth_proxy|cloudflared. Filter by --level, limit with --tail, or stream live with --follow.",
-	Args:        cobra.NoArgs,
-	RunE:        execute,
+	Example: `# Stream errors live, starting from the last 100 lines
+ws logs --level=error --tail=100 --follow
+
+# Read a specific target instead of the main log
+ws logs --target metrics`,
+	Args: cobra.NoArgs,
+	RunE: execute,
 }
 
 func execute(cmd *cobra.Command, args []string) error {

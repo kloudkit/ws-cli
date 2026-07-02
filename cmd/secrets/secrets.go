@@ -9,6 +9,11 @@ var SecretsCmd = &cobra.Command{
 	Annotations: map[string]string{"since": "0.2.0"},
 	Short:       "Manage encryption and decryption of secrets",
 	Long:        "Encrypt and decrypt values under a master key, and generate the keys themselves. Encrypted values are what the seed engine's secrets: map stores and decrypts at boot.",
+	Example: `# Generate a master key
+ws secrets generate master
+
+# Encrypt a value under it
+ws secrets encrypt "s3cr3t" --master ~/.ws/master.key`,
 }
 
 func init() {

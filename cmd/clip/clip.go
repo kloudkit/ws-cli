@@ -9,4 +9,9 @@ var ClipCmd = &cobra.Command{
 	Annotations: map[string]string{"since": "0.2.0"},
 	Short:       "Interact with the native clipboard",
 	Long:        "Reach the browser clipboard from the terminal over the workspace IPC socket.",
+	Example: `# Save the browser clipboard to a file
+ws clip paste > out.txt
+
+# Search within it
+ws clip paste | grep "pattern"`,
 }

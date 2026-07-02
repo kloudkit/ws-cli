@@ -38,6 +38,11 @@ var InfoCmd = &cobra.Command{
 	Annotations: map[string]string{"since": "0.2.0"},
 	Short:       "Display workspace information",
 	Long:        "Report facts about the running workspace — version, effective environment, installed extensions, live resource metrics, and uptime.",
+	Example: `# Show the full version table
+ws info version --all
+
+# Watch live resource usage
+ws info metrics`,
 }
 
 var showVersionCmd = &cobra.Command{
