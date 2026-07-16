@@ -1,6 +1,7 @@
 package clipboard
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -8,17 +9,18 @@ import (
 )
 
 func Paste(writer io.Writer) error {
-	client := net.GetIPCClient()
-
-	resp, err := client.Get("http://localhost/clipboard")
+	body, err := net.SendEnvelope("", map[string]any{"type": "clipboardRead"})
 	if err != nil {
-		return fmt.Errorf("error retrieving from workspace socket: %v", err)
+		return err
 	}
-	defer resp.Body.Close()
 
-	_, err = io.Copy(writer, resp.Body)
-	if err != nil {
-		return fmt.Errorf("error outputting clipboard data: %v", err)
+	var text string
+	if err := json.Unmarshal(body, &text); err != nil {
+		return fmt.Errorf("error decoding clipboard response: %w", err)
+	}
+
+	if _, err := io.WriteString(writer, text); err != nil {
+		return fmt.Errorf("error outputting clipboard data: %w", err)
 	}
 
 	return nil

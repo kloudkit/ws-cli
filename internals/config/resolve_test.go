@@ -137,7 +137,7 @@ func TestRuntimeKey(t *testing.T) {
 		want        string
 	}{
 		{"metrics", "port", "WS_METRICS_PORT"},
-		{"_internal", "ipc_socket", "WS__INTERNAL_IPC_SOCKET"},
+		{"_internal", "env_reference", "WS__INTERNAL_ENV_REFERENCE"},
 		{"server", "root", "WS_SERVER_ROOT"},
 	}
 	for _, c := range cases {

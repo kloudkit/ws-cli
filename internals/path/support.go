@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/kloudkit/ws-cli/internals/env"
 )
 
@@ -25,10 +24,6 @@ func AppendSegments(root string, segments ...string) string {
 
 func GetHomeDirectory(segments ...string) string {
 	return AppendSegments(env.Home(), segments...)
-}
-
-func GetIPCSocket() string {
-	return env.String(config.EnvIPCSocket)
 }
 
 func ResolveConfigPath(configPath string) string {

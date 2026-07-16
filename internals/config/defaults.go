@@ -1,8 +1,6 @@
 package config
 
 const (
-	EnvIPCSocket = "WS__INTERNAL_IPC_SOCKET"
-
 	DefaultEnvReferencePath = "/etc/workspace/env.reference.yaml"
 	DefaultStatePath        = "/var/lib/workspace/state"
 	DefaultEnvFilePath      = "~/.zshenv"
