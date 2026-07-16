@@ -2,13 +2,54 @@ package secrets
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/kloudkit/ws-cli/internals/io"
 )
+
+func MaterializeMasterKey() (string, error) {
+	value := os.Getenv(config.RuntimeKey("secrets", "master_key"))
+	path := config.SecretConventionPath("secrets", "master_key")
+
+	if value == "" || io.FileExists(path) {
+		return "", nil
+	}
+
+	key := value
+
+	if source, found := strings.CutPrefix(value, "file:"); found {
+		data, err := os.ReadFile(source)
+		if err != nil {
+			return "", nil
+		}
+
+		key = strings.TrimRight(string(data), "\n")
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return "", err
+	}
+
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if errors.Is(err, os.ErrExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	if _, err := file.Write([]byte(key)); err != nil {
+		return "", err
+	}
+
+	return path, nil
+}
 
 func ResolveMasterKey(flagValue string) ([]byte, error) {
 	if flagValue != "" {

@@ -125,3 +125,60 @@ func TestResolveMasterKey_FromFilePrefix(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, "file-prefix-key", string(resolved))
 }
+
+func TestMaterializeMasterKey(t *testing.T) {
+	t.Run("FromEnvValue", func(t *testing.T) {
+		root := _newSecretRoot(t)
+		t.Setenv("WS_SECRETS_MASTER_KEY", "raw-key-value")
+
+		path, err := MaterializeMasterKey()
+		assert.NilError(t, err)
+		assert.Equal(t, path, filepath.Join(root, "secrets", "master_key"))
+
+		data, err := os.ReadFile(path)
+		assert.NilError(t, err)
+		assert.Equal(t, string(data), "raw-key-value")
+
+		info, err := os.Stat(path)
+		assert.NilError(t, err)
+		assert.Equal(t, info.Mode().Perm(), os.FileMode(0o600))
+	})
+
+	t.Run("FromFilePrefix", func(t *testing.T) {
+		_newSecretRoot(t)
+		source := filepath.Join(t.TempDir(), "mk")
+		assert.NilError(t, os.WriteFile(source, []byte("file-key\n"), 0o600))
+		t.Setenv("WS_SECRETS_MASTER_KEY", "file:"+source)
+
+		path, err := MaterializeMasterKey()
+		assert.NilError(t, err)
+
+		data, err := os.ReadFile(path)
+		assert.NilError(t, err)
+		assert.Equal(t, string(data), "file-key")
+	})
+
+	t.Run("UnsetIsNoop", func(t *testing.T) {
+		_newSecretRoot(t)
+		t.Setenv("WS_SECRETS_MASTER_KEY", "")
+
+		path, err := MaterializeMasterKey()
+		assert.NilError(t, err)
+		assert.Equal(t, path, "")
+	})
+
+	t.Run("ExistingIsNoop", func(t *testing.T) {
+		root := _newSecretRoot(t)
+		existing := filepath.Join(root, "secrets", "master_key")
+		assert.NilError(t, os.MkdirAll(filepath.Dir(existing), 0o755))
+		assert.NilError(t, os.WriteFile(existing, []byte("original"), 0o600))
+		t.Setenv("WS_SECRETS_MASTER_KEY", "new-value")
+
+		path, err := MaterializeMasterKey()
+		assert.NilError(t, err)
+		assert.Equal(t, path, "")
+
+		data, _ := os.ReadFile(existing)
+		assert.Equal(t, string(data), "original")
+	})
+}

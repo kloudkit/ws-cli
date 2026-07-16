@@ -23,5 +23,5 @@ func init() {
 	SecretsCmd.PersistentFlags().Bool("force", false, "Overwrite existing files")
 	SecretsCmd.PersistentFlags().Bool("raw", false, "Output without styling")
 
-	SecretsCmd.AddCommand(encryptCmd, decryptCmd, generateCmd)
+	SecretsCmd.AddCommand(encryptCmd, decryptCmd, generateCmd, materializeCmd)
 }

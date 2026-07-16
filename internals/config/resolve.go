@@ -47,9 +47,13 @@ func (s ResolveSource) Label() string {
 
 const defaultSecretConventionRoot = "/run/secrets/workspace"
 
-func conventionSecretPath(prop Property) string {
+func SecretConventionPath(group, prop string) string {
 	root := env.String("WS__INTERNAL_SECRETS_ROOT", defaultSecretConventionRoot)
-	return root + "/" + strings.ToLower(prop.Group) + "/" + strings.ToLower(prop.Name)
+	return root + "/" + strings.ToLower(group) + "/" + strings.ToLower(prop)
+}
+
+func conventionSecretPath(prop Property) string {
+	return SecretConventionPath(prop.Group, prop.Name)
 }
 
 func readSecretFile(path string) (string, error) {
