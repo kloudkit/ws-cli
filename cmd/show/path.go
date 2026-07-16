@@ -45,7 +45,7 @@ var pathVscodeCmd = &cobra.Command{
 		var settingsPath = "/workspace/.vscode/settings.json"
 
 		if !useWorkspace {
-			settingsPath = path.GetHomeDirectory("/.local/share/workspace/User/settings.json")
+			settingsPath = path.GetHomeDirectory("/.local/share/ws-server/User/settings.json")
 		}
 
 		raw, _ := cmd.Flags().GetBool("raw")

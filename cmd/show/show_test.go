@@ -134,13 +134,13 @@ func TestPathVscode(t *testing.T) {
 	t.Run("WithEnv", func(t *testing.T) {
 		t.Setenv("HOME", "/app")
 
-		assertOutputContains(t, []string{"path", "vscode-settings"}, "/app/.local/share/workspace/User/settings.json")
+		assertOutputContains(t, []string{"path", "vscode-settings"}, "/app/.local/share/ws-server/User/settings.json")
 	})
 
 	t.Run("WithoutEnv", func(t *testing.T) {
 		t.Setenv("HOME", "")
 
-		assertOutputContains(t, []string{"path", "vscode-settings"}, "/home/kloud/.local/share/workspace/User/settings.json")
+		assertOutputContains(t, []string{"path", "vscode-settings"}, "/home/kloud/.local/share/ws-server/User/settings.json")
 	})
 
 	t.Run("WorkspaceSettings", func(t *testing.T) {
