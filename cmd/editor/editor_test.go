@@ -2,6 +2,7 @@ package editor
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -26,6 +27,20 @@ func TestResolvePath(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Equal(t, got, "vscode-remote://editor.example.test/etc/hosts")
 	})
+}
+
+func TestNotifyRejectsInvalidJSON(t *testing.T) {
+	notifyCmd.SetIn(strings.NewReader("{not json"))
+
+	err := notifyCmd.RunE(notifyCmd, nil)
+	assert.ErrorContains(t, err, "invalid JSON on stdin")
+}
+
+func TestNotifyRequiresMessage(t *testing.T) {
+	notifyCmd.SetIn(strings.NewReader(`{"detail": "no message here"}`))
+
+	err := notifyCmd.RunE(notifyCmd, nil)
+	assert.ErrorContains(t, err, `requires a JSON payload with a "message"`)
 }
 
 func TestPersistentPreRunEBlocksSSH(t *testing.T) {
