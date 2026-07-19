@@ -54,6 +54,15 @@ type OpenRequest struct {
 	Selection *Range `json:"selection,omitempty"`
 }
 
+type NotifyRequest struct {
+	Message  string `json:"message"`
+	Detail   string `json:"detail,omitempty"`
+	Actions  any    `json:"actions,omitempty"`
+	Modal    bool   `json:"modal,omitempty"`
+	Timeout  int    `json:"timeout,omitempty"`
+	Severity string `json:"severity,omitempty"`
+}
+
 func FetchDiagnostics(uri string) ([]byte, error) {
 	envelope := map[string]any{"type": "diagnostics"}
 	if uri != "" {
@@ -86,6 +95,28 @@ func Open(req OpenRequest) error {
 	_, err := net.SendEnvelope(req.Path, envelope)
 
 	return err
+}
+
+func Notify(req NotifyRequest) ([]byte, error) {
+	envelope := map[string]any{"type": "notify", "message": req.Message}
+
+	if req.Detail != "" {
+		envelope["detail"] = req.Detail
+	}
+	if req.Actions != nil {
+		envelope["actions"] = req.Actions
+	}
+	if req.Modal {
+		envelope["modal"] = true
+	}
+	if req.Timeout > 0 {
+		envelope["timeout"] = req.Timeout
+	}
+	if req.Severity != "" {
+		envelope["severity"] = req.Severity
+	}
+
+	return fetch("", envelope)
 }
 
 func fetch(filePath string, envelope any) ([]byte, error) {

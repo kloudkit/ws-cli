@@ -137,6 +137,47 @@ func TestOpenSendsEnvelope(t *testing.T) {
 	assert.Assert(t, envelope["selection"] != nil)
 }
 
+func TestNotifyForwardsPayload(t *testing.T) {
+	var envelope map[string]any
+
+	startPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		envelope = envelopeOf(t, r)
+		_, _ = w.Write([]byte(`{"action":"Yes","timedOut":false}`))
+	}))
+
+	body, err := editor.Notify(editor.NotifyRequest{
+		Message: "Deploy now?",
+		Actions: []any{"Yes", "No"},
+		Timeout: 5000,
+	})
+	assert.NilError(t, err)
+
+	assert.Equal(t, envelope["type"], "notify")
+	assert.Equal(t, envelope["message"], "Deploy now?")
+	assert.Assert(t, envelope["actions"] != nil)
+	assert.Equal(t, envelope["timeout"], float64(5000))
+	assert.Equal(t, string(body), `{"action":"Yes","timedOut":false}`)
+}
+
+func TestNotifyOmitsEmptyOptionals(t *testing.T) {
+	var envelope map[string]any
+
+	startPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		envelope = envelopeOf(t, r)
+		_, _ = w.Write([]byte("null"))
+	}))
+
+	_, err := editor.Notify(editor.NotifyRequest{Message: "hi"})
+	assert.NilError(t, err)
+
+	_, hasDetail := envelope["detail"]
+	_, hasActions := envelope["actions"]
+	_, hasTimeout := envelope["timeout"]
+	assert.Assert(t, !hasDetail)
+	assert.Assert(t, !hasActions)
+	assert.Assert(t, !hasTimeout)
+}
+
 func TestErrorResponseSurfacesBody(t *testing.T) {
 	startPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
