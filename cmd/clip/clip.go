@@ -13,5 +13,8 @@ var ClipCmd = &cobra.Command{
 ws clip paste > out.txt
 
 # Search within it
-ws clip paste | grep "pattern"`,
+ws clip paste | grep "pattern"
+
+# Send command output to the browser clipboard
+ls | ws clip copy`,
 }

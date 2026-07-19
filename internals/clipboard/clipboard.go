@@ -25,3 +25,17 @@ func Paste(writer io.Writer) error {
 
 	return nil
 }
+
+func Copy(reader io.Reader) error {
+	content, err := io.ReadAll(reader)
+	if err != nil {
+		return fmt.Errorf("error reading clipboard input: %w", err)
+	}
+
+	_, err = net.SendEnvelope("", map[string]any{
+		"type":    "clipboard",
+		"content": string(content),
+	})
+
+	return err
+}

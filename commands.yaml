@@ -14,7 +14,15 @@ commands:
 
         # Search within it
         ws clip paste | grep "pattern"
+
+        # Send command output to the browser clipboard
+        ls | ws clip copy
       commands:
+        - name: ws-cli clip copy
+          since: next
+          synopsis: Copy stdin to the clipboard
+          description: Read stdin and write it to the browser clipboard over the workspace IPC socket. Pairs with the pbcopy/xclip/xsel shims for terminal clipboard access.
+          usage: ws-cli clip copy
         - name: ws-cli clip paste
           since: 0.2.0
           synopsis: Paste clipboard content
