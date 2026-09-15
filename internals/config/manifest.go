@@ -8,9 +8,6 @@ import (
 
 type Manifest struct {
 	Version string `json:"version"`
-	VSCode  struct {
-		Version string `json:"version"`
-	} `json:"vscode"`
 }
 
 func ReadManifest() (*Manifest, error) {
@@ -28,4 +25,29 @@ func ReadManifest() (*Manifest, error) {
 	}
 
 	return &m, nil
+}
+
+func WorkspaceVersion() string {
+	m, err := ReadManifest()
+	if err != nil {
+		return ""
+	}
+
+	return m.Version
+}
+
+func VSCodeVersion() (string, error) {
+	data, err := os.ReadFile(DefaultProductJSONPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read product.json: %w", err)
+	}
+
+	var product struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(data, &product); err != nil {
+		return "", fmt.Errorf("failed to parse product.json: %w", err)
+	}
+
+	return product.Version, nil
 }

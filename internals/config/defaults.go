@@ -6,4 +6,7 @@ const (
 	DefaultEnvFilePath      = "~/.zshenv"
 )
 
-var DefaultManifestPath = "/var/lib/workspace/manifest.json"
+var (
+	DefaultManifestPath    = "/var/lib/workspace/manifest.json"
+	DefaultProductJSONPath = "/usr/lib/workspace/vscode/product.json"
+)

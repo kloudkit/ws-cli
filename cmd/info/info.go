@@ -11,26 +11,24 @@ import (
 )
 
 func showVersion(writer io.Writer) {
-	manifest, err := config.ReadManifest()
-	if err != nil {
-		styles.PrintWarning(writer, fmt.Sprintf("Could not read workspace version: %v", err))
-		fmt.Fprintf(writer, "%s\n", styles.Title().Render("Versions"))
-		t := styles.Table().Rows(
-			[]string{"ws-cli", Version()},
-		)
-		fmt.Fprintln(writer, t.Render())
-		return
+	var rows [][]string
+
+	if version := config.WorkspaceVersion(); version != "" {
+		rows = append(rows, []string{"workspace", version})
+	} else {
+		styles.PrintWarning(writer, "Could not determine the workspace version")
+	}
+
+	rows = append(rows, []string{"ws-cli", Version()})
+
+	if version, err := config.VSCodeVersion(); err == nil {
+		rows = append(rows, []string{"VSCode", version})
+	} else {
+		styles.PrintWarning(writer, fmt.Sprintf("Could not read the editor version: %v", err))
 	}
 
 	fmt.Fprintf(writer, "%s\n", styles.Title().Render("Versions"))
-
-	t := styles.Table().Rows(
-		[]string{"workspace", manifest.Version},
-		[]string{"ws-cli", Version()},
-		[]string{"VSCode", manifest.VSCode.Version},
-	)
-
-	fmt.Fprintln(writer, t.Render())
+	fmt.Fprintln(writer, styles.Table().Rows(rows...).Render())
 }
 
 var InfoCmd = &cobra.Command{

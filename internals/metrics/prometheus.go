@@ -38,11 +38,14 @@ func NewWorkspaceCollector(enabled []string) *WorkspaceCollector {
 		enabled:                  enabled,
 	}
 
-	if manifest, err := config.ReadManifest(); err == nil {
-		c.infoLabels = prometheus.Labels{
-			"version":        manifest.Version,
-			"vscode_version": manifest.VSCode.Version,
-		}
+	vscodeVersion, err := config.VSCodeVersion()
+	if err != nil {
+		vscodeVersion = ""
+	}
+
+	c.infoLabels = prometheus.Labels{
+		"version":        config.WorkspaceVersion(),
+		"vscode_version": vscodeVersion,
 	}
 
 	if initialized, err := config.GetInitializedTime(); err == nil {
