@@ -1,3 +1,5 @@
+![Kloud Workspace — configured development by KloudKIT](https://raw.githubusercontent.com/kloudkit/ws-meta/main/shared/brand/banner-strip-wordmark-blue.png)
+
 # Kloud Workspace • CLI
 
 > ⚡ CLI companion to charge the **Kloud Workspace** batteries
