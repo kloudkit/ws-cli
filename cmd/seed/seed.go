@@ -9,7 +9,7 @@ var SeedCmd = &cobra.Command{
 	Use:         "seed",
 	Short:       "Project declarative content onto the filesystem",
 	Long:        "Copy files and apply small edits from a seed source onto the filesystem at boot. Bare files mirror verbatim; a .seed.yaml manifest overlays behavior — copy, merge, append — and decrypts secrets under the master key. Point --source at a mounted volume to seed a container from durable storage.",
-	Annotations: map[string]string{"since": "next"},
+	Annotations: map[string]string{"since": "0.5.0"},
 	Example: `# Preview what apply would write
 ws seed ls --source /mnt/seed
 

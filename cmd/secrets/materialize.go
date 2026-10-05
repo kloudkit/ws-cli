@@ -8,7 +8,7 @@ import (
 
 var materializeCmd = &cobra.Command{
 	Use:         "materialize",
-	Annotations: map[string]string{"since": "next"},
+	Annotations: map[string]string{"since": "0.5.0"},
 	Short:       "Project the configured master key to its conventional secret path",
 	Long:        "Persist WS_SECRETS_MASTER_KEY to /run/secrets/workspace/secrets/master_key so the key outlives the editor's environment scrub. A no-op when the key is unset or the path already holds one.",
 	Args:        cobra.NoArgs,

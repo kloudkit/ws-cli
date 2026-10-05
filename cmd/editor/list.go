@@ -12,7 +12,7 @@ import (
 
 var listCmd = &cobra.Command{
 	Use:         "list",
-	Annotations: map[string]string{"since": "next"},
+	Annotations: map[string]string{"since": "0.5.0"},
 	Short:       "List the currently open editor tabs",
 	Long:        "List the editor's open tabs over the IPC socket, with each tab's path, language, and active or dirty state.",
 	RunE: func(cmd *cobra.Command, args []string) error {

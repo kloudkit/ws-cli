@@ -13,7 +13,7 @@ import (
 
 var notifyCmd = &cobra.Command{
 	Use:         "notify",
-	Annotations: map[string]string{"since": "next"},
+	Annotations: map[string]string{"since": "0.5.0"},
 	Short:       "Raise a notification in the editor",
 	Long:        "Read a JSON payload from stdin and raise it as a notification in the running editor window over the workspace IPC socket. Requires a \"message\"; optional \"detail\", \"actions\", \"modal\", \"timeout\", and \"severity\" tune it. Prints the chosen action (or timeout) as JSON. Blocked over SSH.",
 	Example: `# A simple toast
