@@ -12,13 +12,8 @@ const (
 	glamourListLevelStep = 2
 )
 
-func stringPtr(s string) *string { return &s }
-func boolPtr(b bool) *bool       { return &b }
-func uintPtr(u uint) *uint       { return &u }
-
-func hexPtr(c color.RGBA) *string {
-	s := fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B)
-	return &s
+func hex(c color.RGBA) string {
+	return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B)
 }
 
 var CatppuccinFrappeStyleConfig = ansi.StyleConfig{
@@ -26,32 +21,32 @@ var CatppuccinFrappeStyleConfig = ansi.StyleConfig{
 		StylePrimitive: ansi.StylePrimitive{
 			BlockPrefix: "",
 			BlockSuffix: "",
-			Color:       hexPtr(Text),
+			Color:       new(hex(Text)),
 		},
-		Margin: uintPtr(glamourMargin),
+		Margin: new(uint(glamourMargin)),
 	},
 	BlockQuote: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
-			Color:  hexPtr(Yellow),
-			Italic: boolPtr(true),
+			Color:  new(hex(Yellow)),
+			Italic: new(true),
 		},
-		Indent:      uintPtr(1),
-		IndentToken: stringPtr("│ "),
+		Indent:      new(uint(1)),
+		IndentToken: new("│ "),
 	},
 	Paragraph: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{},
 	},
 	List: ansi.StyleList{
 		StyleBlock: ansi.StyleBlock{
-			StylePrimitive: ansi.StylePrimitive{Color: hexPtr(Text)},
+			StylePrimitive: ansi.StylePrimitive{Color: new(hex(Text))},
 		},
 		LevelIndent: glamourListLevelStep,
 	},
 	Heading: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
 			BlockSuffix: "\n",
-			Color:       hexPtr(Mauve),
-			Bold:        boolPtr(true),
+			Color:       new(hex(Mauve)),
+			Bold:        new(true),
 		},
 	},
 	H1: ansi.StyleBlock{StylePrimitive: ansi.StylePrimitive{Prefix: "# "}},
@@ -61,18 +56,18 @@ var CatppuccinFrappeStyleConfig = ansi.StyleConfig{
 	H5: ansi.StyleBlock{StylePrimitive: ansi.StylePrimitive{Prefix: "##### "}},
 	H6: ansi.StyleBlock{StylePrimitive: ansi.StylePrimitive{Prefix: "###### "}},
 	Strikethrough: ansi.StylePrimitive{
-		CrossedOut: boolPtr(true),
+		CrossedOut: new(true),
 	},
 	Emph: ansi.StylePrimitive{
-		Color:  hexPtr(Peach),
-		Italic: boolPtr(true),
+		Color:  new(hex(Peach)),
+		Italic: new(true),
 	},
 	Strong: ansi.StylePrimitive{
-		Color: hexPtr(Mauve),
-		Bold:  boolPtr(true),
+		Color: new(hex(Mauve)),
+		Bold:  new(true),
 	},
 	HorizontalRule: ansi.StylePrimitive{
-		Color:  hexPtr(Overlay0),
+		Color:  new(hex(Overlay0)),
 		Format: "\n────\n",
 	},
 	Item: ansi.StylePrimitive{
@@ -80,7 +75,7 @@ var CatppuccinFrappeStyleConfig = ansi.StyleConfig{
 	},
 	Enumeration: ansi.StylePrimitive{
 		BlockPrefix: ". ",
-		Color:       hexPtr(Blue),
+		Color:       new(hex(Blue)),
 	},
 	Task: ansi.StyleTask{
 		StylePrimitive: ansi.StylePrimitive{},
@@ -88,63 +83,63 @@ var CatppuccinFrappeStyleConfig = ansi.StyleConfig{
 		Unticked:       "[ ] ",
 	},
 	Link: ansi.StylePrimitive{
-		Color:     hexPtr(Blue),
-		Underline: boolPtr(true),
+		Color:     new(hex(Blue)),
+		Underline: new(true),
 	},
 	LinkText: ansi.StylePrimitive{
-		Color: hexPtr(Teal),
+		Color: new(hex(Teal)),
 	},
 	Image: ansi.StylePrimitive{
-		Color:     hexPtr(Blue),
-		Underline: boolPtr(true),
+		Color:     new(hex(Blue)),
+		Underline: new(true),
 	},
 	ImageText: ansi.StylePrimitive{
-		Color:  hexPtr(Teal),
+		Color:  new(hex(Teal)),
 		Format: "Image: {{.text}} →",
 	},
 	Code: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
 			Prefix:          " ",
 			Suffix:          " ",
-			Color:           hexPtr(Teal),
-			BackgroundColor: hexPtr(Surface1),
+			Color:           new(hex(Teal)),
+			BackgroundColor: new(hex(Surface1)),
 		},
 	},
 	CodeBlock: ansi.StyleCodeBlock{
 		StyleBlock: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Color: hexPtr(Text),
+				Color: new(hex(Text)),
 			},
-			Margin: uintPtr(glamourMargin),
+			Margin: new(uint(glamourMargin)),
 		},
 		Chroma: &ansi.Chroma{
-			Text:                ansi.StylePrimitive{Color: hexPtr(Text)},
-			Error:               ansi.StylePrimitive{Color: hexPtr(Text), BackgroundColor: hexPtr(Red)},
-			Comment:             ansi.StylePrimitive{Color: hexPtr(Overlay0)},
-			CommentPreproc:      ansi.StylePrimitive{Color: hexPtr(Teal)},
-			Keyword:             ansi.StylePrimitive{Color: hexPtr(Mauve)},
-			KeywordReserved:     ansi.StylePrimitive{Color: hexPtr(Mauve)},
-			KeywordNamespace:    ansi.StylePrimitive{Color: hexPtr(Mauve)},
-			KeywordType:         ansi.StylePrimitive{Color: hexPtr(Yellow)},
-			Operator:            ansi.StylePrimitive{Color: hexPtr(Teal)},
-			Punctuation:         ansi.StylePrimitive{Color: hexPtr(Overlay1)},
-			Name:                ansi.StylePrimitive{Color: hexPtr(Blue)},
-			NameConstant:        ansi.StylePrimitive{Color: hexPtr(Peach)},
-			NameBuiltin:         ansi.StylePrimitive{Color: hexPtr(Red)},
-			NameTag:             ansi.StylePrimitive{Color: hexPtr(Mauve)},
-			NameAttribute:       ansi.StylePrimitive{Color: hexPtr(Yellow)},
-			NameClass:           ansi.StylePrimitive{Color: hexPtr(Yellow)},
-			NameDecorator:       ansi.StylePrimitive{Color: hexPtr(Blue)},
-			NameFunction:        ansi.StylePrimitive{Color: hexPtr(Blue)},
-			LiteralNumber:       ansi.StylePrimitive{Color: hexPtr(Peach)},
-			LiteralString:       ansi.StylePrimitive{Color: hexPtr(Green)},
-			LiteralStringEscape: ansi.StylePrimitive{Color: hexPtr(Teal)},
-			GenericDeleted:      ansi.StylePrimitive{Color: hexPtr(Red)},
-			GenericEmph:         ansi.StylePrimitive{Italic: boolPtr(true)},
-			GenericInserted:     ansi.StylePrimitive{Color: hexPtr(Green)},
-			GenericStrong:       ansi.StylePrimitive{Bold: boolPtr(true)},
-			GenericSubheading:   ansi.StylePrimitive{Color: hexPtr(Subtext1)},
-			Background:          ansi.StylePrimitive{BackgroundColor: hexPtr(Base)},
+			Text:                ansi.StylePrimitive{Color: new(hex(Text))},
+			Error:               ansi.StylePrimitive{Color: new(hex(Text)), BackgroundColor: new(hex(Red))},
+			Comment:             ansi.StylePrimitive{Color: new(hex(Overlay0))},
+			CommentPreproc:      ansi.StylePrimitive{Color: new(hex(Teal))},
+			Keyword:             ansi.StylePrimitive{Color: new(hex(Mauve))},
+			KeywordReserved:     ansi.StylePrimitive{Color: new(hex(Mauve))},
+			KeywordNamespace:    ansi.StylePrimitive{Color: new(hex(Mauve))},
+			KeywordType:         ansi.StylePrimitive{Color: new(hex(Yellow))},
+			Operator:            ansi.StylePrimitive{Color: new(hex(Teal))},
+			Punctuation:         ansi.StylePrimitive{Color: new(hex(Overlay1))},
+			Name:                ansi.StylePrimitive{Color: new(hex(Blue))},
+			NameConstant:        ansi.StylePrimitive{Color: new(hex(Peach))},
+			NameBuiltin:         ansi.StylePrimitive{Color: new(hex(Red))},
+			NameTag:             ansi.StylePrimitive{Color: new(hex(Mauve))},
+			NameAttribute:       ansi.StylePrimitive{Color: new(hex(Yellow))},
+			NameClass:           ansi.StylePrimitive{Color: new(hex(Yellow))},
+			NameDecorator:       ansi.StylePrimitive{Color: new(hex(Blue))},
+			NameFunction:        ansi.StylePrimitive{Color: new(hex(Blue))},
+			LiteralNumber:       ansi.StylePrimitive{Color: new(hex(Peach))},
+			LiteralString:       ansi.StylePrimitive{Color: new(hex(Green))},
+			LiteralStringEscape: ansi.StylePrimitive{Color: new(hex(Teal))},
+			GenericDeleted:      ansi.StylePrimitive{Color: new(hex(Red))},
+			GenericEmph:         ansi.StylePrimitive{Italic: new(true)},
+			GenericInserted:     ansi.StylePrimitive{Color: new(hex(Green))},
+			GenericStrong:       ansi.StylePrimitive{Bold: new(true)},
+			GenericSubheading:   ansi.StylePrimitive{Color: new(hex(Subtext1))},
+			Background:          ansi.StylePrimitive{BackgroundColor: new(hex(Base))},
 		},
 	},
 	Table: ansi.StyleTable{

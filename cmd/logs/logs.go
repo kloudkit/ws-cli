@@ -61,13 +61,7 @@ func execute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if follow {
-		err = reader.FollowLogs(cmd.OutOrStdout())
-	} else {
-		err = reader.ReadLogs(cmd.OutOrStdout())
-	}
-
-	if err != nil {
+	if err := reader.ReadLogs(cmd.OutOrStdout(), follow); err != nil {
 		styles.PrintError(cmd.ErrOrStderr(), fmt.Sprintf("Error reading logs: %s", err))
 		return err
 	}

@@ -3,7 +3,8 @@ package info
 import (
 	"fmt"
 	"io"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -15,17 +16,13 @@ import (
 func showEnvironment(writer io.Writer) {
 	allVars := env.GetAll()
 	var wsVars [][]string
-	for key, value := range allVars {
+	for _, key := range slices.Sorted(maps.Keys(allVars)) {
 		if strings.HasPrefix(key, "WS_") {
-			wsVars = append(wsVars, []string{key, value})
+			wsVars = append(wsVars, []string{key, allVars[key]})
 		}
 	}
 
 	fmt.Fprintf(writer, "%s\n", styles.TitleWithCount("Workspace Variables", len(wsVars)))
-
-	sort.Slice(wsVars, func(i, j int) bool {
-		return wsVars[i][0] < wsVars[j][0]
-	})
 
 	fmt.Fprintf(writer, "%s\n\n", styles.Table().Rows(wsVars...).Render())
 }

@@ -18,11 +18,7 @@ func FileExists(path string) bool {
 }
 
 func CanOverride(path string, force bool) bool {
-	if _, err := os.Stat(path); os.IsNotExist(err) || force {
-		return true
-	}
-
-	return false
+	return force || !FileExists(path)
 }
 
 func ParseFileMode(modeStr string) (fs.FileMode, error) {

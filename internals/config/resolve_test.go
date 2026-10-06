@@ -105,6 +105,13 @@ deprecated:
     use: WS_SECRETS_VAULT
 `
 
+func _resolve(t *testing.T, r *EnvReference, key string) string {
+	t.Helper()
+	v, _, err := resolveValueAndSource(r, nil, key)
+	assert.NilError(t, err)
+	return v
+}
+
 func _installPathFixture(t *testing.T) {
 	t.Helper()
 	_installFixture(t, pathYAML)
@@ -124,10 +131,7 @@ func _captureWarnings(t *testing.T) *bytes.Buffer {
 	original := deprecationWriter
 	deprecationWriter = buf
 	t.Cleanup(func() { deprecationWriter = original })
-	warnedAliases.Range(func(k, _ any) bool {
-		warnedAliases.Delete(k)
-		return true
-	})
+	ResetWarnedAliases()
 	return buf
 }
 
@@ -148,37 +152,37 @@ func TestRuntimeKey(t *testing.T) {
 func TestResolve_EnvWinsOverDefault(t *testing.T) {
 	r := _newReference(t)
 	t.Setenv("WS_SERVER_ROOT", "/custom")
-	assert.Equal(t, "/custom", r.Resolve("WS_SERVER_ROOT"))
+	assert.Equal(t, "/custom", _resolve(t, r, "WS_SERVER_ROOT"))
 }
 
 func TestResolve_UnsetReturnsDefault(t *testing.T) {
 	r := _newReference(t)
-	assert.Equal(t, "/workspace", r.Resolve("WS_SERVER_ROOT"))
+	assert.Equal(t, "/workspace", _resolve(t, r, "WS_SERVER_ROOT"))
 }
 
 func TestResolve_EmptyEnvReturnsDefault(t *testing.T) {
 	r := _newReference(t)
 	t.Setenv("WS_SERVER_ROOT", "")
-	assert.Equal(t, "/workspace", r.Resolve("WS_SERVER_ROOT"))
+	assert.Equal(t, "/workspace", _resolve(t, r, "WS_SERVER_ROOT"))
 }
 
 func TestResolve_NullDefaultReturnsEmpty(t *testing.T) {
 	r := _newReference(t)
 	t.Setenv("WS_FEATURES_ADDITIONAL_FEATURES", "")
-	assert.Equal(t, "", r.Resolve("WS_FEATURES_ADDITIONAL_FEATURES"))
+	assert.Equal(t, "", _resolve(t, r, "WS_FEATURES_ADDITIONAL_FEATURES"))
 }
 
 func TestResolve_UnknownKeyReturnsEmpty(t *testing.T) {
 	r := _newReference(t)
 	t.Setenv("WS_NOT_DECLARED", "")
-	assert.Equal(t, "", r.Resolve("WS_NOT_DECLARED"))
+	assert.Equal(t, "", _resolve(t, r, "WS_NOT_DECLARED"))
 }
 
 func TestResolve_DeprecatedAliasUsedWithWarn(t *testing.T) {
 	r := _newReference(t)
 	buf := _captureWarnings(t)
 	t.Setenv("WS_PORT", "8888")
-	assert.Equal(t, "8888", r.Resolve("WS_SERVER_PORT"))
+	assert.Equal(t, "8888", _resolve(t, r, "WS_SERVER_PORT"))
 	assert.Equal(t, "Deprecated: [WS_PORT] use [WS_SERVER_PORT] instead\n", buf.String())
 }
 
@@ -186,9 +190,9 @@ func TestResolve_DeprecatedWarnEmittedOnce(t *testing.T) {
 	r := _newReference(t)
 	buf := _captureWarnings(t)
 	t.Setenv("WS_PORT", "8888")
-	r.Resolve("WS_SERVER_PORT")
-	r.Resolve("WS_SERVER_PORT")
-	r.Resolve("WS_SERVER_PORT")
+	_resolve(t, r, "WS_SERVER_PORT")
+	_resolve(t, r, "WS_SERVER_PORT")
+	_resolve(t, r, "WS_SERVER_PORT")
 	assert.Equal(t, 1, bytes.Count(buf.Bytes(), []byte("Deprecated:")))
 }
 
@@ -197,7 +201,7 @@ func TestResolve_BothSetPrefersPreferred(t *testing.T) {
 	_captureWarnings(t)
 	t.Setenv("WS_SERVER_PORT", "9999")
 	t.Setenv("WS_PORT", "8888")
-	assert.Equal(t, "9999", r.Resolve("WS_SERVER_PORT"))
+	assert.Equal(t, "9999", _resolve(t, r, "WS_SERVER_PORT"))
 }
 
 func TestParse_DeprecationChainCollapses(t *testing.T) {
@@ -421,14 +425,6 @@ func TestParseList(t *testing.T) {
 	}
 }
 
-func TestResolveBool_GoesThroughCache(t *testing.T) {
-	_installFixture(t, sampleYAML)
-	t.Setenv("WS_SERVER_ROOT", "true")
-	got, err := ResolveBool("server", "root")
-	assert.NilError(t, err)
-	assert.Equal(t, true, got)
-}
-
 func TestResolveInt_FallsBackToYAMLDefault(t *testing.T) {
 	_installFixture(t, sampleYAML)
 	got, err := ResolveInt("metrics", "port")
@@ -436,18 +432,18 @@ func TestResolveInt_FallsBackToYAMLDefault(t *testing.T) {
 	assert.Equal(t, int64(9100), got)
 }
 
-func TestResolveList_HonorsYAMLDelimiter(t *testing.T) {
+func TestResolveListKey_HonorsYAMLDelimiter(t *testing.T) {
 	_installFixture(t, sampleYAML)
 	t.Setenv("WS_APT_ADDITIONAL_REPOS", "deb a; deb b")
-	got, err := ResolveList("apt", "additional_repos", "")
+	got, err := ResolveListKey("WS_APT_ADDITIONAL_REPOS", "")
 	assert.NilError(t, err)
 	assert.DeepEqual(t, []string{"deb a", "deb b"}, got)
 }
 
-func TestResolveList_OverrideWinsOverYAMLDelimiter(t *testing.T) {
+func TestResolveListKey_OverrideWinsOverYAMLDelimiter(t *testing.T) {
 	_installFixture(t, sampleYAML)
 	t.Setenv("WS_APT_ADDITIONAL_REPOS", "deb a, deb b")
-	got, err := ResolveList("apt", "additional_repos", ",")
+	got, err := ResolveListKey("WS_APT_ADDITIONAL_REPOS", ",")
 	assert.NilError(t, err)
 	assert.DeepEqual(t, []string{"deb a", "deb b"}, got)
 }
@@ -717,69 +713,34 @@ func _writeAt(t *testing.T, path, contents string) {
 func TestResolve_FilePrefix_ReadsFileContents(t *testing.T) {
 	_installSecretFixture(t)
 	_newSecretRoot(t)
-	pwFile := filepath.Join(t.TempDir(), "pw")
-	_writeAt(t, pwFile, "payload\n")
-	t.Setenv("WS_AUTH_PASSWORD", "file:"+pwFile)
+	for _, c := range []struct{ contents, want string }{
+		{"payload\n", "payload"},
+		{"secret\n\n", "secret\n"},
+		{"multi\nline\nvalue\n", "multi\nline\nvalue"},
+	} {
+		pwFile := filepath.Join(t.TempDir(), "pw")
+		_writeAt(t, pwFile, c.contents)
+		t.Setenv("WS_AUTH_PASSWORD", "file:"+pwFile)
 
-	value, source, err := ResolveKeyWithSource("WS_AUTH_PASSWORD")
-	assert.NilError(t, err)
-	assert.Equal(t, "payload", value)
-	assert.Equal(t, SourceEnvFile, source)
+		value, source, err := ResolveKeyWithSource("WS_AUTH_PASSWORD")
+		assert.NilError(t, err)
+		assert.Equal(t, c.want, value)
+		assert.Equal(t, SourceEnvFile, source)
+	}
 }
 
-func TestResolve_FilePrefix_TrimsTrailingNewline(t *testing.T) {
+func TestResolve_FilePrefix_Errors(t *testing.T) {
 	_installSecretFixture(t)
 	_newSecretRoot(t)
-	pwFile := filepath.Join(t.TempDir(), "pw")
-	_writeAt(t, pwFile, "secret\n\n")
-	t.Setenv("WS_AUTH_PASSWORD", "file:"+pwFile)
-
-	value, _, err := ResolveKeyWithSource("WS_AUTH_PASSWORD")
-	assert.NilError(t, err)
-	assert.Equal(t, "secret\n", value)
-}
-
-func TestResolve_FilePrefix_PreservesInternalWhitespace(t *testing.T) {
-	_installSecretFixture(t)
-	_newSecretRoot(t)
-	pwFile := filepath.Join(t.TempDir(), "pw")
-	_writeAt(t, pwFile, "multi\nline\nvalue\n")
-	t.Setenv("WS_AUTH_PASSWORD", "file:"+pwFile)
-
-	value, _, err := ResolveKeyWithSource("WS_AUTH_PASSWORD")
-	assert.NilError(t, err)
-	assert.Equal(t, "multi\nline\nvalue", value)
-}
-
-func TestResolve_FilePrefix_MissingFileErrors(t *testing.T) {
-	_installSecretFixture(t)
-	_newSecretRoot(t)
-	t.Setenv("WS_AUTH_PASSWORD", "file:/no/such/path")
-
-	_, _, err := ResolveKeyWithSource("WS_AUTH_PASSWORD")
-	assert.Assert(t, err != nil)
-	assert.ErrorContains(t, err, "/no/such/path")
-}
-
-func TestResolve_FilePrefix_OnNonSecretPropertyErrors(t *testing.T) {
-	_installSecretFixture(t)
-	_newSecretRoot(t)
-	t.Setenv("WS_SERVER_ROOT", "file:/tmp/x")
-
-	_, _, err := ResolveKeyWithSource("WS_SERVER_ROOT")
-	assert.Assert(t, err != nil)
-	assert.ErrorContains(t, err, "file: prefix is only valid on secret properties")
-	assert.ErrorContains(t, err, "WS_SERVER_ROOT")
-}
-
-func TestResolve_FilePrefix_EmptyPathErrors(t *testing.T) {
-	_installSecretFixture(t)
-	_newSecretRoot(t)
-	t.Setenv("WS_AUTH_PASSWORD", "file:")
-
-	_, _, err := ResolveKeyWithSource("WS_AUTH_PASSWORD")
-	assert.Assert(t, err != nil)
-	assert.ErrorContains(t, err, "file: prefix requires a path")
+	for _, c := range []struct{ key, value, want string }{
+		{"WS_AUTH_PASSWORD", "file:/no/such/path", "/no/such/path"},
+		{"WS_SERVER_ROOT", "file:/tmp/x", "file: prefix is only valid on secret properties [WS_SERVER_ROOT]"},
+		{"WS_AUTH_PASSWORD", "file:", "file: prefix requires a path"},
+	} {
+		t.Setenv(c.key, c.value)
+		_, _, err := ResolveKeyWithSource(c.key)
+		assert.ErrorContains(t, err, c.want, c.value)
+	}
 }
 
 func TestResolve_SecretConventionDefault_FileExists(t *testing.T) {
@@ -882,7 +843,7 @@ func TestConventionPath_FromRuntimeKey(t *testing.T) {
 	assert.NilError(t, err)
 	for _, c := range cases {
 		prop := ref.Properties[c.runtimeKey]
-		assert.Equal(t, c.want, conventionSecretPath(prop), "key %s", c.runtimeKey)
+		assert.Equal(t, c.want, SecretConventionPath(prop.Group, prop.Name), "key %s", c.runtimeKey)
 	}
 }
 

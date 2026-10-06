@@ -4,10 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
-	"fmt"
-	"io"
 
-	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -18,31 +15,22 @@ var masterCmd = &cobra.Command{
 	Long:        "Generate a random master key, printed base64-encoded — the key encrypt, decrypt, and the seed engine use. --length sets the byte size (default 32).",
 	Args:        cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg := getOutputConfig(cmd)
 		keyLength, _ := cmd.Flags().GetInt("length")
-		return generateMasterKey(cmd, cfg, keyLength)
+		if keyLength <= 0 {
+			return errors.New("invalid key length")
+		}
+
+		key := make([]byte, keyLength)
+		rand.Read(key)
+
+		encodedKey := base64.StdEncoding.EncodeToString(key)
+		file, _ := cmd.Flags().GetString("output")
+
+		return emit(cmd, encodedKey, "Master key written to "+file, true,
+			printKey("Master Key", encodedKey, "Store this key securely - you'll need it to encrypt/decrypt secrets"))
 	},
 }
 
 func init() {
 	masterCmd.Flags().Int("length", 32, "Key length in bytes")
-}
-
-func generateMasterKey(cmd *cobra.Command, cfg outputConfig, keyLength int) error {
-	if keyLength <= 0 {
-		return errors.New("invalid key length")
-	}
-
-	key := make([]byte, keyLength)
-	if _, err := rand.Read(key); err != nil {
-		return fmt.Errorf("failed to generate key: %w", err)
-	}
-
-	encodedKey := base64.StdEncoding.EncodeToString(key)
-
-	return handleCustomOutput(cmd, cfg, encodedKey, "✓ Master key written to "+cfg.file, func(out io.Writer) {
-		fmt.Fprintf(out, "%s\n", styles.Header().Render("Master Key"))
-		fmt.Fprintf(out, "  %s\n", styles.Code().Render(encodedKey))
-		fmt.Fprintf(out, "%s\n", styles.Muted().Render("💡 Store this key securely - you'll need it to encrypt/decrypt secrets"))
-	})
 }

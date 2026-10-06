@@ -16,9 +16,7 @@ type WorkspaceSummary struct {
 }
 
 func GetWorkspaceSummary(includeGPU bool) (*WorkspaceSummary, error) {
-	cpuUsage, _ := GetCPUUsagePercent()
-
-	cpuStats, err := GetCPUStats()
+	cpuUsage, cpuStats, err := GetCPUUsagePercent()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CPU stats: %w", err)
 	}
@@ -51,9 +49,7 @@ func GetWorkspaceSummary(includeGPU bool) (*WorkspaceSummary, error) {
 	}
 
 	if includeGPU {
-		if gpuStats, err := GetGPUStats(); err == nil {
-			m.GPU = gpuStats
-		}
+		m.GPU = GetGPUStats()
 	}
 
 	return m, nil

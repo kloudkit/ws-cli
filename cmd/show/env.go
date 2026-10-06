@@ -141,24 +141,16 @@ func runBool(cmd *cobra.Command, key string, orSkip bool) error {
 		return err
 	}
 
-	if !orSkip {
-		parsed, err := config.ParseBool(value)
-		if err != nil {
-			return err
-		}
-		if !parsed {
+	if orSkip {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			skipBreadcrumb(cmd, key)
 			osExit(1)
+			return nil
 		}
-		return nil
 	}
 
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		skipBreadcrumb(cmd, key)
-		osExit(1)
-		return nil
-	}
-	parsed, err := config.ParseBool(trimmed)
+	parsed, err := config.ParseBool(value)
 	if err != nil {
 		return err
 	}
@@ -252,12 +244,11 @@ func sourceLabel(prop config.Property, source config.ResolveSource, value string
 }
 
 func formatGroupProp(key string) string {
-	s := strings.TrimPrefix(key, "WS_")
-	parts := strings.SplitN(s, "_", 2)
-	if len(parts) != 2 {
-		return strings.ToLower(s)
+	s := strings.ToLower(strings.TrimPrefix(key, "WS_"))
+	if group, prop, ok := strings.Cut(s, "_"); ok {
+		return group + "." + prop
 	}
-	return strings.ToLower(parts[0] + "." + parts[1])
+	return s
 }
 
 func init() {

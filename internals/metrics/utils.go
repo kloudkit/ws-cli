@@ -5,10 +5,16 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
+var cgroupsV2 = sync.OnceValue(func() bool {
+	_, err := os.Stat("/sys/fs/cgroup/cgroup.controllers")
+	return err == nil
+})
+
 func isCgroupsV2[T any](v2, v1 func() (T, error)) (T, error) {
-	if _, err := os.Stat("/sys/fs/cgroup/cgroup.controllers"); err == nil {
+	if cgroupsV2() {
 		return v2()
 	}
 	return v1()
@@ -22,21 +28,15 @@ func readUint64FromFile(path string) (uint64, error) {
 	return strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
 }
 
+// readCgroupLimit returns 0 for an unlimited ("max") or unreadable limit.
 func readCgroupLimit(path string) uint64 {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return 0
-	}
-	s := strings.TrimSpace(string(data))
-	if s == "max" {
-		return 0
-	}
-	return atoi(s)
+	limit, _ := readUint64FromFile(path)
+	return limit
 }
 
 func parseKVStats(path string) (map[string]uint64, error) {
 	stats := make(map[string]uint64)
-	err := processFileLines(path, func(line string) {
+	err := processFileLines(path, 0, func(line string) {
 		fields := strings.Fields(line)
 		if len(fields) >= 2 {
 			val, err := strconv.ParseUint(fields[1], 10, 64)
@@ -48,7 +48,8 @@ func parseKVStats(path string) (map[string]uint64, error) {
 	return stats, err
 }
 
-func processFileLines(path string, handler func(line string)) error {
+// processFileLines calls handler for each line of path after the first skip lines.
+func processFileLines(path string, skip int, handler func(line string)) error {
 	file, err := os.Open(path)
 	if err != nil {
 		return err
@@ -56,8 +57,10 @@ func processFileLines(path string, handler func(line string)) error {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		handler(scanner.Text())
+	for i := 0; scanner.Scan(); i++ {
+		if i >= skip {
+			handler(scanner.Text())
+		}
 	}
 	return scanner.Err()
 }
@@ -75,7 +78,7 @@ func atof(s string) float64 {
 func readProcProperty(path, prefix string, fieldIndex int) uint64 {
 	var result uint64
 
-	_ = processFileLines(path, func(line string) {
+	_ = processFileLines(path, 0, func(line string) {
 		if strings.HasPrefix(line, prefix) {
 			fields := strings.Fields(line)
 			if len(fields) > fieldIndex {

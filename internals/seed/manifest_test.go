@@ -7,30 +7,45 @@ import (
 )
 
 func TestParseManifest(t *testing.T) {
-	t.Run("UnknownVersionRejected", func(t *testing.T) {
-		_, err := ParseManifest([]byte("version: v2\n"))
-		assert.ErrorContains(t, err, "unsupported manifest version")
-	})
+	rejected := []struct {
+		name string
+		yaml string
+		want string
+	}{
+		{"UnknownVersionRejected", "version: v2\n", "unsupported manifest version"},
+		{"MissingVersionRejected", "seeds: {}\n", "unsupported manifest version"},
+		{"CopyOnlyEntryRejected", "version: v1\nseeds:\n  /tmp/x:\n    op: copy\n", "copy-only entry is not allowed"},
+		{"EmptyEntryRejected", "version: v1\nseeds:\n  /tmp/x: {}\n", "copy-only entry is not allowed"},
+		{"SecretValueInvalidRejected", "version: v1\nsecrets:\n  TOKEN: plainnodollar\n", `secret "TOKEN": expected ciphertext or file: ref`},
+		{"CommentOnLineinfileRejected", "version: v1\nseeds:\n  /tmp/x:\n    op: lineinfile\n    comment: \"//\"\n    content: \"x\\n\"\n", "comment is only valid with op: block"},
+		{"UnknownOpRejected", "version: v1\nseeds:\n  /tmp/x:\n    op: smash\n", `unknown op "smash"`},
+		{"CommentOnNonBlockRejected", "version: v1\nseeds:\n  /tmp/x:\n    op: append\n    comment: \"//\"\n    content: \"x\\n\"\n", "comment is only valid with op: block"},
+	}
 
-	t.Run("MissingVersionRejected", func(t *testing.T) {
-		_, err := ParseManifest([]byte("seeds: {}\n"))
-		assert.ErrorContains(t, err, "unsupported manifest version")
-	})
+	for _, tt := range rejected {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseManifest([]byte(tt.yaml))
+			assert.ErrorContains(t, err, tt.want)
+		})
+	}
 
-	t.Run("CopyOnlyEntryRejected", func(t *testing.T) {
-		_, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    op: copy\n"))
-		assert.ErrorContains(t, err, "copy-only entry is not allowed")
-	})
+	accepted := []struct {
+		name string
+		yaml string
+		op   Op
+	}{
+		{"BehaviorEntryAccepted", "version: v1\nseeds:\n  /tmp/x:\n    secret: true\n", OpCopy},
+		{"BlockOpAccepted", "version: v1\nseeds:\n  /tmp/x:\n    op: block\n    content: \"hi\\n\"\n", OpBlock},
+		{"LineinfileOpAccepted", "version: v1\nseeds:\n  /tmp/x:\n    op: lineinfile\n    content: \"FOO=1\\n\"\n", OpLineInfile},
+	}
 
-	t.Run("EmptyEntryRejected", func(t *testing.T) {
-		_, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x: {}\n"))
-		assert.ErrorContains(t, err, "copy-only entry is not allowed")
-	})
-
-	t.Run("SecretValueInvalidRejected", func(t *testing.T) {
-		_, err := ParseManifest([]byte("version: v1\nsecrets:\n  TOKEN: plainnodollar\n"))
-		assert.ErrorContains(t, err, `secret "TOKEN": expected ciphertext or file: ref`)
-	})
+	for _, tt := range accepted {
+		t.Run(tt.name, func(t *testing.T) {
+			manifest, err := ParseManifest([]byte(tt.yaml))
+			assert.NilError(t, err)
+			assert.Equal(t, manifest.Seeds["/tmp/x"].Op, tt.op)
+		})
+	}
 
 	t.Run("SecretValueFileRefAccepted", func(t *testing.T) {
 		manifest, err := ParseManifest([]byte("version: v1\nsecrets:\n  TOKEN: file:/run/secrets/token\n"))
@@ -38,43 +53,10 @@ func TestParseManifest(t *testing.T) {
 		assert.Equal(t, manifest.Secrets["TOKEN"], "file:/run/secrets/token")
 	})
 
-	t.Run("BehaviorEntryAccepted", func(t *testing.T) {
-		manifest, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    secret: true\n"))
-		assert.NilError(t, err)
-		assert.Equal(t, manifest.Seeds["/tmp/x"].Op, OpCopy)
-	})
-
 	t.Run("InlineContentEntryAccepted", func(t *testing.T) {
 		manifest, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    content: \"hi\\n\"\n"))
 		assert.NilError(t, err)
 		assert.Equal(t, *manifest.Seeds["/tmp/x"].Content, "hi\n")
 		assert.Equal(t, manifest.Seeds["/tmp/x"].Op, OpCopy)
-	})
-
-	t.Run("BlockOpAccepted", func(t *testing.T) {
-		manifest, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    op: block\n    content: \"hi\\n\"\n"))
-		assert.NilError(t, err)
-		assert.Equal(t, manifest.Seeds["/tmp/x"].Op, OpBlock)
-	})
-
-	t.Run("LineinfileOpAccepted", func(t *testing.T) {
-		manifest, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    op: lineinfile\n    content: \"FOO=1\\n\"\n"))
-		assert.NilError(t, err)
-		assert.Equal(t, manifest.Seeds["/tmp/x"].Op, OpLineInfile)
-	})
-
-	t.Run("CommentOnLineinfileRejected", func(t *testing.T) {
-		_, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    op: lineinfile\n    comment: \"//\"\n    content: \"x\\n\"\n"))
-		assert.ErrorContains(t, err, "comment is only valid with op: block")
-	})
-
-	t.Run("UnknownOpRejected", func(t *testing.T) {
-		_, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    op: smash\n"))
-		assert.ErrorContains(t, err, `unknown op "smash"`)
-	})
-
-	t.Run("CommentOnNonBlockRejected", func(t *testing.T) {
-		_, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    op: append\n    comment: \"//\"\n    content: \"x\\n\"\n"))
-		assert.ErrorContains(t, err, "comment is only valid with op: block")
 	})
 }

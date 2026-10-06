@@ -2,10 +2,11 @@ package seed
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"os/user"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/kloudkit/ws-cli/internals/config"
@@ -21,15 +22,9 @@ type Vars struct {
 }
 
 type ResolvedOp struct {
-	Dest     string
-	Source   string
-	Content  *string
-	Mode     string
-	Secret   bool
-	Op       Op
-	Template bool
-	Force    bool
-	Comment  string
+	SeedOp
+	Dest   string
+	Source string
 }
 
 type Plan struct {
@@ -54,7 +49,7 @@ func resolveVars() Vars {
 	}
 }
 
-func (v Vars) expand(value string) (string, error) {
+func (v Vars) expand(value string) string {
 	replaced := strings.NewReplacer(
 		"${ws_home}", v.Home,
 		"${ws_user}", v.User,
@@ -74,7 +69,7 @@ func ResolveSource(flag string) (string, error) {
 		flag = resolved
 	}
 
-	return path.Expand(flag)
+	return path.Expand(flag), nil
 }
 
 func BuildPlan(source string, force bool) (*Plan, error) {
@@ -107,26 +102,15 @@ func buildPlan(source string, manifest *Manifest, vars Vars, force bool) ([]Reso
 	}
 
 	for dest, src := range mirror {
-		plan[dest] = ResolvedOp{Dest: dest, Source: src, Op: OpCopy, Force: force}
+		plan[dest] = ResolvedOp{SeedOp: SeedOp{Op: OpCopy, Force: force}, Dest: dest, Source: src}
 	}
 
 	if manifest != nil {
 		for rawDest, op := range manifest.Seeds {
-			dest, err := vars.expand(rawDest)
-			if err != nil {
-				return nil, fmt.Errorf("seed %q: %w", rawDest, err)
-			}
+			dest := vars.expand(rawDest)
 
-			resolved := ResolvedOp{
-				Dest:     dest,
-				Content:  op.Content,
-				Mode:     op.Mode,
-				Secret:   op.Secret,
-				Op:       op.Op,
-				Template: op.Template,
-				Force:    force || op.Force,
-				Comment:  op.Comment,
-			}
+			op.Force = force || op.Force
+			resolved := ResolvedOp{SeedOp: op, Dest: dest}
 
 			if op.Content == nil {
 				resolved.Source = rhymingSource(source, dest)
@@ -136,14 +120,8 @@ func buildPlan(source string, manifest *Manifest, vars Vars, force bool) ([]Reso
 		}
 	}
 
-	dests := make([]string, 0, len(plan))
-	for dest := range plan {
-		dests = append(dests, dest)
-	}
-	sort.Strings(dests)
-
 	ops := make([]ResolvedOp, 0, len(plan))
-	for _, dest := range dests {
+	for _, dest := range slices.Sorted(maps.Keys(plan)) {
 		ops = append(ops, plan[dest])
 	}
 
@@ -157,12 +135,7 @@ func rhymingSource(source, dest string) string {
 func (p *Plan) filterDests(args []string) ([]ResolvedOp, error) {
 	wanted := map[string]bool{}
 	for _, arg := range args {
-		resolved, err := p.Vars.expand(arg)
-		if err != nil {
-			return nil, err
-		}
-
-		wanted[resolved] = true
+		wanted[p.Vars.expand(arg)] = true
 	}
 
 	filtered := make([]ResolvedOp, 0, len(args))
@@ -174,13 +147,8 @@ func (p *Plan) filterDests(args []string) ([]ResolvedOp, error) {
 	}
 
 	if len(wanted) > 0 {
-		missing := make([]string, 0, len(wanted))
-		for dest := range wanted {
-			missing = append(missing, dest)
-		}
-		sort.Strings(missing)
-
-		return nil, fmt.Errorf("no seed entry for: %s", strings.Join(missing, ", "))
+		missing := strings.Join(slices.Sorted(maps.Keys(wanted)), ", ")
+		return nil, fmt.Errorf("no seed entry for: %s", missing)
 	}
 
 	return filtered, nil

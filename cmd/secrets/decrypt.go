@@ -13,7 +13,6 @@ var decryptCmd = &cobra.Command{
 	Long:        "Decrypt a value produced by encrypt, under the master key. Reads from the argument or stdin (-); writes the plaintext to stdout, or a file with --output.",
 	Args:        cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg := getOutputConfig(cmd)
 		masterKeyFlag, _ := cmd.Flags().GetString("master")
 
 		masterKey, err := internalSecrets.ResolveMasterKey(masterKeyFlag)
@@ -33,6 +32,6 @@ var decryptCmd = &cobra.Command{
 			return err
 		}
 
-		return handleOutput(cmd, cfg, string(decrypted), "Decrypted Value", "Secret decrypted successfully", false)
+		return emit(cmd, string(decrypted), "Secret decrypted successfully", false, printValue("Decrypted Value", string(decrypted)))
 	},
 }

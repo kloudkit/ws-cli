@@ -8,54 +8,44 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-func TestGetTemplate(t *testing.T) {
+func TestLookup(t *testing.T) {
 	t.Run("ExistingTemplate", func(t *testing.T) {
-		config, exists := GetTemplate("markdownlint")
-		assert.Assert(t, exists)
+		config, err := lookup("markdownlint")
+		assert.NilError(t, err)
 		assert.Equal(t, config.SourcePath, ".config/markdownlint/config")
 		assert.Equal(t, config.OutputName, ".markdownlint.json")
 	})
 
 	t.Run("NonExistentTemplate", func(t *testing.T) {
-		_, exists := GetTemplate("nonexistent")
-		assert.Assert(t, !exists)
+		_, err := lookup("nonexistent")
+		assert.ErrorContains(t, err, "template 'nonexistent' not found")
 	})
 }
 
 func TestGetTemplateNames(t *testing.T) {
 	t.Run("ReturnsAllTemplates", func(t *testing.T) {
-		names := GetTemplateNames()
-		expectedNames := []string{"ansible", "markdownlint", "ruff", "yamllint"}
-
-		assert.Equal(t, len(names), len(expectedNames))
-
-		nameSet := make(map[string]bool)
-		for _, name := range names {
-			nameSet[name] = true
-		}
-
-		for _, expected := range expectedNames {
-			assert.Assert(t, nameSet[expected])
-		}
+		assert.DeepEqual(t, GetTemplateNames(), []string{"ansible", "markdownlint", "ruff", "yamllint"})
 	})
+}
+
+func seedTemplate(t *testing.T, rel, content string) string {
+	t.Helper()
+
+	home := t.TempDir()
+	source := filepath.Join(home, rel)
+	assert.NilError(t, os.MkdirAll(filepath.Dir(source), 0o755))
+	assert.NilError(t, os.WriteFile(source, []byte(content), 0o644))
+	t.Setenv("HOME", home)
+
+	return home
 }
 
 func TestApplyTemplate(t *testing.T) {
 	t.Run("CopiesTemplateToTarget", func(t *testing.T) {
-		tempDir := t.TempDir()
-
-		sourceDir := filepath.Join(tempDir, ".config", "markdownlint")
-		err := os.MkdirAll(sourceDir, 0755)
-		assert.NilError(t, err)
-
-		sourceFile := filepath.Join(sourceDir, "config")
-		err = os.WriteFile(sourceFile, []byte(`{"line-length": false}`), 0644)
-		assert.NilError(t, err)
-
-		t.Setenv("HOME", tempDir)
+		tempDir := seedTemplate(t, ".config/markdownlint/config", `{"line-length": false}`)
 
 		targetDir := filepath.Join(tempDir, "project")
-		err = os.MkdirAll(targetDir, 0755)
+		err := os.MkdirAll(targetDir, 0755)
 		assert.NilError(t, err)
 
 		err = ApplyTemplate("markdownlint", targetDir, false)
@@ -73,20 +63,10 @@ func TestApplyTemplate(t *testing.T) {
 	})
 
 	t.Run("WithForceOverwritesExisting", func(t *testing.T) {
-		tempDir := t.TempDir()
-
-		sourceDir := filepath.Join(tempDir, ".config", "ruff")
-		err := os.MkdirAll(sourceDir, 0755)
-		assert.NilError(t, err)
-
-		sourceFile := filepath.Join(sourceDir, "ruff.toml")
-		err = os.WriteFile(sourceFile, []byte(`line-length = 88`), 0644)
-		assert.NilError(t, err)
-
-		t.Setenv("HOME", tempDir)
+		tempDir := seedTemplate(t, ".config/ruff/ruff.toml", `line-length = 88`)
 
 		targetDir := filepath.Join(tempDir, "project")
-		err = os.MkdirAll(targetDir, 0755)
+		err := os.MkdirAll(targetDir, 0755)
 		assert.NilError(t, err)
 
 		destFile := filepath.Join(targetDir, ".ruff.toml")
@@ -109,21 +89,11 @@ func TestApplyTemplate(t *testing.T) {
 
 func TestShowTemplate(t *testing.T) {
 	t.Run("ReturnsTemplateContent", func(t *testing.T) {
-		tempDir := t.TempDir()
-
-		sourceDir := filepath.Join(tempDir, ".config", "yamllint")
-		err := os.MkdirAll(sourceDir, 0755)
-		assert.NilError(t, err)
-
-		sourceFile := filepath.Join(sourceDir, "config")
 		expectedContent := `extends: default
 rules:
   line-length:
     max: 120`
-		err = os.WriteFile(sourceFile, []byte(expectedContent), 0644)
-		assert.NilError(t, err)
-
-		t.Setenv("HOME", tempDir)
+		seedTemplate(t, ".config/yamllint/config", expectedContent)
 
 		content, err := ShowTemplate("yamllint", false)
 		assert.NilError(t, err)

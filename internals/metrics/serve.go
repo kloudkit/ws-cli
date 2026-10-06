@@ -18,9 +18,12 @@ type RegistryResult struct {
 
 func BuildRegistry(collectors []string) (*RegistryResult, error) {
 	result := &RegistryResult{}
+	groups := collectorGroups()
 
-	var validated []string
-	hasExplicit := len(collectors) > 0
+	var leaves, validated []string
+	for _, g := range groups {
+		leaves = append(leaves, g.leaves()...)
+	}
 
 	for _, c := range collectors {
 		if c = strings.TrimSpace(c); c == "" {
@@ -30,65 +33,41 @@ func BuildRegistry(collectors []string) (*RegistryResult, error) {
 			validated = []string{"*"}
 			break
 		}
-		if _, ok := ValidCollectors[c]; ok {
+		if slices.ContainsFunc(leaves, func(leaf string) bool { return leaf == c || strings.HasPrefix(leaf, c+".") }) {
 			validated = append(validated, c)
 		} else {
 			result.Invalid = append(result.Invalid, c)
 		}
 	}
 
-	hasWorkspace := IsCollectorEnabled("workspace", validated)
-	hasContainer := IsCollectorEnabled("container", validated)
-	hasPressure := IsCollectorEnabled("pressure", validated) && IsPressureAvailable()
-	hasNetwork := IsCollectorEnabled("network", validated)
-	hasIO := IsCollectorEnabled("io", validated)
-	hasSockets := IsCollectorEnabled("sockets", validated)
-	gpuRequested := slices.Contains(validated, "gpu")
-	hasGPU := IsCollectorEnabled("gpu", validated) && IsGPUAvailable()
+	hasPressure, hasGPU := IsPressureAvailable(), IsGPUAvailable()
+	isPressure := func(c string) bool { return c == "pressure" || strings.HasPrefix(c, "pressure.") }
 
-	pressureRequested := slices.Contains(validated, "pressure") || slices.Contains(validated, "pressure.cpu") || slices.Contains(validated, "pressure.memory") || slices.Contains(validated, "pressure.io")
-	if pressureRequested && !IsPressureAvailable() {
+	if !hasPressure && slices.ContainsFunc(validated, isPressure) {
 		result.Warnings = append(result.Warnings, "PSI pressure metrics not available (cgroup v2 only), skipping pressure collector")
-		validated = slices.DeleteFunc(validated, func(c string) bool {
-			return c == "pressure" || strings.HasPrefix(c, "pressure.")
-		})
-		hasPressure = false
 	}
-
-	if gpuRequested && !hasGPU {
+	if !hasGPU && slices.Contains(validated, "gpu") {
 		result.Warnings = append(result.Warnings, "GPU not available, skipping gpu collector")
-		validated = slices.DeleteFunc(validated, func(c string) bool { return c == "gpu" })
 	}
 
-	if hasExplicit && !hasWorkspace && !hasContainer && !hasPressure && !hasNetwork && !hasIO && !hasSockets && !hasGPU {
+	enabled := func(leaf string) bool {
+		return IsCollectorEnabled(leaf, validated) && (hasPressure || !isPressure(leaf)) && (hasGPU || leaf != "gpu")
+	}
+
+	result.Registry = prometheus.NewRegistry()
+	for _, g := range groups {
+		if c := g.only(enabled); c != nil {
+			result.Registry.MustRegister(c)
+		}
+	}
+
+	expanded := slices.DeleteFunc(leaves, func(leaf string) bool { return !enabled(leaf) })
+	slices.Sort(expanded)
+	result.Expanded = slices.Compact(expanded)
+	if len(result.Expanded) == 0 {
 		return nil, errors.New("no collectors enabled")
 	}
 
-	registry := prometheus.NewRegistry()
-	if hasWorkspace {
-		registry.MustRegister(NewWorkspaceCollector(validated))
-	}
-	if hasContainer {
-		registry.MustRegister(NewContainerCollector(validated))
-	}
-	if hasPressure {
-		registry.MustRegister(NewPressureCollector(validated))
-	}
-	if hasNetwork {
-		registry.MustRegister(NewNetworkCollector())
-	}
-	if hasIO {
-		registry.MustRegister(NewIOCollector())
-	}
-	if hasSockets {
-		registry.MustRegister(NewSocketsCollector())
-	}
-	if hasGPU {
-		registry.MustRegister(NewGPUCollector())
-	}
-
-	result.Registry = registry
-	result.Expanded = ExpandCollectors(validated)
 	return result, nil
 }
 

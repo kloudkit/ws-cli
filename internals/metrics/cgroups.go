@@ -57,17 +57,18 @@ func getCPUStatsV1() (*CPUStats, error) {
 	return stats, nil
 }
 
-func GetCPUUsagePercent() (float64, error) {
+// GetCPUUsagePercent samples CPU usage over 100ms and also returns the latest sample.
+func GetCPUUsagePercent() (float64, *CPUStats, error) {
 	stats1, err := GetCPUStats()
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
 	time.Sleep(100 * time.Millisecond)
 
 	stats2, err := GetCPUStats()
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
 	cpuDelta := stats2.UsageSeconds - stats1.UsageSeconds
@@ -76,14 +77,7 @@ func GetCPUUsagePercent() (float64, error) {
 	numCPU := float64(runtime.NumCPU())
 	usage := (cpuDelta / timeDelta / numCPU) * 100
 
-	if usage > 100 {
-		usage = 100
-	}
-	if usage < 0 {
-		usage = 0
-	}
-
-	return usage, nil
+	return min(max(usage, 0), 100), stats2, nil
 }
 
 func GetMemoryStats() (*MemoryStats, error) {
@@ -151,35 +145,17 @@ func getRSSFromStatus() uint64 {
 }
 
 func GetPIDStats() (*PIDStats, error) {
-	return isCgroupsV2(getPIDStatsV2, getPIDStatsV1)
-}
+	dir := "/sys/fs/cgroup/pids"
+	if cgroupsV2() {
+		dir = "/sys/fs/cgroup"
+	}
 
-func getPIDStatsV2() (*PIDStats, error) {
-	stats := &PIDStats{}
-	var err error
-
-	stats.Current, err = readUint64FromFile("/sys/fs/cgroup/pids.current")
+	current, err := readUint64FromFile(dir + "/pids.current")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read pids.current: %w", err)
 	}
 
-	stats.Limit = readCgroupLimit("/sys/fs/cgroup/pids.max")
-
-	return stats, nil
-}
-
-func getPIDStatsV1() (*PIDStats, error) {
-	stats := &PIDStats{}
-	var err error
-
-	stats.Current, err = readUint64FromFile("/sys/fs/cgroup/pids/pids.current")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read pids.current: %w", err)
-	}
-
-	stats.Limit = readCgroupLimit("/sys/fs/cgroup/pids/pids.max")
-
-	return stats, nil
+	return &PIDStats{Current: current, Limit: readCgroupLimit(dir + "/pids.max")}, nil
 }
 
 func GetIOStats() (*IOStats, error) {
@@ -188,7 +164,7 @@ func GetIOStats() (*IOStats, error) {
 
 func getIOStatsV2() (*IOStats, error) {
 	stats := &IOStats{}
-	err := processFileLines("/sys/fs/cgroup/io.stat", func(line string) {
+	err := processFileLines("/sys/fs/cgroup/io.stat", 0, func(line string) {
 		fields := strings.Fields(line)
 		if len(fields) < 2 {
 			return
@@ -223,14 +199,14 @@ func getIOStatsV2() (*IOStats, error) {
 func getIOStatsV1() (*IOStats, error) {
 	stats := &IOStats{}
 
-	parseCgroupV1BlkIO("/sys/fs/cgroup/blkio/blkio.throttle.io_service_bytes", stats, true)
-	parseCgroupV1BlkIO("/sys/fs/cgroup/blkio/blkio.throttle.io_serviced", stats, false)
+	parseCgroupV1BlkIO("/sys/fs/cgroup/blkio/blkio.throttle.io_service_bytes", &stats.ReadBytesTotal, &stats.WriteBytesTotal)
+	parseCgroupV1BlkIO("/sys/fs/cgroup/blkio/blkio.throttle.io_serviced", &stats.ReadOpsTotal, &stats.WriteOpsTotal)
 
 	return stats, nil
 }
 
-func parseCgroupV1BlkIO(path string, stats *IOStats, isBytes bool) {
-	_ = processFileLines(path, func(line string) {
+func parseCgroupV1BlkIO(path string, read, write *uint64) {
+	_ = processFileLines(path, 0, func(line string) {
 		fields := strings.Fields(line)
 		if len(fields) != 3 {
 			return
@@ -241,20 +217,11 @@ func parseCgroupV1BlkIO(path string, stats *IOStats, isBytes bool) {
 			return
 		}
 
-		if isBytes {
-			switch fields[1] {
-			case "Read":
-				stats.ReadBytesTotal += value
-			case "Write":
-				stats.WriteBytesTotal += value
-			}
-		} else {
-			switch fields[1] {
-			case "Read":
-				stats.ReadOpsTotal += value
-			case "Write":
-				stats.WriteOpsTotal += value
-			}
+		switch fields[1] {
+		case "Read":
+			*read += value
+		case "Write":
+			*write += value
 		}
 	})
 }
@@ -262,17 +229,9 @@ func parseCgroupV1BlkIO(path string, stats *IOStats, isBytes bool) {
 func GetPressureStats() (*PressureStats, error) {
 	stats := &PressureStats{}
 
-	cpuSome, cpuFull := parsePressureFile("/sys/fs/cgroup/cpu.pressure")
-	stats.CPUWaitingSeconds = cpuSome
-	stats.CPUStalledSeconds = cpuFull
-
-	memSome, memFull := parsePressureFile("/sys/fs/cgroup/memory.pressure")
-	stats.MemoryWaitingSeconds = memSome
-	stats.MemoryStalledSeconds = memFull
-
-	ioSome, ioFull := parsePressureFile("/sys/fs/cgroup/io.pressure")
-	stats.IOWaitingSeconds = ioSome
-	stats.IOStalledSeconds = ioFull
+	stats.CPUWaitingSeconds, stats.CPUStalledSeconds = parsePressureFile("/sys/fs/cgroup/cpu.pressure")
+	stats.MemoryWaitingSeconds, stats.MemoryStalledSeconds = parsePressureFile("/sys/fs/cgroup/memory.pressure")
+	stats.IOWaitingSeconds, stats.IOStalledSeconds = parsePressureFile("/sys/fs/cgroup/io.pressure")
 
 	return stats, nil
 }
@@ -283,7 +242,7 @@ func IsPressureAvailable() bool {
 }
 
 func parsePressureFile(path string) (some, full float64) {
-	_ = processFileLines(path, func(line string) {
+	_ = processFileLines(path, 0, func(line string) {
 		fields := strings.Fields(line)
 		if len(fields) < 2 {
 			return

@@ -5,27 +5,11 @@ import (
 	"charm.land/lipgloss/v2/list"
 )
 
-func ListStyle() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(Text)
-}
-
-func ListEnumeratorStyle() lipgloss.Style {
-	return Muted().PaddingRight(2).MarginLeft(2)
-}
-
-func ListItemStyle() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(Text)
-}
-
 func List(items ...any) *list.List {
 	return list.New(items...).
 		Enumerator(list.Bullet).
-		EnumeratorStyle(ListEnumeratorStyle()).
-		ItemStyle(ListItemStyle())
-}
-
-func NumberedList(items ...any) *list.List {
-	return List(items...).Enumerator(list.Arabic)
+		EnumeratorStyle(Muted().PaddingRight(2).MarginLeft(2)).
+		ItemStyle(lipgloss.NewStyle().Foreground(Text))
 }
 
 type DescriptionItem struct {

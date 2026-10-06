@@ -40,6 +40,28 @@ func TestSecretsCommand(t *testing.T) {
 		assert.Equal(t, len(strings.TrimSpace(output)), 24)
 	})
 
+	t.Run("GenerateMasterOutput", func(t *testing.T) {
+		resetCommandFlags(SecretsCmd)
+
+		keyFile := filepath.Join(t.TempDir(), "master.key")
+
+		buffer := new(bytes.Buffer)
+		SecretsCmd.SetOut(buffer)
+		SecretsCmd.SetErr(buffer)
+		SecretsCmd.SetArgs([]string{"generate", "master", "--output", keyFile})
+
+		err := SecretsCmd.Execute()
+		assert.NilError(t, err)
+
+		output := buffer.String()
+		assert.Assert(t, strings.Contains(output, "✓ Master key written to "+keyFile))
+		assert.Equal(t, strings.Count(output, "✓"), 1)
+
+		content, err := os.ReadFile(keyFile)
+		assert.NilError(t, err)
+		assert.Equal(t, len(content), 45)
+	})
+
 	t.Run("EncryptRaw", func(t *testing.T) {
 		resetCommandFlags(SecretsCmd)
 

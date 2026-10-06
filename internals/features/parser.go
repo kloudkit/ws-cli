@@ -2,6 +2,7 @@ package features
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -47,18 +48,10 @@ func ParseFeatureFile(filePath string) (*Feature, error) {
 
 	baseName := filepath.Base(filePath)
 
-	var vars []string
-	if tasks[0].Vars != nil {
-		for key := range tasks[0].Vars {
-			vars = append(vars, key)
-		}
-	}
-	slices.Sort(vars)
-
 	return &Feature{
 		Name:        strings.TrimSuffix(baseName, ".yaml"),
 		Description: tasks[0].Name,
-		Vars:        vars,
+		Vars:        slices.Sorted(maps.Keys(tasks[0].Vars)),
 	}, nil
 }
 

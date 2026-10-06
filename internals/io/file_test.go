@@ -183,57 +183,33 @@ func TestCopyFile(t *testing.T) {
 }
 
 func TestParseFileMode(t *testing.T) {
-	t.Run("EmptyStringReturnsDefault", func(t *testing.T) {
-		mode, err := ParseFileMode("")
+	tests := []struct {
+		name    string
+		input   string
+		want    os.FileMode
+		wantErr string
+	}{
+		{"EmptyStringReturnsDefault", "", DefaultFileMode, ""},
+		{"OctalNotation0o600", "0o600", 0o600, ""},
+		{"OctalNotation0O644", "0O644", 0o644, ""},
+		{"DecimalNotation384", "384", 0o600, ""},
+		{"DecimalNotation420", "420", 0o644, ""},
+		{"InvalidFormat", "abc", 0, "invalid file mode"},
+		{"ExceedsMaxMode", "0o1000", 0, "exceeds 0o777"},
+		{"WhitespaceHandling", "  0o600  ", 0o600, ""},
+	}
 
-		assert.NilError(t, err)
-		assert.Equal(t, mode, DefaultFileMode)
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mode, err := ParseFileMode(tt.input)
 
-	t.Run("OctalNotation0o600", func(t *testing.T) {
-		mode, err := ParseFileMode("0o600")
+			if tt.wantErr != "" {
+				assert.ErrorContains(t, err, tt.wantErr)
+				return
+			}
 
-		assert.NilError(t, err)
-		assert.Equal(t, mode, os.FileMode(0o600))
-	})
-
-	t.Run("OctalNotation0O644", func(t *testing.T) {
-		mode, err := ParseFileMode("0O644")
-
-		assert.NilError(t, err)
-		assert.Equal(t, mode, os.FileMode(0o644))
-	})
-
-	t.Run("DecimalNotation384", func(t *testing.T) {
-		mode, err := ParseFileMode("384")
-
-		assert.NilError(t, err)
-		assert.Equal(t, mode, os.FileMode(0o600))
-	})
-
-	t.Run("DecimalNotation420", func(t *testing.T) {
-		mode, err := ParseFileMode("420")
-
-		assert.NilError(t, err)
-		assert.Equal(t, mode, os.FileMode(0o644))
-	})
-
-	t.Run("InvalidFormat", func(t *testing.T) {
-		_, err := ParseFileMode("abc")
-
-		assert.ErrorContains(t, err, "invalid file mode")
-	})
-
-	t.Run("ExceedsMaxMode", func(t *testing.T) {
-		_, err := ParseFileMode("0o1000")
-
-		assert.ErrorContains(t, err, "exceeds 0o777")
-	})
-
-	t.Run("WhitespaceHandling", func(t *testing.T) {
-		mode, err := ParseFileMode("  0o600  ")
-
-		assert.NilError(t, err)
-		assert.Equal(t, mode, os.FileMode(0o600))
-	})
+			assert.NilError(t, err)
+			assert.Equal(t, mode, tt.want)
+		})
+	}
 }

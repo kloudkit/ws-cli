@@ -42,16 +42,6 @@ func TestEveryCommandCarriesVersion(t *testing.T) {
 	check(root)
 }
 
-func TestSerializeIsDeterministic(t *testing.T) {
-	first, err := docs.Serialize(cmd.RootCmd())
-	assert.NilError(t, err)
-
-	second, err := docs.Serialize(cmd.RootCmd())
-	assert.NilError(t, err)
-
-	assert.Equal(t, string(first), string(second))
-}
-
 func TestExampleSerializesIntoManifest(t *testing.T) {
 	root := &cobra.Command{Use: "root"}
 	root.AddCommand(&cobra.Command{

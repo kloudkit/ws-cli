@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -19,24 +18,19 @@ const (
 	Argon2Threads = 4
 	Argon2KeyLen  = 32
 	SaltLen       = 16
-	NonceLen      = 12
 )
 
 func Encrypt(plainText []byte, masterKey []byte) (string, error) {
 	salt := make([]byte, SaltLen)
-	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
-		return "", fmt.Errorf("failed to generate salt: %w", err)
-	}
+	rand.Read(salt)
 
-	aesGCM, err := deriveKeyAndGCM(masterKey, salt, Argon2Time, Argon2Memory, Argon2Threads, Argon2KeyLen)
+	aesGCM, err := deriveKeyAndGCM(masterKey, salt)
 	if err != nil {
 		return "", err
 	}
 
 	nonce := make([]byte, aesGCM.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return "", fmt.Errorf("failed to generate nonce: %w", err)
-	}
+	rand.Read(nonce)
 
 	cipherText := aesGCM.Seal(nonce, nonce, plainText, nil)
 
@@ -46,12 +40,7 @@ func Encrypt(plainText []byte, masterKey []byte) (string, error) {
 }
 
 func NormalizeEncrypted(encrypted string) string {
-	encrypted = strings.TrimSpace(encrypted)
-	encrypted = strings.ReplaceAll(encrypted, "\r", "")
-	encrypted = strings.ReplaceAll(encrypted, "\n", "")
-	encrypted = strings.ReplaceAll(encrypted, " ", "")
-	encrypted = strings.ReplaceAll(encrypted, "\t", "")
-	return encrypted
+	return strings.Join(strings.Fields(encrypted), "")
 }
 
 func ResolveEncryptedValue(encrypted string) (string, error) {
@@ -84,7 +73,7 @@ func Decrypt(encodedValue string, masterKey []byte) ([]byte, error) {
 		return nil, fmt.Errorf("failed to decode ciphertext: %w", err)
 	}
 
-	aesGCM, err := deriveKeyAndGCM(masterKey, salt, Argon2Time, Argon2Memory, Argon2Threads, Argon2KeyLen)
+	aesGCM, err := deriveKeyAndGCM(masterKey, salt)
 	if err != nil {
 		return nil, err
 	}
@@ -97,9 +86,9 @@ func Decrypt(encodedValue string, masterKey []byte) ([]byte, error) {
 	return aesGCM.Open(nil, cipherTextWithNonce[:nonceSize], cipherTextWithNonce[nonceSize:], nil)
 }
 
-func deriveKeyAndGCM(masterKey, salt []byte, time, memory uint32, threads uint8, keyLen uint32) (cipher.AEAD, error) {
-	key := argon2.IDKey(masterKey, salt, time, memory, threads, keyLen)
-	defer zeroBytes(key)
+func deriveKeyAndGCM(masterKey, salt []byte) (cipher.AEAD, error) {
+	key := argon2.IDKey(masterKey, salt, Argon2Time, Argon2Memory, Argon2Threads, Argon2KeyLen)
+	defer clear(key)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -109,17 +98,9 @@ func deriveKeyAndGCM(masterKey, salt []byte, time, memory uint32, threads uint8,
 	return cipher.NewGCM(block)
 }
 
-func zeroBytes(data []byte) {
-	for i := range data {
-		data[i] = 0
-	}
-}
-
 func HashPasswordForWorkspace(password string) (string, error) {
 	salt := make([]byte, SaltLen)
-	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
-		return "", fmt.Errorf("failed to generate salt: %w", err)
-	}
+	rand.Read(salt)
 
 	hash := argon2.IDKey([]byte(password), salt, Argon2Time, Argon2Memory, Argon2Threads, Argon2KeyLen)
 

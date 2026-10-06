@@ -1,12 +1,8 @@
 package secrets
 
 import (
-	"fmt"
-	"io"
-
 	internalIO "github.com/kloudkit/ws-cli/internals/io"
 	internalSecrets "github.com/kloudkit/ws-cli/internals/secrets"
-	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -17,25 +13,19 @@ var loginCmd = &cobra.Command{
 	Long:        "Prompt for a password and print its hash for the workspace server login (WS_AUTH_PASSWORD_HASHED). Store the hash, never the password.",
 	Args:        cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg := getOutputConfig(cmd)
-		return generateLoginHash(cmd, cfg)
+		password, err := internalIO.ReadPasswordFromReader(cmd.InOrStdin())
+		if err != nil {
+			return err
+		}
+
+		hash, err := internalSecrets.HashPasswordForWorkspace(password)
+		if err != nil {
+			return err
+		}
+
+		file, _ := cmd.Flags().GetString("output")
+
+		return emit(cmd, hash, "Password hash written to "+file, true,
+			printKey("Workspace Password Hash", hash, "Use this hash for WS_AUTH_PASSWORD_HASHED"))
 	},
-}
-
-func generateLoginHash(cmd *cobra.Command, cfg outputConfig) error {
-	password, err := internalIO.ReadPasswordFromReader(cmd.InOrStdin())
-	if err != nil {
-		return err
-	}
-
-	hash, err := internalSecrets.HashPasswordForWorkspace(password)
-	if err != nil {
-		return err
-	}
-
-	return handleCustomOutput(cmd, cfg, hash, "✓ Password hash written to "+cfg.file, func(out io.Writer) {
-		fmt.Fprintf(out, "%s\n", styles.Header().Render("Workspace Password Hash"))
-		fmt.Fprintf(out, "  %s\n", styles.Code().Render(hash))
-		fmt.Fprintf(out, "%s\n", styles.Muted().Render("💡 Use this hash for WS_AUTH_PASSWORD_HASHED"))
-	})
 }

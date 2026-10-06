@@ -31,12 +31,3 @@ func GetUptime() (time.Duration, error) {
 
 	return time.Since(initialized), nil
 }
-
-func GetSessionInfo() (initialized time.Time, uptime time.Duration, err error) {
-	initialized, err = GetInitializedTime()
-	if err != nil {
-		return time.Time{}, 0, err
-	}
-
-	return initialized, time.Since(initialized), nil
-}

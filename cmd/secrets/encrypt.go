@@ -16,7 +16,6 @@ var encryptCmd = &cobra.Command{
 	Long:        "Encrypt a value under the master key. Reads the plaintext from the argument or stdin (-); writes the ciphertext to stdout, or a file with --output.",
 	Args:        cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg := getOutputConfig(cmd)
 		masterKeyFlag, _ := cmd.Flags().GetString("master")
 
 		masterKey, err := internalSecrets.ResolveMasterKey(masterKeyFlag)
@@ -36,6 +35,6 @@ var encryptCmd = &cobra.Command{
 			return fmt.Errorf("encryption failed: %w", err)
 		}
 
-		return handleOutput(cmd, cfg, encrypted, "Encrypted Value", "Secret encrypted successfully", true)
+		return emit(cmd, encrypted, "Secret encrypted successfully", true, printValue("Encrypted Value", encrypted))
 	},
 }

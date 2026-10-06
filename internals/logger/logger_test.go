@@ -19,41 +19,30 @@ func stripAnsi(s string) string {
 }
 
 func TestLog(t *testing.T) {
-	buffer := new(bytes.Buffer)
+	stamp := `\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] `
 
-	Log(buffer, "info", "This is my message", 0, false)
+	tests := []struct {
+		name      string
+		message   string
+		indent    int
+		withStamp bool
+		want      string
+	}{
+		{"Plain", "This is my message", 0, false, `info  This is my message`},
+		{"WithStamp", "This has a stamp", 0, true, stamp + `info  This has a stamp`},
+		{"WithIndent", "This is indented", 1, false, `info    - This is indented`},
+		{"WithStampAndIndent", "Stamped and indented", 2, true, stamp + `info      - Stamped and indented`},
+	}
 
-	assert.Equal(t, "info  This is my message\n", stripAnsi(buffer.String()))
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buffer := new(bytes.Buffer)
 
-func TestLogWithStamp(t *testing.T) {
-	buffer := new(bytes.Buffer)
+			Log(buffer, "info", tt.message, tt.indent, tt.withStamp)
 
-	Log(buffer, "info", "This has a stamp", 0, true)
-
-	assert.Assert(
-		t,
-		cmp.Regexp(`^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] info  This has a stamp\n$`, stripAnsi(buffer.String())),
-	)
-}
-
-func TestLogWithIndent(t *testing.T) {
-	buffer := new(bytes.Buffer)
-
-	Log(buffer, "info", "This is indented", 1, false)
-
-	assert.Equal(t, "info    - This is indented\n", stripAnsi(buffer.String()))
-}
-
-func TestLogWithStampAndIndent(t *testing.T) {
-	buffer := new(bytes.Buffer)
-
-	Log(buffer, "info", "Stamped and indented", 2, true)
-
-	assert.Assert(
-		t,
-		cmp.Regexp(`^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] info      - Stamped and indented\n$`, stripAnsi(buffer.String())),
-	)
+			assert.Assert(t, cmp.Regexp("^"+tt.want+`\n$`, stripAnsi(buffer.String())))
+		})
+	}
 }
 
 func TestPipe(t *testing.T) {
@@ -102,7 +91,7 @@ Plain text error message`
 			assert.NilError(t, err)
 
 			var buf bytes.Buffer
-			err = reader.ReadLogs(&buf)
+			err = reader.ReadLogs(&buf, false)
 			assert.NilError(t, err)
 
 			lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
@@ -146,7 +135,7 @@ func TestReaderTargets(t *testing.T) {
 			assert.NilError(t, err)
 
 			var buf bytes.Buffer
-			err = reader.ReadLogs(&buf)
+			err = reader.ReadLogs(&buf, false)
 			assert.NilError(t, err)
 
 			assert.Equal(t, tt.expected, strings.TrimSpace(buf.String()))
@@ -177,7 +166,7 @@ func TestReaderEmptyFile(t *testing.T) {
 	assert.NilError(t, err)
 
 	var buf bytes.Buffer
-	err = reader.ReadLogs(&buf)
+	err = reader.ReadLogs(&buf, false)
 	assert.NilError(t, err)
 
 	assert.Equal(t, "", buf.String())

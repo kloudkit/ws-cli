@@ -6,34 +6,20 @@ import (
 	"os"
 )
 
-type Manifest struct {
-	Version string `json:"version"`
-}
-
-func ReadManifest() (*Manifest, error) {
-	data, err := os.ReadFile(DefaultManifestPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("manifest not found at %s", DefaultManifestPath)
-		}
-		return nil, fmt.Errorf("failed to read manifest: %w", err)
-	}
-
-	var m Manifest
-	if err := json.Unmarshal(data, &m); err != nil {
-		return nil, fmt.Errorf("failed to parse manifest: %w", err)
-	}
-
-	return &m, nil
-}
-
 func WorkspaceVersion() string {
-	m, err := ReadManifest()
+	data, err := os.ReadFile(DefaultManifestPath)
 	if err != nil {
 		return ""
 	}
 
-	return m.Version
+	var manifest struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return ""
+	}
+
+	return manifest.Version
 }
 
 func VSCodeVersion() (string, error) {

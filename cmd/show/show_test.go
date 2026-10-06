@@ -228,52 +228,22 @@ func TestShowEnv_AsAndValueMutuallyExclusive(t *testing.T) {
 	assert.Assert(t, strings.Contains(stderr, "none of the others can be"), "want cobra mutex error, got: %q", stderr)
 }
 
-func TestShowEnv_UnknownKey_Default(t *testing.T) {
+func TestShowEnv_UnknownKey(t *testing.T) {
 	_installEnvFixture(t)
 
-	stdout, stderr, exit := _runShow(t, "env", "server.bogus")
-	assert.Equal(t, 2, exit)
-	assert.Equal(t, "", stdout)
-	assert.Equal(t, "Unknown env var [server.bogus]\n", stderr)
-}
-
-func TestShowEnv_UnknownKey_Value(t *testing.T) {
-	_installEnvFixture(t)
-
-	_, stderr, exit := _runShow(t, "env", "server.bogus", "--value")
-	assert.Equal(t, 2, exit)
-	assert.Equal(t, "Unknown env var [server.bogus]\n", stderr)
-}
-
-func TestShowEnv_UnknownKey_AsBool(t *testing.T) {
-	_installEnvFixture(t)
-
-	_, stderr, exit := _runShow(t, "env", "server.bogus", "--as", "bool")
-	assert.Equal(t, 2, exit)
-	assert.Equal(t, "Unknown env var [server.bogus]\n", stderr)
-}
-
-func TestShowEnv_UnknownKey_AsInt(t *testing.T) {
-	_installEnvFixture(t)
-
-	_, stderr, exit := _runShow(t, "env", "server.bogus", "--as", "int")
-	assert.Equal(t, 2, exit)
-	assert.Equal(t, "Unknown env var [server.bogus]\n", stderr)
-}
-
-func TestShowEnv_UnknownKey_AsList(t *testing.T) {
-	_installEnvFixture(t)
-
-	_, stderr, exit := _runShow(t, "env", "server.bogus", "--as", "list")
-	assert.Equal(t, 2, exit)
-	assert.Equal(t, "Unknown env var [server.bogus]\n", stderr)
-}
-
-func TestShowEnv_UnknownKey_StderrNotStdout(t *testing.T) {
-	_installEnvFixture(t)
-
-	stdout, _, _ := _runShow(t, "env", "server.bogus")
-	assert.Equal(t, "", stdout)
+	for _, flags := range [][]string{
+		{},
+		{"--value"},
+		{"--as", "bool"},
+		{"--as", "int"},
+		{"--as", "list"},
+		{"--value", "--check", "--or-skip"},
+	} {
+		stdout, stderr, exit := _runShow(t, append([]string{"env", "server.bogus"}, flags...)...)
+		assert.Equal(t, 2, exit, "flags %v", flags)
+		assert.Equal(t, "", stdout, "flags %v", flags)
+		assert.Equal(t, "Unknown env var [server.bogus]\n", stderr, "flags %v", flags)
+	}
 }
 
 func TestShowEnv_UnknownKey_NotConflatedWithCheck(t *testing.T) {
@@ -283,13 +253,6 @@ func TestShowEnv_UnknownKey_NotConflatedWithCheck(t *testing.T) {
 	_, stderr, exit := _runShow(t, "env", "server.bogus", "--check")
 	assert.Equal(t, 1, exit)
 	assert.Assert(t, !strings.Contains(stderr, "Unknown env var"))
-}
-
-func TestShowEnv_UnknownKey_ExitCode(t *testing.T) {
-	_installEnvFixture(t)
-
-	_, _, exit := _runShow(t, "env", "server.bogus")
-	assert.Equal(t, 2, exit)
 }
 
 func TestShowEnv_InternalKeyRejectedAsWSQuery(t *testing.T) {
@@ -634,14 +597,6 @@ func TestShowEnv_ValueCheckOrSkip_BothSet_ExitsTwo(t *testing.T) {
 	_, stderr, exit := _runShow(t, "env", "server.port", "--value", "--check", "--deprecated", "WS_PORT", "--or-skip")
 	assert.Equal(t, 2, exit)
 	assert.Equal(t, "Both [WS_PORT] (deprecated) and [WS_SERVER_PORT] are set\n. Aborting\n", stderr)
-}
-
-func TestShowEnv_ValueCheckOrSkip_UnknownKey_ExitsTwo(t *testing.T) {
-	_installEnvFixture(t)
-
-	_, stderr, exit := _runShow(t, "env", "server.bogus", "--value", "--check", "--or-skip")
-	assert.Equal(t, 2, exit)
-	assert.Equal(t, "Unknown env var [server.bogus]\n", stderr)
 }
 
 func TestShowEnv_ValueAndCheckNowCompatible(t *testing.T) {

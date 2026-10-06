@@ -27,13 +27,9 @@ var openCmd = &cobra.Command{
 		}
 
 		req := editoripc.OpenRequest{
-			Path:    path,
-			Window:  "reuse",
-			Preview: preview,
-		}
-
-		if newWindow {
-			req.Window = "new"
+			Path:      path,
+			NewWindow: newWindow,
+			Preview:   preview,
 		}
 
 		if selection != "" {

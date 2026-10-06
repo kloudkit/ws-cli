@@ -60,13 +60,6 @@ func ErrorBadge() lipgloss.Style {
 		Padding(0, 2)
 }
 
-func Highlighted() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Background(Surface0).
-		Padding(0, 1).
-		Margin(0, 0)
-}
-
 func Code() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Foreground(Teal).

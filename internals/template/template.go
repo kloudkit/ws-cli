@@ -2,9 +2,10 @@ package template
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 
 	"github.com/kloudkit/ws-cli/internals/io"
 	"github.com/kloudkit/ws-cli/internals/path"
@@ -34,28 +35,23 @@ var SupportedTemplates = map[string]Config{
 	},
 }
 
-func GetTemplate(name string) (Config, bool) {
+func lookup(name string) (Config, error) {
 	config, exists := SupportedTemplates[name]
+	if !exists {
+		return Config{}, fmt.Errorf("template '%s' not found", name)
+	}
 
-	return config, exists
+	return config, nil
 }
 
 func GetTemplateNames() []string {
-	names := make([]string, 0, len(SupportedTemplates))
-
-	for name := range SupportedTemplates {
-		names = append(names, name)
-	}
-
-	sort.Strings(names)
-
-	return names
+	return slices.Sorted(maps.Keys(SupportedTemplates))
 }
 
 func ApplyTemplate(name, targetPath string, force bool) error {
-	config, exists := GetTemplate(name)
-	if !exists {
-		return fmt.Errorf("template '%s' not found", name)
+	config, err := lookup(name)
+	if err != nil {
+		return err
 	}
 
 	sourcePath := path.ResolveConfigPath(config.SourcePath)
@@ -64,7 +60,7 @@ func ApplyTemplate(name, targetPath string, force bool) error {
 		return fmt.Errorf("template source file not found: %s", sourcePath)
 	}
 
-	targetPath, err := filepath.Abs(targetPath)
+	targetPath, err = filepath.Abs(targetPath)
 	if err != nil {
 		return fmt.Errorf("invalid target path: %w", err)
 	}
@@ -79,20 +75,16 @@ func ApplyTemplate(name, targetPath string, force bool) error {
 }
 
 func ShowTemplate(name string, local bool) (string, error) {
-	config, exists := GetTemplate(name)
-	if !exists {
-		return "", fmt.Errorf("template '%s' not found", name)
+	config, err := lookup(name)
+	if err != nil {
+		return "", err
 	}
 
-	var sourcePath string
-	var err error
+	sourcePath := path.ResolveConfigPath(config.SourcePath)
 	if local {
-		sourcePath, err = path.GetCurrentWorkingDirectory(config.OutputName)
-		if err != nil {
+		if sourcePath, err = path.GetCurrentWorkingDirectory(config.OutputName); err != nil {
 			return "", err
 		}
-	} else {
-		sourcePath = path.ResolveConfigPath(config.SourcePath)
 	}
 
 	content, err := os.ReadFile(sourcePath)

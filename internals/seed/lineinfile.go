@@ -34,32 +34,10 @@ func ensureLine(existing, body []byte) ([]byte, error) {
 			continue
 		}
 
-		var buffer bytes.Buffer
-		for j, l := range lines {
-			if j == i {
-				buffer.Write(line)
-			} else {
-				buffer.Write(l)
-			}
-		}
+		lines[i] = line
 
-		return buffer.Bytes(), nil
+		return bytes.Join(lines, nil), nil
 	}
 
-	return appendLine(existing, line), nil
-}
-
-func appendLine(existing, line []byte) []byte {
-	if len(existing) == 0 {
-		return line
-	}
-
-	var buffer bytes.Buffer
-	buffer.Write(existing)
-	if existing[len(existing)-1] != '\n' {
-		buffer.WriteByte('\n')
-	}
-	buffer.Write(line)
-
-	return buffer.Bytes()
+	return appendBlock(existing, line), nil
 }

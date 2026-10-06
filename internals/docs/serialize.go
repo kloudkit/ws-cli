@@ -2,7 +2,6 @@ package docs
 
 import (
 	"path/filepath"
-	"sort"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -70,12 +69,7 @@ func walk(c *cobra.Command) Command {
 		})
 	})
 
-	children := append([]*cobra.Command(nil), c.Commands()...)
-	sort.Slice(children, func(i, j int) bool {
-		return children[i].Name() < children[j].Name()
-	})
-
-	for _, child := range children {
+	for _, child := range c.Commands() {
 		if !child.IsAvailableCommand() || child.IsAdditionalHelpTopicCommand() {
 			continue
 		}

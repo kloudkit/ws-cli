@@ -24,9 +24,9 @@ type Property struct {
 }
 
 type Deprecation struct {
-	Use     string
-	Message string
-	Removed string
+	Use     string `yaml:"use"`
+	Message string `yaml:"message"`
+	Removed string `yaml:"removed"`
 }
 
 type EnvReference struct {
@@ -41,10 +41,6 @@ func RuntimeKey(group, prop string) string {
 
 func LoadEnvReference() (*EnvReference, error) {
 	path := env.String("WS__INTERNAL_ENV_REFERENCE", DefaultEnvReferencePath)
-	return readEnvReference(path)
-}
-
-func readEnvReference(path string) (*EnvReference, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read [%s]: %w", path, err)
@@ -65,11 +61,7 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 				Secret          bool   `yaml:"secret"`
 			} `yaml:"properties"`
 		} `yaml:"envs"`
-		Deprecated map[string]struct {
-			Use     string `yaml:"use"`
-			Message string `yaml:"message"`
-			Removed string `yaml:"removed"`
-		} `yaml:"deprecated"`
+		Deprecated map[string]Deprecation `yaml:"deprecated"`
 	}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("cannot parse env reference: %w", err)
@@ -77,7 +69,7 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 
 	ref := &EnvReference{
 		Properties:         map[string]Property{},
-		Deprecations:       map[string]Deprecation{},
+		Deprecations:       raw.Deprecated,
 		AliasesByPreferred: map[string][]string{},
 	}
 
@@ -92,7 +84,8 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 				)
 			}
 			if (prop.Type == "path" || prop.Secret) && prop.Default != nil {
-				if _, ok := prop.Default.(string); !ok {
+				s, ok := prop.Default.(string)
+				if !ok {
 					constraint := "type [path]"
 					if prop.Secret {
 						constraint = "secret"
@@ -102,9 +95,7 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 						groupKey, propKey, constraint, prop.Default,
 					)
 				}
-			}
-			if prop.Secret && prop.Default != nil {
-				if s, ok := prop.Default.(string); ok && strings.HasPrefix(s, "file:") {
+				if prop.Secret && strings.HasPrefix(s, "file:") {
 					return nil, fmt.Errorf(
 						"env reference [%s.%s]: secret properties cannot declare a [file:] default literal",
 						groupKey, propKey,
@@ -123,10 +114,6 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 				Name:            propKey,
 			}
 		}
-	}
-
-	for alias, dep := range raw.Deprecated {
-		ref.Deprecations[alias] = Deprecation{Use: dep.Use, Message: dep.Message, Removed: dep.Removed}
 	}
 
 	for alias, dep := range ref.Deprecations {

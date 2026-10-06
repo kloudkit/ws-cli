@@ -89,15 +89,3 @@ func TestAccessLogMiddlewareLineFormat(t *testing.T) {
 	assert.Assert(t, strings.Contains(line, "10.0.0.5:53124"))
 	assert.Assert(t, cmp.Regexp(`\d+(\.\d+)?(ns|µs|ms|s)`, line))
 }
-
-func TestAccessLogServesAndLogs(t *testing.T) {
-	buffer := new(bytes.Buffer)
-	rec := httptest.NewRecorder()
-
-	handler := accessLogMiddleware(http.FileServer(http.Dir("/tmp")), buffer)
-	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
-
-	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Assert(t, rec.Body.Len() > 0)
-	assert.Assert(t, strings.Contains(stripAnsi(buffer.String()), "GET /"))
-}

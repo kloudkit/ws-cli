@@ -45,51 +45,20 @@ func TestResolveConfigPath(t *testing.T) {
 }
 
 func TestExpand(t *testing.T) {
-	t.Run("AbsolutePath", func(t *testing.T) {
-		result, err := Expand("/etc/config")
-		assert.NilError(t, err)
-		assert.Equal(t, "/etc/config", result)
-	})
+	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("TEST_DIR", "/var/test")
 
-	t.Run("TildePath", func(t *testing.T) {
-		homeDir, err := os.UserHomeDir()
-		assert.NilError(t, err)
-
-		result, err := Expand("~/.config")
-		assert.NilError(t, err)
-		assert.Equal(t, homeDir+"/.config", result)
-	})
-
-	t.Run("TildeOnly", func(t *testing.T) {
-		homeDir, err := os.UserHomeDir()
-		assert.NilError(t, err)
-
-		result, err := Expand("~")
-		assert.NilError(t, err)
-		assert.Equal(t, homeDir, result)
-	})
-
-	t.Run("EnvVar", func(t *testing.T) {
-		t.Setenv("TEST_DIR", "/var/test")
-
-		result, err := Expand("$TEST_DIR/config")
-		assert.NilError(t, err)
-		assert.Equal(t, "/var/test/config", result)
-	})
-
-	t.Run("EnvVarAndTilde", func(t *testing.T) {
-		t.Setenv("HOME", "/home/testuser")
-
-		result, err := Expand("~/data")
-		assert.NilError(t, err)
-		assert.Equal(t, "/home/testuser/data", result)
-	})
-
-	t.Run("CleanPath", func(t *testing.T) {
-		result, err := Expand("/etc//config/../config/app")
-		assert.NilError(t, err)
-		assert.Equal(t, "/etc/config/app", result)
-	})
+	cases := []struct{ in, want string }{
+		{"/etc/config", "/etc/config"},
+		{"~/.config", "/home/testuser/.config"},
+		{"~", "/home/testuser"},
+		{"$TEST_DIR/config", "/var/test/config"},
+		{"/etc//config/../config/app", "/etc/config/app"},
+		{"~root/x", "~root/x"},
+	}
+	for _, c := range cases {
+		assert.Equal(t, c.want, Expand(c.in), c.in)
+	}
 }
 
 func TestGetCurrentWorkingDirectory(t *testing.T) {

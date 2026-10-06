@@ -3,6 +3,7 @@ package seed
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -23,21 +24,11 @@ func blockMarkers(comment string) (string, string) {
 }
 
 func renderBlock(body []byte, begin, end string) []byte {
-	var buffer bytes.Buffer
-	buffer.WriteString(begin)
-	buffer.WriteByte('\n')
-
-	if len(body) > 0 {
-		buffer.Write(body)
-		if body[len(body)-1] != '\n' {
-			buffer.WriteByte('\n')
-		}
+	if len(body) > 0 && body[len(body)-1] != '\n' {
+		body = slices.Concat(body, []byte("\n"))
 	}
 
-	buffer.WriteString(end)
-	buffer.WriteByte('\n')
-
-	return buffer.Bytes()
+	return slices.Concat([]byte(begin+"\n"), body, []byte(end+"\n"))
 }
 
 func appendBlock(existing, block []byte) []byte {
@@ -84,14 +75,7 @@ func ensureBlock(existing, body []byte, comment string) ([]byte, error) {
 		return nil, fmt.Errorf("malformed managed block: markers out of order")
 	}
 
-	var buffer bytes.Buffer
-	for _, line := range lines[:begin] {
-		buffer.Write(line)
-	}
-	buffer.Write(block)
-	for _, line := range lines[end+1:] {
-		buffer.Write(line)
-	}
+	spliced := slices.Concat(lines[:begin], [][]byte{block}, lines[end+1:])
 
-	return buffer.Bytes(), nil
+	return bytes.Join(spliced, nil), nil
 }

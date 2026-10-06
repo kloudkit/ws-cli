@@ -36,7 +36,21 @@ var installCmd = &cobra.Command{
 			return err
 		}
 
-		return installFeatureByName(cmd, featureName, featurePath)
+		if _, err := features.ParseFeatureFile(featurePath); err != nil {
+			return fmt.Errorf("installation failed: %w", err)
+		}
+
+		fmt.Fprintln(cmd.OutOrStdout(), styles.Title().Render("Installing "+featureName))
+
+		if err := features.RunPlaybook(featurePath, buildVars(cmd)); err != nil {
+			return fmt.Errorf("installation failed: %w", err)
+		}
+
+		fmt.Fprintln(cmd.OutOrStdout())
+		styles.PrintSuccess(cmd.OutOrStdout(), "Feature installed successfully")
+		styles.PrintKeyValue(cmd.OutOrStdout(), "Feature", featureName)
+
+		return nil
 	},
 }
 
@@ -58,25 +72,6 @@ func buildVars(cmd *cobra.Command) map[string]any {
 	}
 
 	return vars
-}
-
-func installFeatureByName(cmd *cobra.Command, featureName, featurePath string) error {
-	if _, err := features.ParseFeatureFile(featurePath); err != nil {
-		return fmt.Errorf("installation failed: %w", err)
-	}
-
-	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Title().Render(fmt.Sprintf("Installing %s", featureName)))
-
-	if err := features.RunPlaybook(featurePath, buildVars(cmd)); err != nil {
-		return fmt.Errorf("installation failed: %w", err)
-	}
-
-	fmt.Fprintln(cmd.OutOrStdout())
-	styles.PrintSuccessWithDetails(cmd.OutOrStdout(), "Feature installed successfully", [][]string{
-		{"Feature", featureName},
-	})
-
-	return nil
 }
 
 func addInstallFlags(cmd *cobra.Command) {

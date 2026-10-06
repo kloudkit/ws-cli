@@ -2,6 +2,7 @@ package serve
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/kloudkit/ws-cli/internals/server"
@@ -20,17 +21,14 @@ var currentCmd = &cobra.Command{
 
 		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Title().Render("Static server"))
 
-		config := server.Config{
-			Port: port,
-			Bind: bind,
-		}
-
 		currentDir, err := os.Getwd()
 		if err != nil {
 			return fmt.Errorf("error getting current directory: %v", err)
 		}
 
-		return server.ServeDirectory(config, currentDir, "current directory", cmd.OutOrStdout())
+		handler := http.FileServer(http.Dir(currentDir))
+
+		return server.Serve(server.Config{Port: port, Bind: bind}, handler, "current directory", cmd.OutOrStdout())
 	},
 }
 

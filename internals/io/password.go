@@ -9,10 +9,6 @@ import (
 	"golang.org/x/term"
 )
 
-func ReadPasswordInput() (string, error) {
-	return ReadPasswordFromReader(os.Stdin)
-}
-
 func ReadPasswordFromReader(reader io.Reader) (string, error) {
 	file, ok := reader.(*os.File)
 	if !ok {

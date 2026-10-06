@@ -45,7 +45,7 @@ func TestProcessFileLines(t *testing.T) {
 	assert.NilError(t, err)
 
 	var lines []string
-	err = processFileLines(path, func(line string) {
+	err = processFileLines(path, 0, func(line string) {
 		lines = append(lines, line)
 	})
 	assert.NilError(t, err)

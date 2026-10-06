@@ -25,7 +25,7 @@ var listCmd = &cobra.Command{
 		}
 
 		if len(result.Features) == 0 {
-			fmt.Fprintln(cmd.OutOrStdout(), styles.Warning().Render("⚠ No features found"))
+			styles.PrintWarning(cmd.OutOrStdout(), "No features found")
 			return nil
 		}
 
@@ -48,12 +48,9 @@ var listCmd = &cobra.Command{
 }
 
 func describeSource(f *features.Feature) string {
-	switch f.Source {
-	case features.SourceUser:
-		return f.Description + " (user)"
-	case features.SourceOverride:
-		return f.Description + " (override)"
-	default:
+	if f.Source == features.SourceSystem {
 		return f.Description
 	}
+
+	return f.Description + " (" + string(f.Source) + ")"
 }

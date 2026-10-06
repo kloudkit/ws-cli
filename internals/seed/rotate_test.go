@@ -212,6 +212,24 @@ func TestRotate(t *testing.T) {
 		decrypts(t, readFile(t, rhyming(source, dest)), testMaster, "MIRROR\n")
 	})
 
+	t.Run("SymlinkTargetFailsClosedBeforeWrite", func(t *testing.T) {
+		setEnv(t, t.TempDir())
+		source := t.TempDir()
+		dir := t.TempDir()
+		plain := filepath.Join(dir, "a.enc")
+		real := filepath.Join(dir, "z.enc")
+		link := filepath.Join(dir, "z.link")
+		write(t, plain, encrypt(t, "AVAL", testMaster))
+		write(t, real, encrypt(t, "ZVAL", testMaster))
+		assert.NilError(t, os.Symlink(real, link))
+		writeManifest(t, source, fmt.Sprintf("secrets:\n  A: file:%s\n  Z: file:%s\n", plain, link))
+
+		rotateErr(t, RotateOptions{Source: source, MasterKey: testMaster, NewMasterKey: testNewMaster})
+
+		decrypts(t, readFile(t, plain), testMaster, "AVAL")
+		decrypts(t, readFile(t, real), testMaster, "ZVAL")
+	})
+
 	t.Run("OldEqualsNewReEncrypts", func(t *testing.T) {
 		setEnv(t, t.TempDir())
 		source := t.TempDir()

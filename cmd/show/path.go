@@ -3,7 +3,6 @@ package show
 import (
 	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/kloudkit/ws-cli/internals/path"
-	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -14,25 +13,9 @@ var pathCmd = &cobra.Command{
 	Long:        "Print well-known workspace paths — the home root or the VS Code settings file.",
 }
 
-var pathHomeCmd = &cobra.Command{
-	Use:         "home",
-	Annotations: map[string]string{"since": "0.2.0"},
-	Short:       "Display the workspace home path",
-	Long:        "Print the workspace home (server root) path.",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		homePath := config.MustResolve("server", "root")
-
-		raw, _ := cmd.Flags().GetBool("raw")
-		if styles.OutputRaw(cmd.OutOrStdout(), raw, homePath) {
-			return nil
-		}
-
-		styles.PrintTitle(cmd.OutOrStdout(), "Workspace Home Path")
-		styles.PrintKeyCode(cmd.OutOrStdout(), "Path", homePath)
-
-		return nil
-	},
-}
+var pathHomeCmd = makeValueCmd("home", "Display the workspace home path", "Print the workspace home (server root) path.", "Workspace Home Path", "Path", func() (string, error) {
+	return config.MustResolve("server", "root"), nil
+})
 
 var pathVscodeCmd = &cobra.Command{
 	Use:         "vscode-settings",
@@ -42,27 +25,14 @@ var pathVscodeCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		useWorkspace, _ := cmd.Flags().GetBool("workspace")
 
-		var settingsPath = "/workspace/.vscode/settings.json"
+		settingsPath, settingsType := "/workspace/.vscode/settings.json", "Workspace"
 
 		if !useWorkspace {
 			settingsPath = path.GetHomeDirectory("/.local/share/ws-server/User/settings.json")
+			settingsType = "User"
 		}
 
-		raw, _ := cmd.Flags().GetBool("raw")
-		if styles.OutputRaw(cmd.OutOrStdout(), raw, settingsPath) {
-			return nil
-		}
-
-		settingsType := "User"
-		if useWorkspace {
-			settingsType = "Workspace"
-		}
-
-		styles.PrintTitle(cmd.OutOrStdout(), "VS Code Settings Path")
-		styles.PrintKeyValue(cmd.OutOrStdout(), "Type", settingsType)
-		styles.PrintKeyCode(cmd.OutOrStdout(), "Path", settingsPath)
-
-		return nil
+		return emit(cmd, "VS Code Settings Path", settingsType, "Path", settingsPath)
 	},
 }
 

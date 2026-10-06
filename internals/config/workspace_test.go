@@ -16,52 +16,29 @@ func _withManifestPath(t *testing.T, path string, fn func()) {
 	fn()
 }
 
-func TestIsWorkspace_FileExists(t *testing.T) {
+func TestBootstrap_RequiresManifestFile(t *testing.T) {
+	_installFixture(t, sampleYAML)
 	f, err := os.CreateTemp(t.TempDir(), "manifest*.json")
 	assert.NilError(t, err)
 	f.Close()
-	_withManifestPath(t, f.Name(), func() {
-		assert.Equal(t, true, IsWorkspace())
-	})
-}
 
-func TestIsWorkspace_FileAbsent(t *testing.T) {
-	_withManifestPath(t, filepath.Join(t.TempDir(), "nonexistent.json"), func() {
-		assert.Equal(t, false, IsWorkspace())
-	})
-}
-
-func TestIsWorkspace_PathIsDirectory(t *testing.T) {
-	_withManifestPath(t, t.TempDir(), func() {
-		assert.Equal(t, false, IsWorkspace())
-	})
-}
-
-func TestIsWorkspace_EmptyPath(t *testing.T) {
-	_withManifestPath(t, "", func() {
-		assert.Equal(t, false, IsWorkspace())
-	})
-}
-
-func TestRequireWorkspace_FileExists(t *testing.T) {
-	f, err := os.CreateTemp(t.TempDir(), "manifest*.json")
-	assert.NilError(t, err)
-	f.Close()
-	_withManifestPath(t, f.Name(), func() {
-		assert.NilError(t, RequireWorkspace())
-	})
-}
-
-func TestRequireWorkspace_FileAbsent(t *testing.T) {
-	_withManifestPath(t, filepath.Join(t.TempDir(), "nonexistent.json"), func() {
-		err := RequireWorkspace()
-		assert.ErrorContains(t, err, "Workspace")
-	})
-}
-
-func TestRequireWorkspace_PathIsDirectory(t *testing.T) {
-	_withManifestPath(t, t.TempDir(), func() {
-		err := RequireWorkspace()
-		assert.Assert(t, err != nil)
-	})
+	cases := []struct {
+		name, path string
+		ok         bool
+	}{
+		{"FileExists", f.Name(), true},
+		{"FileAbsent", filepath.Join(t.TempDir(), "nonexistent.json"), false},
+		{"PathIsDirectory", t.TempDir(), false},
+		{"EmptyPath", "", false},
+	}
+	for _, c := range cases {
+		_withManifestPath(t, c.path, func() {
+			err := Bootstrap()
+			if c.ok {
+				assert.NilError(t, err, c.name)
+			} else {
+				assert.ErrorContains(t, err, "Workspace", c.name)
+			}
+		})
+	}
 }

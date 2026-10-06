@@ -2,6 +2,7 @@ package features
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"slices"
@@ -12,14 +13,8 @@ func RunPlaybook(featurePath string, vars map[string]any) error {
 	args := []string{featurePath}
 
 	if len(vars) > 0 {
-		keys := make([]string, 0, len(vars))
-		for key := range vars {
-			keys = append(keys, key)
-		}
-		slices.Sort(keys)
-
-		extraVars := make([]string, 0, len(keys))
-		for _, key := range keys {
+		extraVars := make([]string, 0, len(vars))
+		for _, key := range slices.Sorted(maps.Keys(vars)) {
 			extraVars = append(extraVars, fmt.Sprintf("%s=%v", key, vars[key]))
 		}
 		args = append(args, "--extra-vars", strings.Join(extraVars, " "))

@@ -57,6 +57,15 @@ func (r reporter) notice(dest string) {
 	fmt.Fprintf(r.out, "Notice %s\n", message)
 }
 
+func (r reporter) rotated(describe string) {
+	if r.styled {
+		styles.PrintSuccess(r.out, fmt.Sprintf("Rotated %s", describe))
+		return
+	}
+
+	fmt.Fprintf(r.out, "Rotated %s\n", describe)
+}
+
 type keyResolver struct {
 	flag    string
 	secrets map[string]string
@@ -74,29 +83,32 @@ func (k *keyResolver) master() ([]byte, error) {
 	return k.key, k.err
 }
 
-func (k *keyResolver) zero() {
-	for i := range k.key {
-		k.key[i] = 0
-	}
-}
-
 func (k *keyResolver) resolveNamed(name string) ([]byte, error) {
 	value, ok := k.secrets[name]
 	if !ok {
 		return nil, fmt.Errorf("secret %q not declared", name)
 	}
 
-	master, err := k.master()
-	if err != nil {
-		return nil, err
-	}
+	return k.decrypt(value)
+}
 
+func (k *keyResolver) decrypt(value string) ([]byte, error) {
 	resolved, err := secrets.ResolveEncryptedValue(value)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("secret source unresolved")
 	}
 
-	return secrets.Decrypt(secrets.NormalizeEncrypted(resolved), master)
+	master, err := k.master()
+	if err != nil {
+		return nil, fmt.Errorf("master key unavailable")
+	}
+
+	plain, err := secrets.Decrypt(secrets.NormalizeEncrypted(resolved), master)
+	if err != nil {
+		return nil, fmt.Errorf("decrypt failed")
+	}
+
+	return plain, nil
 }
 
 func Apply(opts Options) error {
@@ -119,7 +131,7 @@ func Apply(opts Options) error {
 	}
 
 	keys := &keyResolver{flag: opts.MasterKey, secrets: declared}
-	defer keys.zero()
+	defer func() { clear(keys.key) }()
 	rep := reporter{out: opts.Out, styled: opts.Styled}
 
 	failures := 0
@@ -222,22 +234,7 @@ func (p *Plan) materialize(op ResolvedOp, keys *keyResolver) ([]byte, fs.FileMod
 
 func (p *Plan) transform(op ResolvedOp, raw []byte, keys *keyResolver) ([]byte, error) {
 	if op.Secret {
-		resolved, err := secrets.ResolveEncryptedValue(string(raw))
-		if err != nil {
-			return nil, fmt.Errorf("secret source unresolved")
-		}
-
-		master, err := keys.master()
-		if err != nil {
-			return nil, fmt.Errorf("master key unavailable")
-		}
-
-		plain, err := secrets.Decrypt(secrets.NormalizeEncrypted(resolved), master)
-		if err != nil {
-			return nil, fmt.Errorf("decrypt failed")
-		}
-
-		return plain, nil
+		return keys.decrypt(string(raw))
 	}
 
 	if op.Template {

@@ -9,68 +9,48 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type outputConfig struct {
-	file  string
-	mode  string
-	force bool
-	raw   bool
-}
-
-func getOutputConfig(cmd *cobra.Command) outputConfig {
-	outputFile, _ := cmd.Flags().GetString("output")
-	modeStr, _ := cmd.Flags().GetString("mode")
-	force, _ := cmd.Flags().GetBool("force")
+// emit writes value to --output when set; otherwise it prints value as-is under
+// --raw (with a trailing newline when newline is set), or renders it via styled.
+func emit(cmd *cobra.Command, value, successMsg string, newline bool, styled func(io.Writer)) error {
+	out := cmd.OutOrStdout()
+	file, _ := cmd.Flags().GetString("output")
 	raw, _ := cmd.Flags().GetBool("raw")
 
-	return outputConfig{
-		file:  outputFile,
-		mode:  modeStr,
-		force: force,
-		raw:   raw,
-	}
-}
+	switch {
+	case file != "":
+		mode, _ := cmd.Flags().GetString("mode")
+		force, _ := cmd.Flags().GetBool("force")
 
-func handleOutput(cmd *cobra.Command, cfg outputConfig, value string, title string, successMsg string, addNewline bool) error {
-	if cfg.file == "" {
-		return writeToStdout(cmd.OutOrStdout(), cfg.raw, value, title, addNewline)
-	}
-	return writeToFile(cmd.OutOrStdout(), cfg, value, successMsg)
-}
-
-func handleCustomOutput(cmd *cobra.Command, cfg outputConfig, value string, successMsg string, styledOutput func(io.Writer)) error {
-	if cfg.file == "" {
-		if cfg.raw {
-			fmt.Fprintln(cmd.OutOrStdout(), value)
-			return nil
+		if err := internalIO.WriteSecureFile(file, []byte(value+"\n"), mode, force); err != nil {
+			return err
 		}
-		styledOutput(cmd.OutOrStdout())
-		return nil
-	}
-	return writeToFile(cmd.OutOrStdout(), cfg, value, successMsg)
-}
 
-func writeToStdout(out io.Writer, raw bool, value string, title string, addNewline bool) error {
-	if raw {
-		if addNewline {
-			fmt.Fprintln(out, value)
-		} else {
-			fmt.Fprint(out, value)
+		if !raw {
+			styles.PrintSuccess(out, successMsg)
+			styles.PrintKeyCode(out, "Output", file)
 		}
-		return nil
+	case raw && newline:
+		fmt.Fprintln(out, value)
+	case raw:
+		fmt.Fprint(out, value)
+	default:
+		styled(out)
 	}
-	styles.PrintTitle(out, title)
-	styles.PrintKeyCode(out, "Value", value)
+
 	return nil
 }
 
-func writeToFile(out io.Writer, cfg outputConfig, value string, successMsg string) error {
-	if err := internalIO.WriteSecureFile(cfg.file, []byte(value+"\n"), cfg.mode, cfg.force); err != nil {
-		return err
+func printValue(title, value string) func(io.Writer) {
+	return func(out io.Writer) {
+		styles.PrintTitle(out, title)
+		styles.PrintKeyCode(out, "Value", value)
 	}
-	if !cfg.raw {
-		styles.PrintSuccessWithDetailsCode(out, successMsg, [][]string{
-			{"Output", cfg.file},
-		})
+}
+
+func printKey(header, value, hint string) func(io.Writer) {
+	return func(out io.Writer) {
+		fmt.Fprintln(out, styles.Header().Render(header))
+		fmt.Fprintln(out, "  "+styles.Code().Render(value))
+		fmt.Fprintln(out, styles.Muted().Render("💡 "+hint))
 	}
-	return nil
 }

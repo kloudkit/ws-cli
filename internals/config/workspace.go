@@ -5,24 +5,9 @@ import (
 	"os"
 )
 
-func IsWorkspace() bool {
-	info, err := os.Stat(DefaultManifestPath)
-	if err != nil {
-		return false
-	}
-	return !info.IsDir()
-}
-
-func RequireWorkspace() error {
-	if !IsWorkspace() {
-		return fmt.Errorf("this command requires a running Kloud Workspace")
-	}
-	return nil
-}
-
 func Bootstrap() error {
-	if err := RequireWorkspace(); err != nil {
-		return err
+	if info, err := os.Stat(DefaultManifestPath); err != nil || info.IsDir() {
+		return fmt.Errorf("this command requires a running Kloud Workspace")
 	}
 
 	_, err := LoadEnvReference()

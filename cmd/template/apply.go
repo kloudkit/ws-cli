@@ -27,12 +27,11 @@ func runApply(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	config, _ := template.GetTemplate(templateName)
-	sourcePath := template.SupportedTemplates[templateName].SourcePath
+	config := template.SupportedTemplates[templateName]
 
 	styles.PrintSuccess(cmd.OutOrStdout(), "Template applied successfully")
 	styles.PrintKeyValue(cmd.OutOrStdout(), "Template", templateName)
-	styles.PrintKeyCode(cmd.OutOrStdout(), "Source", sourcePath)
+	styles.PrintKeyCode(cmd.OutOrStdout(), "Source", config.SourcePath)
 	styles.PrintKeyCode(cmd.OutOrStdout(), "Target", fmt.Sprintf("%s/%s", targetPath, config.OutputName))
 
 	styles.PrintHints(cmd.OutOrStdout(), [][]string{

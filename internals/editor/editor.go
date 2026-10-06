@@ -49,7 +49,7 @@ type Selection struct {
 
 type OpenRequest struct {
 	Path      string `json:"path"`
-	Window    string `json:"window"`
+	NewWindow bool   `json:"newWindow"`
 	Preview   bool   `json:"preview,omitempty"`
 	Selection *Range `json:"selection,omitempty"`
 }
@@ -85,7 +85,7 @@ func Open(req OpenRequest) error {
 		"type":      "editorOpen",
 		"path":      req.Path,
 		"preview":   req.Preview,
-		"newWindow": req.Window == "new",
+		"newWindow": req.NewWindow,
 	}
 
 	if req.Selection != nil {
@@ -98,25 +98,10 @@ func Open(req OpenRequest) error {
 }
 
 func Notify(req NotifyRequest) ([]byte, error) {
-	envelope := map[string]any{"type": "notify", "message": req.Message}
-
-	if req.Detail != "" {
-		envelope["detail"] = req.Detail
-	}
-	if req.Actions != nil {
-		envelope["actions"] = req.Actions
-	}
-	if req.Modal {
-		envelope["modal"] = true
-	}
-	if req.Timeout > 0 {
-		envelope["timeout"] = req.Timeout
-	}
-	if req.Severity != "" {
-		envelope["severity"] = req.Severity
-	}
-
-	return fetch("", envelope)
+	return fetch("", struct {
+		Type string `json:"type"`
+		NotifyRequest
+	}{"notify", req})
 }
 
 func fetch(filePath string, envelope any) ([]byte, error) {

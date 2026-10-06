@@ -126,7 +126,7 @@ func TestOpenSendsEnvelope(t *testing.T) {
 
 	err := editor.Open(editor.OpenRequest{
 		Path:      "/workspace/main.go",
-		Window:    "new",
+		NewWindow: true,
 		Selection: &editor.Range{End: editor.Position{Line: 2, Character: 5}},
 	})
 	assert.NilError(t, err)

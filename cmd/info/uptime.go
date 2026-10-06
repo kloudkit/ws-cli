@@ -2,6 +2,7 @@ package info
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -15,12 +16,14 @@ var uptimeCmd = &cobra.Command{
 	Short:       "Display the workspace uptime",
 	Long:        "Show when the workspace session started and how long it has been running.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		started, running, err := config.GetSessionInfo()
+		started, err := config.GetInitializedTime()
 
 		if err != nil {
 			styles.PrintWarning(cmd.OutOrStdout(), "Could not read workspace startup time")
 			return nil
 		}
+
+		running := time.Since(started)
 
 		var statusValue string
 		switch {

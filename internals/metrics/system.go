@@ -11,10 +11,8 @@ import (
 )
 
 func GetDiskStats() (*DiskStats, error) {
-	return GetDiskStatsForPath(config.MustResolve("server", "root"))
-}
+	path := config.MustResolve("server", "root")
 
-func GetDiskStatsForPath(path string) (*DiskStats, error) {
 	var stat syscall.Statfs_t
 	if err := syscall.Statfs(path, &stat); err != nil {
 		return nil, fmt.Errorf("failed to get disk stats for %s: %w", path, err)
@@ -37,14 +35,9 @@ func GetFileDescriptorStats() (*FileDescriptorStats, error) {
 		return nil, fmt.Errorf("failed to read /proc/self/fd: %w", err)
 	}
 	stats.Open = uint64(len(entries))
-
-	stats.Limit = getFDLimit()
+	stats.Limit = readProcProperty("/proc/self/limits", "Max open files", 4)
 
 	return stats, nil
-}
-
-func getFDLimit() uint64 {
-	return readProcProperty("/proc/self/limits", "Max open files", 4)
 }
 
 func IsGPUAvailable() bool {
@@ -52,21 +45,21 @@ func IsGPUAvailable() bool {
 	return err == nil
 }
 
-func GetGPUStats() (*GPUStats, error) {
+func GetGPUStats() *GPUStats {
 	if !IsGPUAvailable() {
-		return &GPUStats{Available: false}, nil
+		return &GPUStats{Available: false}
 	}
 
 	out, err := exec.Command("nvidia-smi",
 		"--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
 		"--format=csv,noheader,nounits").Output()
 	if err != nil {
-		return &GPUStats{Available: false}, nil
+		return &GPUStats{Available: false}
 	}
 
 	fields := strings.Split(strings.TrimSpace(string(out)), ", ")
 	if len(fields) < 5 {
-		return &GPUStats{Available: false}, nil
+		return &GPUStats{Available: false}
 	}
 
 	stats := &GPUStats{Available: true}
@@ -77,5 +70,5 @@ func GetGPUStats() (*GPUStats, error) {
 	stats.TemperatureCelsius = atof(fields[3])
 	stats.PowerWatts = atof(fields[4])
 
-	return stats, nil
+	return stats
 }

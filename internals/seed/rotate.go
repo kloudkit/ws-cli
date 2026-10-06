@@ -5,19 +5,17 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
+	"strings"
 
 	"github.com/kloudkit/ws-cli/internals/secrets"
-	"github.com/kloudkit/ws-cli/internals/styles"
 	"gopkg.in/yaml.v3"
 )
 
-const (
-	rotateTempSuffix = ".ws-rotate.tmp"
-	rotateProbeName  = ".ws-rotate-probe"
-)
+const rotateProbeName = ".ws-rotate-probe"
 
 type RotateOptions struct {
 	Source       string
@@ -33,20 +31,6 @@ type rotateTarget struct {
 	plain     []byte
 	writePath string
 	writeBack func(string) error
-}
-
-type rotateReporter struct {
-	out    io.Writer
-	styled bool
-}
-
-func (r rotateReporter) rotated(describe string) {
-	if r.styled {
-		styles.PrintSuccess(r.out, fmt.Sprintf("Rotated %s", describe))
-		return
-	}
-
-	fmt.Fprintf(r.out, "Rotated %s\n", describe)
 }
 
 func Rotate(opts RotateOptions) error {
@@ -74,13 +58,13 @@ func Rotate(opts RotateOptions) error {
 	if err != nil {
 		return err
 	}
-	defer zeroBytes(oldKey)
+	defer clear(oldKey)
 
 	newKey, err := secrets.ResolveMasterKey(opts.NewMasterKey)
 	if err != nil {
 		return err
 	}
-	defer zeroBytes(newKey)
+	defer clear(newKey)
 
 	targets, err := collectTargets(opts.Source, manifest, &doc)
 	if err != nil {
@@ -89,7 +73,7 @@ func Rotate(opts RotateOptions) error {
 
 	defer func() {
 		for i := range targets {
-			zeroBytes(targets[i].plain)
+			clear(targets[i].plain)
 		}
 	}()
 
@@ -102,13 +86,7 @@ func Rotate(opts RotateOptions) error {
 		targets[i].plain = plain
 	}
 
-	writeManifest := false
-	for i := range targets {
-		if targets[i].writePath == "" {
-			writeManifest = true
-			break
-		}
-	}
+	writeManifest := slices.ContainsFunc(targets, func(t rotateTarget) bool { return t.writePath == "" })
 
 	if err := preflightWritable(targets, manifestPath, writeManifest); err != nil {
 		return err
@@ -131,7 +109,7 @@ func Rotate(opts RotateOptions) error {
 		}
 	}
 
-	rep := rotateReporter{out: opts.Out, styled: opts.Styled}
+	rep := reporter{out: opts.Out, styled: opts.Styled}
 	for i := range targets {
 		rep.rotated(targets[i].describe)
 	}
@@ -145,7 +123,7 @@ func collectTargets(source string, manifest *Manifest, doc *yaml.Node) ([]rotate
 
 	var targets []rotateTarget
 
-	for _, name := range sortedSecretNames(manifest.Secrets) {
+	for _, name := range slices.Sorted(maps.Keys(manifest.Secrets)) {
 		target, err := valueTarget(
 			fmt.Sprintf("secret %q", name),
 			manifest.Secrets[name],
@@ -158,7 +136,7 @@ func collectTargets(source string, manifest *Manifest, doc *yaml.Node) ([]rotate
 		targets = append(targets, target)
 	}
 
-	for _, rawDest := range sortedSeedDests(manifest.Seeds) {
+	for _, rawDest := range slices.Sorted(maps.Keys(manifest.Seeds)) {
 		op := manifest.Seeds[rawDest]
 		if !op.Secret {
 			continue
@@ -168,7 +146,7 @@ func collectTargets(source string, manifest *Manifest, doc *yaml.Node) ([]rotate
 			target, err := valueTarget(
 				fmt.Sprintf("seed %q", rawDest),
 				*op.Content,
-				seedContentSetter(root, rawDest),
+				nodeSetter(root, "seeds", rawDest, "content"),
 			)
 			if err != nil {
 				return nil, err
@@ -178,12 +156,7 @@ func collectTargets(source string, manifest *Manifest, doc *yaml.Node) ([]rotate
 			continue
 		}
 
-		dest, err := vars.expand(rawDest)
-		if err != nil {
-			return nil, fmt.Errorf("seed %q: %w", rawDest, err)
-		}
-
-		target, err := fileTarget(fmt.Sprintf("seed %q", rawDest), rhymingSource(source, dest))
+		target, err := fileTarget(fmt.Sprintf("seed %q", rawDest), rhymingSource(source, vars.expand(rawDest)))
 		if err != nil {
 			return nil, err
 		}
@@ -226,12 +199,9 @@ func fileTarget(describe, path string) (rotateTarget, error) {
 }
 
 func fileRef(value string) (string, bool) {
-	const prefix = "file:"
-	if len(value) > len(prefix) && value[:len(prefix)] == prefix {
-		return value[len(prefix):], true
-	}
+	path, ok := strings.CutPrefix(value, "file:")
 
-	return "", false
+	return path, ok && path != ""
 }
 
 func fileWriter(path string) func(string) error {
@@ -240,25 +210,15 @@ func fileWriter(path string) func(string) error {
 	}
 }
 
-func nodeSetter(root *yaml.Node, section, key string) func(string) error {
+func nodeSetter(root *yaml.Node, path ...string) func(string) error {
 	return func(reencrypted string) error {
-		node := mappingValue(mappingValue(root, section), key)
-		if node == nil {
-			return fmt.Errorf("manifest node %s.%s not found", section, key)
+		node := root
+		for _, key := range path {
+			node = mappingValue(node, key)
 		}
 
-		node.Value = reencrypted
-		node.Tag = "!!str"
-
-		return nil
-	}
-}
-
-func seedContentSetter(root *yaml.Node, dest string) func(string) error {
-	return func(reencrypted string) error {
-		node := mappingValue(mappingValue(mappingValue(root, "seeds"), dest), "content")
 		if node == nil {
-			return fmt.Errorf("manifest node seeds.%s.content not found", dest)
+			return fmt.Errorf("manifest node %s not found", strings.Join(path, "."))
 		}
 
 		node.Value = reencrypted
@@ -269,15 +229,23 @@ func seedContentSetter(root *yaml.Node, dest string) func(string) error {
 }
 
 func preflightWritable(targets []rotateTarget, manifestPath string, writeManifest bool) error {
-	dirs := map[string]bool{}
+	paths := []string{}
 	for i := range targets {
 		if targets[i].writePath != "" {
-			dirs[filepath.Dir(targets[i].writePath)] = true
+			paths = append(paths, targets[i].writePath)
 		}
 	}
 
 	if writeManifest {
-		dirs[filepath.Dir(manifestPath)] = true
+		paths = append(paths, manifestPath)
+	}
+
+	dirs := map[string]bool{}
+	for _, p := range paths {
+		if info, err := os.Lstat(p); err == nil && info.Mode()&fs.ModeSymlink != 0 {
+			return fmt.Errorf("refusing to write through symlink %q", p)
+		}
+		dirs[filepath.Dir(p)] = true
 	}
 
 	for dir := range dirs {
@@ -335,47 +303,5 @@ func atomicReplace(path string, data []byte) error {
 		perm = info.Mode().Perm()
 	}
 
-	tmp := path + rotateTempSuffix
-	if err := os.WriteFile(tmp, data, perm); err != nil {
-		os.Remove(tmp)
-		return err
-	}
-
-	if err := os.Chmod(tmp, perm); err != nil {
-		os.Remove(tmp)
-		return err
-	}
-
-	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
-		return err
-	}
-
-	return nil
-}
-
-func sortedSecretNames(m map[string]string) []string {
-	names := make([]string, 0, len(m))
-	for name := range m {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	return names
-}
-
-func sortedSeedDests(m map[string]SeedOp) []string {
-	dests := make([]string, 0, len(m))
-	for dest := range m {
-		dests = append(dests, dest)
-	}
-	sort.Strings(dests)
-
-	return dests
-}
-
-func zeroBytes(data []byte) {
-	for i := range data {
-		data[i] = 0
-	}
+	return writeAtomic(filepath.Dir(path), path, data, perm)
 }

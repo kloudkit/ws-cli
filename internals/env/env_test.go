@@ -20,28 +20,6 @@ func TestString(t *testing.T) {
 	})
 }
 
-func TestMustString(t *testing.T) {
-	t.Run("PanicWhenMissing", func(t *testing.T) {
-		t.Setenv("FOO", "")
-
-		assert.Assert(t, func() (result bool) {
-			defer func() {
-				result = recover() != nil
-			}()
-
-			MustString("FOO")
-
-			return false
-		}())
-	})
-
-	t.Run("WithFallback", func(t *testing.T) {
-		t.Setenv("FOO", "")
-
-		assert.Equal(t, "qux", MustString("FOO", "qux"))
-	})
-}
-
 func TestIsSSHSession(t *testing.T) {
 	clear := func(t *testing.T) {
 		for _, key := range []string{"SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"} {

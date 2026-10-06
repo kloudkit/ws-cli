@@ -100,15 +100,9 @@ func (r *Reader) shouldIncludeLine(line string) bool {
 	return true
 }
 
-func (r *Reader) ReadLogs(writer io.Writer) error {
-	return r.processLogs(writer, false)
-}
-
-func (r *Reader) FollowLogs(writer io.Writer) error {
-	return r.processLogs(writer, true)
-}
-
-func (r *Reader) processLogs(writer io.Writer, follow bool) error {
+// ReadLogs writes the log to writer and, when follow is set, keeps streaming
+// lines appended after the initial read.
+func (r *Reader) ReadLogs(writer io.Writer, follow bool) error {
 	file, err := os.Open(r.logPath)
 
 	if err != nil {
@@ -164,12 +158,9 @@ func (r *Reader) seekToTail(file *os.File) error {
 	lines, pos := 0, stat.Size()
 
 	for lines < r.tailLines && pos > 0 {
-		readSize := int64(len(buf))
-		if pos < readSize {
-			readSize = pos
-		}
+		readSize := min(pos, int64(len(buf)))
 		pos -= readSize
-		if _, err := file.Seek(pos, 0); err != nil {
+		if _, err := file.Seek(pos, io.SeekStart); err != nil {
 			return err
 		}
 		n, err := file.Read(buf[:readSize])
@@ -180,14 +171,14 @@ func (r *Reader) seekToTail(file *os.File) error {
 			if buf[i] == '\n' {
 				lines++
 				if lines == r.tailLines {
-					file.Seek(pos+int64(i)+1, 0)
+					file.Seek(pos+int64(i)+1, io.SeekStart)
 					return nil
 				}
 			}
 		}
 	}
 
-	file.Seek(0, 0)
+	file.Seek(0, io.SeekStart)
 
 	return nil
 }
