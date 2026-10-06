@@ -31,29 +31,31 @@ func FormatPercent(used, total uint64) string {
 }
 
 func FormatDuration(duration time.Duration) string {
-	days := int(duration.Hours() / 24)
-	hours := int(duration.Hours()) % 24
-	minutes := int(duration.Minutes()) % 60
+	units := []struct {
+		n    int
+		name string
+	}{
+		{int(duration.Hours() / 24), "day"},
+		{int(duration.Hours()) % 24, "hour"},
+		{int(duration.Minutes()) % 60, "minute"},
+	}
 
 	var parts []string
 
-	if days > 0 {
-		parts = append(parts, fmt.Sprintf("%d days", days))
-	}
-
-	if hours > 0 {
-		parts = append(parts, fmt.Sprintf("%d hours", hours))
-	}
-
-	if minutes > 0 {
-		parts = append(parts, fmt.Sprintf("%d minutes", minutes))
+	for _, u := range units {
+		switch {
+		case u.n == 1:
+			parts = append(parts, "1 "+u.name)
+		case u.n > 1:
+			parts = append(parts, fmt.Sprintf("%d %ss", u.n, u.name))
+		}
 	}
 
 	if len(parts) == 0 {
-		return "just now"
+		return "less than a minute"
 	}
 
-	return strings.Join(parts, ", ") + " ago"
+	return strings.Join(parts, ", ")
 }
 
 func FormatCPUTime(seconds float64) string {

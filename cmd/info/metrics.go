@@ -27,10 +27,7 @@ var metricsCmd = &cobra.Command{
 
 		rows := [][]string{
 			{"CPU", fmt.Sprintf("%.1f%% (%s)", m.CPUUsage, styles.FormatCPUTime(m.CPUSeconds))},
-			{"Memory", fmt.Sprintf("%s / %s (%s)",
-				styles.FormatBytes(m.MemoryUsed),
-				styles.FormatBytes(m.MemoryTotal),
-				styles.FormatPercent(m.MemoryUsed, m.MemoryTotal))},
+			{"Memory", formatMemory(m.MemoryUsed, m.MemoryTotal)},
 			{"Memory RSS", styles.FormatBytes(m.MemoryRSS)},
 			{"Disk", fmt.Sprintf("%s / %s (%s)",
 				styles.FormatBytes(m.DiskUsed),
@@ -59,4 +56,15 @@ var metricsCmd = &cobra.Command{
 func init() {
 	metricsCmd.Flags().Bool("gpu", false, "Include GPU metrics")
 	InfoCmd.AddCommand(metricsCmd)
+}
+
+func formatMemory(used, total uint64) string {
+	if total == 0 {
+		return styles.FormatBytes(used) + " (no limit)"
+	}
+
+	return fmt.Sprintf("%s / %s (%s)",
+		styles.FormatBytes(used),
+		styles.FormatBytes(total),
+		styles.FormatPercent(used, total))
 }
