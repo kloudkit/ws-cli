@@ -16,6 +16,7 @@ var metricsCmd = &cobra.Command{
 	Short:       "Start the Prometheus metrics server",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		port, _ := cmd.Flags().GetInt("port")
+		bind, _ := cmd.Flags().GetString("bind")
 		collectors, _ := cmd.Flags().GetStringSlice("collectors")
 		out := cmd.OutOrStdout()
 
@@ -41,7 +42,7 @@ var metricsCmd = &cobra.Command{
 
 		handler := promhttp.HandlerFor(result.Registry, promhttp.HandlerOpts{})
 
-		return server.Serve(server.Config{Port: port, Bind: "0.0.0.0"}, handler, "metrics", out)
+		return server.Serve(server.Config{Port: port, Bind: bind}, handler, "metrics", out)
 	},
 }
 
