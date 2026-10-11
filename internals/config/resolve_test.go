@@ -66,9 +66,9 @@ const pathYAML = `
 envs:
   secrets:
     properties:
-      vault:
+      token_file:
         type: path
-        default: "~/.ws/vault/secrets.yaml"
+        default: "~/.ws/secrets/token"
       master_key_file:
         type: path
         default: null
@@ -101,8 +101,8 @@ envs:
         type: path
         default: "~root/x"
 deprecated:
-  WS_VAULT:
-    use: WS_SECRETS_VAULT
+  WS_TOKEN_FILE:
+    use: WS_SECRETS_TOKEN_FILE
 `
 
 func _resolve(t *testing.T, r *EnvReference, key string) string {
@@ -497,11 +497,11 @@ func TestBothSetLine(t *testing.T) {
 func TestResolve_TypePath_TildeExpansion(t *testing.T) {
 	_installPathFixture(t)
 	t.Setenv("HOME", "/home/kloud")
-	t.Setenv("WS_SECRETS_VAULT", "")
+	t.Setenv("WS_SECRETS_TOKEN_FILE", "")
 
-	value, err := ResolveKey("WS_SECRETS_VAULT")
+	value, err := ResolveKey("WS_SECRETS_TOKEN_FILE")
 	assert.NilError(t, err)
-	assert.Equal(t, "/home/kloud/.ws/vault/secrets.yaml", value)
+	assert.Equal(t, "/home/kloud/.ws/secrets/token", value)
 }
 
 func TestResolve_TypePath_BareTilde(t *testing.T) {
@@ -547,41 +547,41 @@ func TestResolve_TypePath_NoVarInterpolation(t *testing.T) {
 func TestResolve_TypePath_HomeFallback(t *testing.T) {
 	_installPathFixture(t)
 	t.Setenv("HOME", "")
-	t.Setenv("WS_SECRETS_VAULT", "")
+	t.Setenv("WS_SECRETS_TOKEN_FILE", "")
 
-	value, err := ResolveKey("WS_SECRETS_VAULT")
+	value, err := ResolveKey("WS_SECRETS_TOKEN_FILE")
 	assert.NilError(t, err)
-	assert.Equal(t, "/home/kloud/.ws/vault/secrets.yaml", value)
+	assert.Equal(t, "/home/kloud/.ws/secrets/token", value)
 }
 
 func TestResolve_TypePath_HomeFallback_SourceStaysDefault(t *testing.T) {
 	_installPathFixture(t)
 	t.Setenv("HOME", "")
-	t.Setenv("WS_SECRETS_VAULT", "")
+	t.Setenv("WS_SECRETS_TOKEN_FILE", "")
 
-	value, source, err := ResolveKeyWithSource("WS_SECRETS_VAULT")
+	value, source, err := ResolveKeyWithSource("WS_SECRETS_TOKEN_FILE")
 	assert.NilError(t, err)
-	assert.Equal(t, "/home/kloud/.ws/vault/secrets.yaml", value)
+	assert.Equal(t, "/home/kloud/.ws/secrets/token", value)
 	assert.Equal(t, SourceDefault, source)
 }
 
 func TestResolve_TypePath_EnvOverride_TildeStillExpands(t *testing.T) {
 	_installPathFixture(t)
 	t.Setenv("HOME", "/home/kloud")
-	t.Setenv("WS_SECRETS_VAULT", "~/custom/vault.yaml")
+	t.Setenv("WS_SECRETS_TOKEN_FILE", "~/custom/token")
 
-	value, source, err := ResolveKeyWithSource("WS_SECRETS_VAULT")
+	value, source, err := ResolveKeyWithSource("WS_SECRETS_TOKEN_FILE")
 	assert.NilError(t, err)
-	assert.Equal(t, "/home/kloud/custom/vault.yaml", value)
+	assert.Equal(t, "/home/kloud/custom/token", value)
 	assert.Equal(t, SourceEnv, source)
 }
 
 func TestResolve_TypePath_EnvOverride_AbsolutePassesThrough(t *testing.T) {
 	_installPathFixture(t)
 	t.Setenv("HOME", "/home/kloud")
-	t.Setenv("WS_SECRETS_VAULT", "/custom/path/secrets.yaml")
+	t.Setenv("WS_SECRETS_TOKEN_FILE", "/custom/path/secrets.yaml")
 
-	value, source, err := ResolveKeyWithSource("WS_SECRETS_VAULT")
+	value, source, err := ResolveKeyWithSource("WS_SECRETS_TOKEN_FILE")
 	assert.NilError(t, err)
 	assert.Equal(t, "/custom/path/secrets.yaml", value)
 	assert.Equal(t, SourceEnv, source)
@@ -600,11 +600,11 @@ func TestResolve_TypePath_OtherUserTildeUnchanged(t *testing.T) {
 func TestResolve_TypePath_EmptyEnvExpandsDefault(t *testing.T) {
 	_installPathFixture(t)
 	t.Setenv("HOME", "/home/kloud")
-	t.Setenv("WS_SECRETS_VAULT", "")
+	t.Setenv("WS_SECRETS_TOKEN_FILE", "")
 
-	value, source, err := ResolveKeyWithSource("WS_SECRETS_VAULT")
+	value, source, err := ResolveKeyWithSource("WS_SECRETS_TOKEN_FILE")
 	assert.NilError(t, err)
-	assert.Equal(t, "/home/kloud/.ws/vault/secrets.yaml", value)
+	assert.Equal(t, "/home/kloud/.ws/secrets/token", value)
 	assert.Equal(t, SourceDefault, source)
 }
 
@@ -623,12 +623,12 @@ func TestResolve_TypePath_ExpandsAfterDeprecatedAlias(t *testing.T) {
 	_installPathFixture(t)
 	_captureWarnings(t)
 	t.Setenv("HOME", "/home/kloud")
-	t.Setenv("WS_SECRETS_VAULT", "")
-	t.Setenv("WS_VAULT", "~/legacy/vault.yaml")
+	t.Setenv("WS_SECRETS_TOKEN_FILE", "")
+	t.Setenv("WS_TOKEN_FILE", "~/legacy/token")
 
-	value, source, err := ResolveKeyWithSource("WS_SECRETS_VAULT")
+	value, source, err := ResolveKeyWithSource("WS_SECRETS_TOKEN_FILE")
 	assert.NilError(t, err)
-	assert.Equal(t, "/home/kloud/legacy/vault.yaml", value)
+	assert.Equal(t, "/home/kloud/legacy/token", value)
 	assert.Equal(t, SourceDeprecatedAlias, source)
 }
 

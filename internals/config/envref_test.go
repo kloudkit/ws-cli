@@ -45,15 +45,15 @@ func TestParse_TypePath_TildeStringDefault(t *testing.T) {
 envs:
   secrets:
     properties:
-      vault:
+      token_file:
         type: path
-        default: "~/.ws/vault/secrets.yaml"
+        default: "~/.ws/secrets/token"
 `
 	r, err := parseEnvReference([]byte(yamlData))
 	assert.NilError(t, err)
-	prop := r.Properties["WS_SECRETS_VAULT"]
+	prop := r.Properties["WS_SECRETS_TOKEN_FILE"]
 	assert.Equal(t, "path", prop.Type)
-	assert.Equal(t, "~/.ws/vault/secrets.yaml", *prop.Default)
+	assert.Equal(t, "~/.ws/secrets/token", *prop.Default)
 }
 
 func TestParse_TypePath_BoolDefaultRejected(t *testing.T) {

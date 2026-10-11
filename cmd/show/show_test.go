@@ -41,10 +41,10 @@ envs:
         delimiter: " "
   secrets:
     properties:
-      vault:
+      token_file:
         type: path
-        default: "~/.ws/vault/secrets.yaml"
-        description: Path to the encrypted vault file.
+        default: "~/.ws/secrets/token"
+        description: Path to the token file.
   auth:
     properties:
       github_token_file:
@@ -431,23 +431,23 @@ func TestShowEnv_CheckUnset(t *testing.T) {
 func TestShowEnv_TypePath_DefaultMode_RendersExpandedValue(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("HOME", "/home/kloud")
-	t.Setenv("WS_SECRETS_VAULT", "")
+	t.Setenv("WS_SECRETS_TOKEN_FILE", "")
 
-	stdout, _, exit := _runShow(t, "env", "secrets.vault")
+	stdout, _, exit := _runShow(t, "env", "secrets.token_file")
 	assert.Equal(t, 0, exit)
 	plain := _stripANSI(stdout)
-	assert.Assert(t, strings.Contains(plain, "/home/kloud/.ws/vault/secrets.yaml"), "want expanded value, got: %q", plain)
+	assert.Assert(t, strings.Contains(plain, "/home/kloud/.ws/secrets/token"), "want expanded value, got: %q", plain)
 	assert.Assert(t, strings.Contains(plain, "declared"), "want yaml-default source label, got: %q", plain)
 }
 
 func TestShowEnv_TypePath_ValueFlag_ReturnsExpanded(t *testing.T) {
 	_installEnvFixture(t)
 	t.Setenv("HOME", "/home/kloud")
-	t.Setenv("WS_SECRETS_VAULT", "")
+	t.Setenv("WS_SECRETS_TOKEN_FILE", "")
 
-	stdout, _, exit := _runShow(t, "env", "secrets.vault", "--value")
+	stdout, _, exit := _runShow(t, "env", "secrets.token_file", "--value")
 	assert.Equal(t, 0, exit)
-	assert.Equal(t, "/home/kloud/.ws/vault/secrets.yaml", strings.TrimSpace(stdout))
+	assert.Equal(t, "/home/kloud/.ws/secrets/token", strings.TrimSpace(stdout))
 }
 
 func TestShowEnv_TypePath_SourceLabel_NullDefault_TypePath(t *testing.T) {
