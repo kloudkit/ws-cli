@@ -22,9 +22,13 @@ func showEnvironment(writer io.Writer) {
 		}
 	}
 
-	fmt.Fprintf(writer, "%s\n", styles.TitleWithCount("Workspace Variables", len(wsVars)))
+	if len(wsVars) == 0 {
+		styles.PrintEmpty(writer, "No WS_* variables set")
+		return
+	}
 
-	fmt.Fprintf(writer, "%s\n\n", styles.Table().Rows(wsVars...).Render())
+	styles.PrintTitleCount(writer, "Workspace Variables", len(wsVars))
+	fmt.Fprintln(writer, styles.NewTable().Rows(wsVars...).Render())
 }
 
 var envCmd = &cobra.Command{

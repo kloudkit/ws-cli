@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -27,15 +28,32 @@ func GetDiskStats() (*DiskStats, error) {
 	}, nil
 }
 
-func GetFileDescriptorStats() (*FileDescriptorStats, error) {
-	stats := &FileDescriptorStats{}
+var procRoot = "/proc"
 
-	entries, err := os.ReadDir("/proc/self/fd")
+func GetFileDescriptorStats() (*FileDescriptorStats, error) {
+	dirs, err := filepath.Glob(filepath.Join(procRoot, "[0-9]*", "fd"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read /proc/self/fd: %w", err)
+		return nil, fmt.Errorf("failed to list %s: %w", procRoot, err)
 	}
-	stats.Open = uint64(len(entries))
-	stats.Limit = readProcProperty("/proc/self/limits", "Max open files", 4)
+
+	stats := &FileDescriptorStats{
+		Limit: readProcProperty(filepath.Join(procRoot, "self", "limits"), "Max open files", 4),
+	}
+
+	readable := 0
+	for _, dir := range dirs {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+
+		readable++
+		stats.Open += uint64(len(entries))
+	}
+
+	if readable == 0 {
+		return nil, fmt.Errorf("no readable file descriptor tables under %s", procRoot)
+	}
 
 	return stats, nil
 }

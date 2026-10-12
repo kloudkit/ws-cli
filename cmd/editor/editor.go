@@ -8,6 +8,7 @@ import (
 
 	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/kloudkit/ws-cli/internals/env"
+	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -26,6 +27,8 @@ ws editor list
 # Open a file at a specific line and column
 ws editor open src/main.go --selection 12:1`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		styles.WrapOutput(cmd)
+
 		if env.IsSSHSession() {
 			return errNoEditorOverSSH
 		}

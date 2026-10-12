@@ -1,34 +1,36 @@
 package styles
 
 import (
-	"charm.land/lipgloss/v2"
-	"charm.land/lipgloss/v2/list"
-)
+	"fmt"
+	"io"
+	"strings"
 
-func List(items ...any) *list.List {
-	return list.New(items...).
-		Enumerator(list.Bullet).
-		EnumeratorStyle(Muted().PaddingRight(2).MarginLeft(2)).
-		ItemStyle(lipgloss.NewStyle().Foreground(Text))
-}
+	"github.com/charmbracelet/x/ansi"
+)
 
 type DescriptionItem struct {
 	Name        string
 	Description string
 }
 
-func DescriptionList(items []DescriptionItem) []any {
-	maxLen := 0
+func PrintList(writer io.Writer, items []DescriptionItem) {
+	width := 0
 	for _, item := range items {
-		if len(item.Name) > maxLen {
-			maxLen = len(item.Name)
-		}
+		width = max(width, ansi.StringWidth(item.Name))
 	}
-	result := make([]any, len(items))
-	for i, item := range items {
-		result[i] = Key().Width(maxLen).Render(item.Name) +
-			Muted().Render(" — ") +
-			Value().Render(item.Description)
+
+	bullet, dash := Muted().Render("•"), Muted().Render("—")
+
+	for _, item := range items {
+		name := item.Name + strings.Repeat(" ", width-ansi.StringWidth(item.Name))
+		fmt.Fprintf(writer, "%s%s %s %s %s\n", indent, bullet, Key().Render(name), dash, Value().Render(item.Description))
 	}
-	return result
+}
+
+func PrintBullets(writer io.Writer, names []string) {
+	bullet := Muted().Render("•")
+
+	for _, name := range names {
+		fmt.Fprintf(writer, "%s%s %s\n", indent, bullet, Value().Render(name))
+	}
 }

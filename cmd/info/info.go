@@ -27,8 +27,8 @@ func showVersion(writer io.Writer) {
 		styles.PrintWarning(writer, fmt.Sprintf("Could not read the editor version: %v", err))
 	}
 
-	fmt.Fprintf(writer, "%s\n", styles.Title().Render("Versions"))
-	fmt.Fprintln(writer, styles.Table().Rows(rows...).Render())
+	styles.PrintTitle(writer, "Versions")
+	fmt.Fprintln(writer, styles.NewTable().Rows(rows...).Render())
 }
 
 var InfoCmd = &cobra.Command{

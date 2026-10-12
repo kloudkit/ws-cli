@@ -2,18 +2,12 @@ package log
 
 import (
 	"bytes"
-	"regexp"
 	"testing"
 
+	"github.com/kloudkit/ws-cli/internals/testutil"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
 )
-
-func stripAnsi(s string) string {
-	re := regexp.MustCompile(`\x1b\[[0-9;]*m`)
-
-	return re.ReplaceAllString(s, "")
-}
 
 func TestLogCommand(t *testing.T) {
 	t.Run("WarnInvokesLogWithFlags", func(t *testing.T) {
@@ -26,7 +20,7 @@ func TestLogCommand(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Assert(t, cmp.Regexp(
 			`^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] warn      - hello\n$`,
-			stripAnsi(buffer.String()),
+			testutil.StripAnsi(buffer.String()),
 		))
 	})
 
@@ -41,7 +35,7 @@ func TestLogCommand(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Assert(t, cmp.Regexp(
 			`^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] info    - foo\n$`,
-			stripAnsi(buffer.String()),
+			testutil.StripAnsi(buffer.String()),
 		))
 	})
 
@@ -56,7 +50,7 @@ func TestLogCommand(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Assert(t, cmp.Regexp(
 			`^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] \n$`,
-			stripAnsi(buffer.String()),
+			testutil.StripAnsi(buffer.String()),
 		))
 	})
 }

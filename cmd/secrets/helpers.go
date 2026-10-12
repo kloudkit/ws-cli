@@ -27,7 +27,7 @@ func emit(cmd *cobra.Command, value, successMsg string, newline bool, styled fun
 
 		if !raw {
 			styles.PrintSuccess(out, successMsg)
-			styles.PrintKeyCode(out, "Output", file)
+			styles.PrintKeyValues(out, styles.Pair{Key: "Output", Value: file})
 		}
 	case raw && newline:
 		fmt.Fprintln(out, value)
@@ -43,14 +43,15 @@ func emit(cmd *cobra.Command, value, successMsg string, newline bool, styled fun
 func printValue(title, value string) func(io.Writer) {
 	return func(out io.Writer) {
 		styles.PrintTitle(out, title)
-		styles.PrintKeyCode(out, "Value", value)
+		styles.PrintKeyValues(out, styles.Pair{Key: "Value", Value: value})
 	}
 }
 
 func printKey(header, value, hint string) func(io.Writer) {
 	return func(out io.Writer) {
-		fmt.Fprintln(out, styles.Header().Render(header))
-		fmt.Fprintln(out, "  "+styles.Code().Render(value))
-		fmt.Fprintln(out, styles.Muted().Render("💡 "+hint))
+		styles.PrintTitle(out, header)
+		styles.PrintText(out, value)
+		fmt.Fprintln(out)
+		styles.PrintMuted(out, hint)
 	}
 }

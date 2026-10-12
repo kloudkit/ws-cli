@@ -18,8 +18,7 @@ var currentCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		port, _ := cmd.Flags().GetInt("port")
 		bind, _ := cmd.Flags().GetString("bind")
-
-		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Title().Render("Static server"))
+		out := cmd.OutOrStdout()
 
 		currentDir, err := os.Getwd()
 		if err != nil {
@@ -28,7 +27,13 @@ var currentCmd = &cobra.Command{
 
 		handler := http.FileServer(http.Dir(currentDir))
 
-		return server.Serve(server.Config{Port: port, Bind: bind}, handler, "current directory", cmd.OutOrStdout())
+		return server.Serve(server.Config{Port: port, Bind: bind}, handler, out, func(url string) {
+			styles.PrintTitle(out, "Static Server")
+			styles.PrintKeyValues(out,
+				styles.Pair{Key: "URL", Value: url},
+				styles.Pair{Key: "Root", Value: currentDir},
+			)
+		})
 	},
 }
 

@@ -24,10 +24,8 @@ var masterCmd = &cobra.Command{
 		rand.Read(key)
 
 		encodedKey := base64.StdEncoding.EncodeToString(key)
-		file, _ := cmd.Flags().GetString("output")
-
-		return emit(cmd, encodedKey, "Master key written to "+file, true,
-			printKey("Master Key", encodedKey, "Store this key securely - you'll need it to encrypt/decrypt secrets"))
+		return emit(cmd, encodedKey, "Master key written", true,
+			printKey("Master Key", encodedKey, "Store this key securely. You need it to encrypt and decrypt secrets."))
 	},
 }
 

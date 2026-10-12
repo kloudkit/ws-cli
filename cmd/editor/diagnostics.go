@@ -39,18 +39,24 @@ func renderDiagnostics(out io.Writer, body []byte) error {
 	}
 
 	if total == 0 {
-		styles.PrintSuccess(out, "No diagnostics")
+		styles.PrintEmpty(out, "No diagnostics")
 		return nil
 	}
 
-	fmt.Fprintf(out, "%s\n", styles.TitleWithCount("Diagnostics", total))
+	styles.PrintTitleCount(out, "Diagnostics", total)
 
+	first := true
 	for _, file := range files {
 		if len(file.Items) == 0 {
 			continue
 		}
 
-		fmt.Fprintf(out, "%s\n", styles.SubHeader().Render(file.URI))
+		if !first {
+			fmt.Fprintln(out)
+		}
+		first = false
+
+		styles.PrintSubHeader(out, file.URI)
 
 		rows := make([][]string, len(file.Items))
 		for i, item := range file.Items {
@@ -58,7 +64,7 @@ func renderDiagnostics(out io.Writer, body []byte) error {
 			rows[i] = []string{item.Severity.Label, location, item.Source, item.Message}
 		}
 
-		fmt.Fprintf(out, "%s\n", styles.Table("Severity", "Location", "Source", "Message").Rows(rows...).Render())
+		fmt.Fprintln(out, styles.NewTable("Severity", "Location", "Source", "Message").Rows(rows...).Render())
 	}
 
 	return nil

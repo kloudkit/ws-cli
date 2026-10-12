@@ -41,6 +41,18 @@ var stampCmd = &cobra.Command{
 	},
 }
 
+var stripCmd = &cobra.Command{
+	Use:         "strip",
+	Annotations: map[string]string{"since": "next"},
+	Hidden:      true,
+	Short:       "Strip ANSI escapes from stdin",
+	Long:        "Copy stdin to stdout line by line with every ANSI escape sequence removed. The entrypoint uses it to keep the workspace log file plain while the console stays colored.",
+	Args:        cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return logger.Strip(cmd.InOrStdin(), cmd.OutOrStdout())
+	},
+}
+
 func createCommand(short, long string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         fmt.Sprintf("%s message", short),
@@ -85,5 +97,5 @@ func validate(cmd *cobra.Command, args []string) error {
 func init() {
 	LogCmd.PersistentFlags().BoolP("pipe", "p", false, "Loop through piped output")
 
-	LogCmd.AddCommand(infoCmd, errorCmd, warnCmd, debugCmd, stampCmd)
+	LogCmd.AddCommand(infoCmd, errorCmd, warnCmd, debugCmd, stampCmd, stripCmd)
 }

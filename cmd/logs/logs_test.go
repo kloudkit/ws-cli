@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kloudkit/ws-cli/internals/testutil"
 	"github.com/spf13/cobra"
 	"gotest.tools/v3/assert"
 )
@@ -89,15 +90,25 @@ func TestLogsValidTargets(t *testing.T) {
 func TestLogsInvalidTargetRejected(t *testing.T) {
 	out, err := executeLogs("--target=garbage")
 
-	assert.ErrorContains(t, err, "invalid log target")
-	assert.Assert(t, strings.Contains(out, "Invalid log target"))
+	assert.ErrorContains(t, err, `invalid log target "garbage" (valid: main, metrics, docker, auth_proxy, cloudflared)`)
+	assert.Assert(t, !strings.Contains(out, "Invalid log target"))
+}
+
+func TestLogsInvalidLevelRejected(t *testing.T) {
+	out, err := executeLogs("--level=fatal")
+
+	assert.ErrorContains(t, err, `invalid log level "fatal" (valid: debug, info, warn, error)`)
+	assert.Assert(t, !strings.Contains(out, "Invalid log level"))
 }
 
 func TestLogsTargetComposesWithTailAndLevel(t *testing.T) {
 	_seedLogs(t)
 
+	metrics := "[2026-10-11T10:00:00.000Z] info  metrics marker\n[2026-10-11T10:00:01.000Z] debug noise\n"
+	assert.NilError(t, os.WriteFile(filepath.Join(os.Getenv("WS_LOGGING_DIR"), "metrics.log"), []byte(metrics), 0644))
+
 	out, err := executeLogs("--target=metrics", "--tail=5", "--level=info")
 
 	assert.NilError(t, err)
-	assert.Assert(t, strings.Contains(out, "metrics marker"))
+	assert.Equal(t, testutil.StripAnsi(out), "[2026-10-11T10:00:00.000Z] info  metrics marker\n")
 }

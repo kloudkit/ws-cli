@@ -29,6 +29,8 @@ var rootCmd = &cobra.Command{
 	Aliases:       []string{"ws"},
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		styles.WrapOutput(cmd)
+
 		return config.Bootstrap()
 	},
 }

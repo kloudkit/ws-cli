@@ -23,7 +23,7 @@ var skippableSections = []struct {
 }
 
 var installCmd = &cobra.Command{
-	Use:         "install",
+	Use:         "install <name>",
 	Annotations: map[string]string{"since": "0.2.0"},
 	Short:       "Install additional pre-configured features",
 	Long:        "Run a feature's playbook to install it. Pass variables with --opt KEY=VAL, and skip parts you do not want with --skip-extensions, --skip-completion, or --skip-repository.",
@@ -40,7 +40,7 @@ var installCmd = &cobra.Command{
 			return fmt.Errorf("installation failed: %w", err)
 		}
 
-		fmt.Fprintln(cmd.OutOrStdout(), styles.Title().Render("Installing "+featureName))
+		styles.PrintTitle(cmd.OutOrStdout(), "Installing "+featureName)
 
 		if err := features.RunPlaybook(featurePath, buildVars(cmd)); err != nil {
 			return fmt.Errorf("installation failed: %w", err)
@@ -48,7 +48,7 @@ var installCmd = &cobra.Command{
 
 		fmt.Fprintln(cmd.OutOrStdout())
 		styles.PrintSuccess(cmd.OutOrStdout(), "Feature installed successfully")
-		styles.PrintKeyValue(cmd.OutOrStdout(), "Feature", featureName)
+		styles.PrintKeyValues(cmd.OutOrStdout(), styles.Pair{Key: "Feature", Value: featureName})
 
 		return nil
 	},

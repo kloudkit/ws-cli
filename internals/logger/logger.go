@@ -2,6 +2,7 @@ package logger
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -11,12 +12,13 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/kloudkit/ws-cli/internals/styles"
 )
 
 var (
-	logRegex   = regexp.MustCompile(`^\[.*?\]\s+(\w+)\s*(.*)$`)
+	levelRegex = regexp.MustCompile(`^\[[^\]]+\] (debug|info|warn|error)\b`)
 	timeFormat = "[2006-01-02T15:04:05.000Z]"
 	styleMap   = map[string]lipgloss.Style{
 		"info":  styles.Info(),
@@ -88,97 +90,176 @@ func NewReader(tailLines int, levelFilter, target string) (*Reader, error) {
 	return &Reader{logPath, levelFilter, tailLines}, nil
 }
 
-func (r *Reader) shouldIncludeLine(line string) bool {
+func (r *Reader) shouldIncludeLine(plain string) bool {
 	if r.levelFilter == "" {
 		return true
 	}
 
-	if matches := logRegex.FindStringSubmatch(line); len(matches) == 3 {
-		return strings.EqualFold(matches[1], r.levelFilter)
-	}
+	matches := levelRegex.FindStringSubmatch(plain)
 
-	return true
+	return matches != nil && strings.EqualFold(matches[1], r.levelFilter)
 }
 
-// ReadLogs writes the log to writer and, when follow is set, keeps streaming
-// lines appended after the initial read.
+func colorLevel(plain string) string {
+	loc := levelRegex.FindStringSubmatchIndex(plain)
+	if loc == nil {
+		return plain
+	}
+
+	level := plain[loc[2]:loc[3]]
+
+	return plain[:loc[2]] + styleMap[level].Render(level) + plain[loc[3]:]
+}
+
+func plainLine(line string) string {
+	return ansi.Strip(strings.TrimRight(line, "\r\n"))
+}
+
 func (r *Reader) ReadLogs(writer io.Writer, follow bool) error {
 	file, err := os.Open(r.logPath)
-
 	if err != nil {
 		return fmt.Errorf("failed to open log file: %w", err)
 	}
 
 	defer file.Close()
 
-	if r.tailLines > 0 && !follow {
-		if err := r.seekToTail(file); err != nil {
+	if r.tailLines > 0 {
+		offset, err := r.tailOffset(file)
+		if err != nil {
+			return err
+		}
+
+		if _, err := file.Seek(offset, io.SeekStart); err != nil {
 			return err
 		}
 	}
 
-	r.scanAndWrite(file, writer)
+	reader := bufio.NewReader(file)
 
-	if !follow {
-		return nil
+	pending, err := r.drain(reader, writer, "", true)
+	if err != nil || !follow {
+		return err
 	}
 
-	file.Seek(0, io.SeekEnd)
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		r.scanAndWrite(file, writer)
+		if pending, err = r.drain(reader, writer, pending, false); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (r *Reader) scanAndWrite(file *os.File, writer io.Writer) {
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if r.shouldIncludeLine(line) {
-			fmt.Fprintln(writer, line)
+func (r *Reader) drain(reader *bufio.Reader, writer io.Writer, pending string, flush bool) (string, error) {
+	for {
+		chunk, err := reader.ReadString('\n')
+		pending += chunk
+
+		if err == io.EOF {
+			if flush && pending != "" {
+				r.emit(writer, pending)
+				return "", nil
+			}
+
+			return pending, nil
 		}
+
+		if err != nil {
+			return pending, err
+		}
+
+		r.emit(writer, pending)
+		pending = ""
 	}
 }
 
-func (r *Reader) seekToTail(file *os.File) error {
+func (r *Reader) emit(writer io.Writer, line string) {
+	plain := plainLine(line)
+
+	if r.shouldIncludeLine(plain) {
+		fmt.Fprintln(writer, colorLevel(plain))
+	}
+}
+
+func (r *Reader) tailOffset(file *os.File) (int64, error) {
 	stat, err := file.Stat()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	if stat.Size() == 0 {
-		return nil
+	size := stat.Size()
+	if size == 0 {
+		return 0, nil
 	}
 
-	buf := make([]byte, min(stat.Size(), 8192))
-	lines, pos := 0, stat.Size()
+	last := make([]byte, 1)
+	if _, err := file.ReadAt(last, size-1); err != nil {
+		return 0, err
+	}
 
-	for lines < r.tailLines && pos > 0 {
-		readSize := min(pos, int64(len(buf)))
-		pos -= readSize
-		if _, err := file.Seek(pos, io.SeekStart); err != nil {
-			return err
+	end := size
+	if last[0] == '\n' {
+		end--
+	}
+
+	const chunkSize = 8192
+
+	var pending []byte
+	pos, count := end, 0
+
+	for {
+		for {
+			i := bytes.LastIndexByte(pending, '\n')
+			if i < 0 {
+				break
+			}
+
+			if r.shouldIncludeLine(plainLine(string(pending[i+1:]))) {
+				count++
+				if count == r.tailLines {
+					return pos + int64(i) + 1, nil
+				}
+			}
+
+			pending = pending[:i]
 		}
-		n, err := file.Read(buf[:readSize])
+
+		if pos == 0 {
+			return 0, nil
+		}
+
+		readSize := min(pos, chunkSize)
+		pos -= readSize
+
+		chunk := make([]byte, readSize, int(readSize)+len(pending))
+		if _, err := file.ReadAt(chunk, pos); err != nil {
+			return 0, err
+		}
+
+		pending = append(chunk, pending...)
+	}
+}
+
+func Strip(reader io.Reader, writer io.Writer) error {
+	buffered := bufio.NewReader(reader)
+
+	for {
+		line, err := buffered.ReadString('\n')
+		if len(line) > 0 {
+			if _, werr := io.WriteString(writer, ansi.Strip(line)); werr != nil {
+				return werr
+			}
+		}
+
+		if err == io.EOF {
+			return nil
+		}
+
 		if err != nil {
 			return err
 		}
-		for i := n - 1; i >= 0; i-- {
-			if buf[i] == '\n' {
-				lines++
-				if lines == r.tailLines {
-					file.Seek(pos+int64(i)+1, io.SeekStart)
-					return nil
-				}
-			}
-		}
 	}
-
-	file.Seek(0, io.SeekStart)
-
-	return nil
 }

@@ -206,10 +206,7 @@ func runPretty(cmd *cobra.Command, dotted, key string, prop config.Property) err
 		return err
 	}
 
-	styles.PrintTitle(out, "Workspace Environment")
-	fmt.Fprintf(out, "  %s %s\n",
-		styles.Key().Render(dotted),
-		styles.Muted().Render("("+key+")"))
+	fmt.Fprintf(out, "\n  %s %s\n\n", styles.Header().Render(dotted), styles.Muted().Render(key))
 
 	if prop.Description != "" {
 		if err := styles.RenderMarkdown(out, prop.Description); err != nil {
@@ -226,11 +223,16 @@ func runPretty(cmd *cobra.Command, dotted, key string, prop config.Property) err
 
 	fmt.Fprintln(out)
 	displayValue := value
-	if prop.Secret && value != "" {
+	switch {
+	case value == "":
+		displayValue = styles.Muted().Render("(unset)")
+	case prop.Secret:
 		displayValue = styles.Muted().Render("<redacted>")
 	}
-	styles.PrintKeyValue(out, "Value", displayValue)
-	styles.PrintKeyValue(out, "Source", sourceLabel(prop, source, value))
+	styles.PrintKeyValues(out,
+		styles.Pair{Key: "Value", Value: displayValue},
+		styles.Pair{Key: "Source", Value: sourceLabel(prop, source, value)},
+	)
 
 	return nil
 }

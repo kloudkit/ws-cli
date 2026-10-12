@@ -8,25 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
+	"github.com/kloudkit/ws-cli/internals/testutil"
 	"gotest.tools/v3/assert"
 )
 
-func resetCommandFlags(cmd *cobra.Command) {
-	cmd.Flags().VisitAll(func(flag *pflag.Flag) {
-		flag.Value.Set(flag.DefValue)
-		flag.Changed = false
-	})
-
-	for _, c := range cmd.Commands() {
-		resetCommandFlags(c)
-	}
-}
-
 func TestSecretsCommand(t *testing.T) {
 	t.Run("GenerateMaster", func(t *testing.T) {
-		resetCommandFlags(SecretsCmd)
+		testutil.ResetCommandFlags(SecretsCmd)
 
 		buffer := new(bytes.Buffer)
 		SecretsCmd.SetOut(buffer)
@@ -41,7 +29,7 @@ func TestSecretsCommand(t *testing.T) {
 	})
 
 	t.Run("GenerateMasterOutput", func(t *testing.T) {
-		resetCommandFlags(SecretsCmd)
+		testutil.ResetCommandFlags(SecretsCmd)
 
 		keyFile := filepath.Join(t.TempDir(), "master.key")
 
@@ -54,7 +42,8 @@ func TestSecretsCommand(t *testing.T) {
 		assert.NilError(t, err)
 
 		output := buffer.String()
-		assert.Assert(t, strings.Contains(output, "✓ Master key written to "+keyFile))
+		assert.Assert(t, strings.Contains(output, "✓ Master key written"))
+		assert.Equal(t, strings.Count(output, keyFile), 1)
 		assert.Equal(t, strings.Count(output, "✓"), 1)
 
 		content, err := os.ReadFile(keyFile)
@@ -63,7 +52,7 @@ func TestSecretsCommand(t *testing.T) {
 	})
 
 	t.Run("EncryptRaw", func(t *testing.T) {
-		resetCommandFlags(SecretsCmd)
+		testutil.ResetCommandFlags(SecretsCmd)
 
 		keyFile := filepath.Join(t.TempDir(), "master.key")
 		masterKey := base64.StdEncoding.EncodeToString([]byte("12345678901234567890123456789012"))
@@ -84,7 +73,7 @@ func TestSecretsCommand(t *testing.T) {
 	})
 
 	t.Run("DecryptRaw", func(t *testing.T) {
-		resetCommandFlags(SecretsCmd)
+		testutil.ResetCommandFlags(SecretsCmd)
 
 		keyFile := filepath.Join(t.TempDir(), "master.key")
 		masterKey := base64.StdEncoding.EncodeToString([]byte("12345678901234567890123456789012"))
@@ -101,7 +90,7 @@ func TestSecretsCommand(t *testing.T) {
 
 		encrypted := strings.TrimSpace(encryptBuffer.String())
 
-		resetCommandFlags(SecretsCmd)
+		testutil.ResetCommandFlags(SecretsCmd)
 
 		decryptBuffer := new(bytes.Buffer)
 		SecretsCmd.SetOut(decryptBuffer)
@@ -117,7 +106,7 @@ func TestSecretsCommand(t *testing.T) {
 	})
 
 	t.Run("DecryptMultiline", func(t *testing.T) {
-		resetCommandFlags(SecretsCmd)
+		testutil.ResetCommandFlags(SecretsCmd)
 
 		keyFile := filepath.Join(t.TempDir(), "master.key")
 		masterKey := base64.StdEncoding.EncodeToString([]byte("12345678901234567890123456789012"))
@@ -138,7 +127,7 @@ func TestSecretsCommand(t *testing.T) {
 
 		multilineEncrypted := parts[0] + "\n  \t$" + parts[1] + "\n"
 
-		resetCommandFlags(SecretsCmd)
+		testutil.ResetCommandFlags(SecretsCmd)
 
 		decryptBuffer := new(bytes.Buffer)
 		decryptInputBuffer := bytes.NewBufferString(multilineEncrypted)
@@ -155,7 +144,7 @@ func TestSecretsCommand(t *testing.T) {
 	})
 
 	t.Run("GenerateLogin", func(t *testing.T) {
-		resetCommandFlags(SecretsCmd)
+		testutil.ResetCommandFlags(SecretsCmd)
 
 		buffer := new(bytes.Buffer)
 		inputBuffer := bytes.NewBufferString("testpassword123")

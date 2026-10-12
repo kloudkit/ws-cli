@@ -20,50 +20,30 @@ type Options struct {
 	Dests     []string
 	MasterKey string
 	Out       io.Writer
-	Styled    bool
 }
 
 type reporter struct {
-	out    io.Writer
-	styled bool
+	out io.Writer
 }
 
 func (r reporter) seeded(dest string) {
-	if r.styled {
-		styles.PrintSuccess(r.out, fmt.Sprintf("Seeded [%s]", dest))
-		return
-	}
-
-	fmt.Fprintf(r.out, "Seeded [%s]\n", dest)
+	styles.PrintSuccess(r.out, fmt.Sprintf("Seeded [%s]", dest))
 }
 
 func (r reporter) skip(dest, reason string) {
-	if r.styled {
-		styles.PrintWarning(r.out, fmt.Sprintf("Skipping [%s] (%s)", dest, reason))
-		return
-	}
-
-	fmt.Fprintf(r.out, "Skipping [%s] (%s)\n", dest, reason)
+	styles.PrintWarning(r.out, fmt.Sprintf("Skipping [%s] (%s)", dest, reason))
 }
 
 func (r reporter) notice(dest string) {
-	message := fmt.Sprintf("[%s] runs next boot; ensure +x if executable", dest)
-
-	if r.styled {
-		styles.PrintKeyValue(r.out, "Notice", message)
-		return
-	}
-
-	fmt.Fprintf(r.out, "Notice %s\n", message)
+	styles.PrintKeyValues(r.out, styles.Pair{Key: "Notice", Value: fmt.Sprintf("[%s] runs next boot; ensure +x if executable", dest)})
 }
 
 func (r reporter) rotated(describe string) {
-	if r.styled {
-		styles.PrintSuccess(r.out, fmt.Sprintf("Rotated %s", describe))
-		return
-	}
+	styles.PrintSuccess(r.out, fmt.Sprintf("Rotated %s", describe))
+}
 
-	fmt.Fprintf(r.out, "Rotated %s\n", describe)
+func (r reporter) empty(source string) {
+	styles.PrintEmpty(r.out, fmt.Sprintf("No seed entries in [%s]", source))
 }
 
 type keyResolver struct {
@@ -132,7 +112,12 @@ func Apply(opts Options) error {
 
 	keys := &keyResolver{flag: opts.MasterKey, secrets: declared}
 	defer func() { clear(keys.key) }()
-	rep := reporter{out: opts.Out, styled: opts.Styled}
+	rep := reporter{out: opts.Out}
+
+	if len(ops) == 0 {
+		rep.empty(plan.Source)
+		return nil
+	}
 
 	failures := 0
 	for _, op := range ops {

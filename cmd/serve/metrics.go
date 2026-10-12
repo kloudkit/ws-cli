@@ -20,8 +20,6 @@ var metricsCmd = &cobra.Command{
 		collectors, _ := cmd.Flags().GetStringSlice("collectors")
 		out := cmd.OutOrStdout()
 
-		styles.PrintTitle(out, "Metrics Server")
-
 		result, err := metrics.BuildRegistry(collectors)
 		if err != nil {
 			return err
@@ -34,15 +32,15 @@ var metricsCmd = &cobra.Command{
 			styles.PrintWarning(out, w)
 		}
 
-		fmt.Fprintln(out, styles.Info().Render("  Collectors:"))
-		for _, c := range result.Expanded {
-			fmt.Fprintln(out, styles.Muted().Render("\t"+c))
-		}
-		fmt.Fprintln(out)
-
 		handler := promhttp.HandlerFor(result.Registry, promhttp.HandlerOpts{})
 
-		return server.Serve(server.Config{Port: port, Bind: bind}, handler, "metrics", out)
+		return server.Serve(server.Config{Port: port, Bind: bind}, handler, out, func(url string) {
+			styles.PrintTitle(out, "Metrics Server")
+			styles.PrintSubHeader(out, "Collectors")
+			styles.PrintBullets(out, result.Expanded)
+			fmt.Fprintln(out)
+			styles.PrintKeyValues(out, styles.Pair{Key: "URL", Value: url})
+		})
 	},
 }
 

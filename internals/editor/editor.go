@@ -2,6 +2,8 @@ package editor
 
 import (
 	"bytes"
+	"encoding/json"
+	"strings"
 
 	"github.com/kloudkit/ws-cli/internals/net"
 )
@@ -61,6 +63,38 @@ type NotifyRequest struct {
 	Modal    bool   `json:"modal,omitempty"`
 	Timeout  int    `json:"timeout,omitempty"`
 	Severity string `json:"severity,omitempty"`
+}
+
+func NormalizePath(path string) string {
+	if strings.HasPrefix(path, `\`) {
+		return strings.ReplaceAll(path, `\`, "/")
+	}
+
+	return path
+}
+
+func DecodeTabs(body []byte) ([]Tab, error) {
+	var tabs []Tab
+	if err := json.Unmarshal(body, &tabs); err != nil {
+		return nil, err
+	}
+
+	for i := range tabs {
+		tabs[i].Path = NormalizePath(tabs[i].Path)
+	}
+
+	return tabs, nil
+}
+
+func DecodeSelection(body []byte) (*Selection, error) {
+	var selection Selection
+	if err := json.Unmarshal(body, &selection); err != nil {
+		return nil, err
+	}
+
+	selection.Path = NormalizePath(selection.Path)
+
+	return &selection, nil
 }
 
 func FetchDiagnostics(uri string) ([]byte, error) {

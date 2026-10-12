@@ -1,7 +1,9 @@
 package template
 
 import (
-	"fmt"
+	"path/filepath"
+
+	"github.com/kloudkit/ws-cli/internals/path"
 
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/kloudkit/ws-cli/internals/template"
@@ -28,15 +30,21 @@ func runApply(cmd *cobra.Command, args []string) error {
 	}
 
 	config := template.SupportedTemplates[templateName]
+	out := cmd.OutOrStdout()
 
-	styles.PrintSuccess(cmd.OutOrStdout(), "Template applied successfully")
-	styles.PrintKeyValue(cmd.OutOrStdout(), "Template", templateName)
-	styles.PrintKeyCode(cmd.OutOrStdout(), "Source", config.SourcePath)
-	styles.PrintKeyCode(cmd.OutOrStdout(), "Target", fmt.Sprintf("%s/%s", targetPath, config.OutputName))
+	target := filepath.Join(targetPath, config.OutputName)
+	if abs, err := filepath.Abs(target); err == nil {
+		target = abs
+	}
 
-	styles.PrintHints(cmd.OutOrStdout(), [][]string{
-		{"ws-cli template show --local " + templateName, "View applied template"},
-	})
+	styles.PrintSuccess(out, "Template applied")
+	styles.PrintKeyValues(out,
+		styles.Pair{Key: "Template", Value: templateName},
+		styles.Pair{Key: "Source", Value: path.ShortenHomePath(path.ResolveConfigPath(config.SourcePath))},
+		styles.Pair{Key: "Target", Value: target},
+	)
+
+	styles.PrintHints(out, styles.Hint{Command: "ws template show --local " + templateName, Description: "View applied template"})
 
 	return nil
 }

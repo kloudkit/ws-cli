@@ -1,12 +1,8 @@
 package seed
 
 import (
-	"io"
-	"os"
-
 	"github.com/kloudkit/ws-cli/internals/seed"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 var applyCmd = &cobra.Command{
@@ -23,7 +19,7 @@ func runApply(cmd *cobra.Command, args []string) error {
 	force, _ := cmd.Flags().GetBool("force")
 	master, _ := cmd.Flags().GetString("master")
 
-	resolved, err := seed.ResolveSource(source)
+	resolved, err := seed.ResolveSource(source, cmd.Flags().Changed("source"))
 	if err != nil {
 		return err
 	}
@@ -34,14 +30,7 @@ func runApply(cmd *cobra.Command, args []string) error {
 		Dests:     args,
 		MasterKey: master,
 		Out:       cmd.OutOrStdout(),
-		Styled:    isTerminal(cmd.OutOrStdout()),
 	})
-}
-
-func isTerminal(out io.Writer) bool {
-	file, ok := out.(*os.File)
-
-	return ok && term.IsTerminal(int(file.Fd()))
 }
 
 func init() {

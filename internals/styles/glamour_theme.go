@@ -99,10 +99,7 @@ var CatppuccinFrappeStyleConfig = ansi.StyleConfig{
 	},
 	Code: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
-			Prefix:          " ",
-			Suffix:          " ",
-			Color:           new(hex(Teal)),
-			BackgroundColor: new(hex(Surface1)),
+			Color: new(hex(Teal)),
 		},
 	},
 	CodeBlock: ansi.StyleCodeBlock{

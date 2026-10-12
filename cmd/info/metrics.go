@@ -23,20 +23,24 @@ var metricsCmd = &cobra.Command{
 			return nil
 		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Title().Render("Metrics"))
+		styles.PrintTitle(cmd.OutOrStdout(), "Metrics")
 
 		rows := [][]string{
-			{"CPU", fmt.Sprintf("%.1f%% (%s)", m.CPUUsage, styles.FormatCPUTime(m.CPUSeconds))},
+			{"CPU", fmt.Sprintf("%.1f%% · %s CPU time", m.CPUUsage, styles.FormatCPUTime(m.CPUSeconds))},
 			{"Memory", formatMemory(m.MemoryUsed, m.MemoryTotal)},
 			{"Memory RSS", styles.FormatBytes(m.MemoryRSS)},
 			{"Disk", fmt.Sprintf("%s / %s (%s)",
 				styles.FormatBytes(m.DiskUsed),
 				styles.FormatBytes(m.DiskTotal),
 				styles.FormatPercent(m.DiskUsed, m.DiskTotal))},
-			{"File Descriptors", fmt.Sprintf("%d / %d", m.FDOpen, m.FDLimit)},
+			{"File Descriptors", fmt.Sprintf("%s open · limit %s per process", styles.FormatCount(m.FDOpen), styles.FormatCount(m.FDLimit))},
 		}
 
-		if m.GPU != nil && m.GPU.Available {
+		switch {
+		case !includeGPU:
+		case m.GPU == nil || !m.GPU.Available:
+			rows = append(rows, []string{"GPU", "not available"})
+		default:
 			rows = append(rows,
 				[]string{"GPU Utilization", fmt.Sprintf("%.0f%%", m.GPU.UtilizationRatio*100)},
 				[]string{"GPU Memory", fmt.Sprintf("%s / %s",
@@ -47,7 +51,7 @@ var metricsCmd = &cobra.Command{
 			)
 		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Table().Rows(rows...).Render())
+		fmt.Fprintln(cmd.OutOrStdout(), styles.NewTable().Rows(rows...).Render())
 
 		return nil
 	},

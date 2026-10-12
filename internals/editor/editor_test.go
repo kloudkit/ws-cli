@@ -4,30 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/kloudkit/ws-cli/internals/editor"
+	"github.com/kloudkit/ws-cli/internals/testutil"
 	"gotest.tools/v3/assert"
 )
-
-func startPipe(t *testing.T, handler http.Handler) {
-	t.Helper()
-
-	socket := filepath.Join(t.TempDir(), "pipe.sock")
-	t.Setenv("VSCODE_IPC_HOOK_CLI", socket)
-
-	listener, err := net.Listen("unix", socket)
-	assert.NilError(t, err)
-
-	server := &http.Server{Handler: handler}
-	go func() { _ = server.Serve(listener) }()
-
-	t.Cleanup(func() { _ = server.Close() })
-}
 
 func envelopeOf(t *testing.T, r *http.Request) map[string]any {
 	t.Helper()
@@ -55,7 +40,7 @@ func fixture(t *testing.T, name string) []byte {
 func TestFetchDiagnosticsForwardsURI(t *testing.T) {
 	body := fixture(t, "diagnostics.json")
 
-	startPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		envelope := envelopeOf(t, r)
 		assert.Equal(t, envelope["type"], "diagnostics")
 		assert.Equal(t, envelope["uri"], "file:///workspace/main.go")
@@ -68,7 +53,7 @@ func TestFetchDiagnosticsForwardsURI(t *testing.T) {
 }
 
 func TestFetchDiagnosticsWithoutURIOmitsField(t *testing.T) {
-	startPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		envelope := envelopeOf(t, r)
 		_, hasURI := envelope["uri"]
 		assert.Assert(t, !hasURI)
@@ -83,7 +68,7 @@ func TestFetchDiagnosticsWithoutURIOmitsField(t *testing.T) {
 func TestFetchEditors(t *testing.T) {
 	body := fixture(t, "editors.json")
 
-	startPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, envelopeOf(t, r)["type"], "editorList")
 		_, _ = w.Write(body)
 	}))
@@ -96,7 +81,7 @@ func TestFetchEditors(t *testing.T) {
 func TestFetchSelection(t *testing.T) {
 	body := fixture(t, "selection.json")
 
-	startPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, envelopeOf(t, r)["type"], "editorSelection")
 		_, _ = w.Write(body)
 	}))
@@ -107,7 +92,7 @@ func TestFetchSelection(t *testing.T) {
 }
 
 func TestFetchSelectionNullIsNil(t *testing.T) {
-	startPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("null"))
 	}))
 
@@ -119,7 +104,7 @@ func TestFetchSelectionNullIsNil(t *testing.T) {
 func TestOpenSendsEnvelope(t *testing.T) {
 	var envelope map[string]any
 
-	startPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		envelope = envelopeOf(t, r)
 		_, _ = w.Write(fixture(t, "open.json"))
 	}))
@@ -140,7 +125,7 @@ func TestOpenSendsEnvelope(t *testing.T) {
 func TestNotifyForwardsPayload(t *testing.T) {
 	var envelope map[string]any
 
-	startPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		envelope = envelopeOf(t, r)
 		_, _ = w.Write([]byte(`{"action":"Yes","timedOut":false}`))
 	}))
@@ -162,7 +147,7 @@ func TestNotifyForwardsPayload(t *testing.T) {
 func TestNotifyOmitsEmptyOptionals(t *testing.T) {
 	var envelope map[string]any
 
-	startPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		envelope = envelopeOf(t, r)
 		_, _ = w.Write([]byte("null"))
 	}))
@@ -179,7 +164,7 @@ func TestNotifyOmitsEmptyOptionals(t *testing.T) {
 }
 
 func TestErrorResponseSurfacesBody(t *testing.T) {
-	startPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte("kernel exploded"))
 	}))
@@ -226,4 +211,38 @@ func decodeStrict(t *testing.T, name string, target any) {
 	decoder := json.NewDecoder(bytes.NewReader(fixture(t, name)))
 	decoder.DisallowUnknownFields()
 	assert.NilError(t, decoder.Decode(target))
+}
+
+func TestNormalizePath(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{`\workspace\go.work`, "/workspace/go.work"},
+		{`\home\kloud\a b\c.txt`, "/home/kloud/a b/c.txt"},
+		{"/workspace/go.work", "/workspace/go.work"},
+		{`/workspace/odd\name`, `/workspace/odd\name`},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		assert.Equal(t, editor.NormalizePath(tt.in), tt.want)
+	}
+}
+
+func TestDecodeTabsNormalizesPaths(t *testing.T) {
+	tabs, err := editor.DecodeTabs([]byte(`[{"path":"\\workspace\\go.work","active":true},{"path":"/etc/hosts"}]`))
+	assert.NilError(t, err)
+
+	assert.Equal(t, len(tabs), 2)
+	assert.Equal(t, tabs[0].Path, "/workspace/go.work")
+	assert.Equal(t, tabs[1].Path, "/etc/hosts")
+}
+
+func TestDecodeSelectionNormalizesPath(t *testing.T) {
+	selection, err := editor.DecodeSelection([]byte(`{"path":"\\workspace\\main.go","text":"x"}`))
+	assert.NilError(t, err)
+
+	assert.Equal(t, selection.Path, "/workspace/main.go")
+	assert.Equal(t, selection.Text, "x")
 }

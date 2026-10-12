@@ -1,7 +1,6 @@
 package editor
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 
@@ -26,17 +25,17 @@ var listCmd = &cobra.Command{
 }
 
 func renderEditors(out io.Writer, body []byte) error {
-	var tabs []editoripc.Tab
-	if err := json.Unmarshal(body, &tabs); err != nil {
+	tabs, err := editoripc.DecodeTabs(body)
+	if err != nil {
 		return fmt.Errorf("error parsing editor response: %w", err)
 	}
 
 	if len(tabs) == 0 {
-		styles.PrintWarning(out, "No open editors")
+		styles.PrintEmpty(out, "No open editors")
 		return nil
 	}
 
-	fmt.Fprintf(out, "%s\n", styles.TitleWithCount("Open Editors", len(tabs)))
+	styles.PrintTitleCount(out, "Open Editors", len(tabs))
 
 	rows := make([][]string, len(tabs))
 	for i, tab := range tabs {
@@ -45,20 +44,12 @@ func renderEditors(out io.Writer, body []byte) error {
 			language = *tab.LanguageID
 		}
 
-		rows[i] = []string{tab.Path, language, check(tab.Active), check(tab.Dirty)}
+		rows[i] = []string{tab.Path, language, styles.Check(tab.Active), styles.Check(tab.Dirty)}
 	}
 
-	fmt.Fprintf(out, "%s\n", styles.Table("Path", "Language", "Active", "Dirty").Rows(rows...).Render())
+	fmt.Fprintln(out, styles.NewTable("Path", "Language", "Active", "Dirty").Rows(rows...).Render())
 
 	return nil
-}
-
-func check(value bool) string {
-	if value {
-		return "✓"
-	}
-
-	return ""
 }
 
 func init() {

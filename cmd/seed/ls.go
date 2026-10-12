@@ -1,6 +1,7 @@
 package seed
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/kloudkit/ws-cli/internals/seed"
@@ -19,7 +20,7 @@ var lsCmd = &cobra.Command{
 func runLs(cmd *cobra.Command, args []string) error {
 	source, _ := cmd.Flags().GetString("source")
 
-	resolved, err := seed.ResolveSource(source)
+	resolved, err := seed.ResolveSource(source, cmd.Flags().Changed("source"))
 	if err != nil {
 		return err
 	}
@@ -30,9 +31,20 @@ func runLs(cmd *cobra.Command, args []string) error {
 	}
 
 	out := cmd.OutOrStdout()
-	for _, op := range plan.Ops {
-		styles.PrintKeyValue(out, op.Dest, describe(op))
+
+	if len(plan.Ops) == 0 {
+		styles.PrintEmpty(out, fmt.Sprintf("No seed entries in [%s]", resolved))
+		return nil
 	}
+
+	styles.PrintTitleCount(out, "Seed Entries", len(plan.Ops))
+
+	items := make([]styles.DescriptionItem, len(plan.Ops))
+	for i, op := range plan.Ops {
+		items[i] = styles.DescriptionItem{Name: op.Dest, Description: describe(op)}
+	}
+
+	styles.PrintList(out, items)
 
 	return nil
 }

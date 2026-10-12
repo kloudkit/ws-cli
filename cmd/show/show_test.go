@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/kloudkit/ws-cli/internals/config"
+	"github.com/kloudkit/ws-cli/internals/testutil"
 	"github.com/spf13/pflag"
 	"gotest.tools/v3/assert"
 )
@@ -61,14 +61,8 @@ deprecated:
     use: WS_SERVER_PORT
 `
 
-var _ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*[A-Za-z]`)
-
-func _stripANSI(s string) string {
-	return _ansiRE.ReplaceAllString(s, "")
-}
-
 func _extractField(plain, label string) string {
-	prefix := label + ":"
+	prefix := label + " "
 	for line := range strings.SplitSeq(plain, "\n") {
 		if rest, ok := strings.CutPrefix(strings.TrimSpace(line), prefix); ok {
 			return strings.TrimSpace(rest)
@@ -316,7 +310,7 @@ func TestShowEnv_LongDescriptionRenders_Default(t *testing.T) {
 
 	stdout, _, exit := _runShow(t, "env", "server.root")
 	assert.Equal(t, 0, exit)
-	plain := _stripANSI(stdout)
+	plain := testutil.StripAnsi(stdout)
 	assert.Assert(t, strings.Contains(plain, "WS_SERVER_ROOT"), "want key in output, got: %q", plain)
 	assert.Assert(t, strings.Contains(plain, "Root directory for the workspace."), "want description, got: %q", plain)
 	assert.Assert(t, strings.Contains(plain, "/workspace"), "want resolved value, got: %q", plain)
@@ -329,7 +323,7 @@ func TestShowEnv_LongDescriptionAbsent_DefaultStillRenders(t *testing.T) {
 
 	stdout, _, exit := _runShow(t, "env", "metrics.port")
 	assert.Equal(t, 0, exit)
-	plain := _stripANSI(stdout)
+	plain := testutil.StripAnsi(stdout)
 	assert.Assert(t, strings.Contains(plain, "WS_METRICS_PORT"))
 	assert.Assert(t, strings.Contains(plain, "Port on which the metrics endpoint listens."))
 	assert.Assert(t, strings.Contains(plain, "9100"))
@@ -341,7 +335,7 @@ func TestShowEnv_SourceLabel_EnvSet(t *testing.T) {
 
 	stdout, _, exit := _runShow(t, "env", "server.root")
 	assert.Equal(t, 0, exit)
-	plain := _stripANSI(stdout)
+	plain := testutil.StripAnsi(stdout)
 	assert.Assert(t, strings.Contains(plain, "process"), "want env-set source label, got: %q", plain)
 }
 
@@ -351,7 +345,7 @@ func TestShowEnv_SourceLabel_YAMLDefault(t *testing.T) {
 
 	stdout, _, exit := _runShow(t, "env", "server.root")
 	assert.Equal(t, 0, exit)
-	plain := _stripANSI(stdout)
+	plain := testutil.StripAnsi(stdout)
 	assert.Assert(t, strings.Contains(plain, "declared"), "want yaml-default source label, got: %q", plain)
 }
 
@@ -362,7 +356,7 @@ func TestShowEnv_SourceLabel_DeprecatedAlias(t *testing.T) {
 
 	stdout, _, exit := _runShow(t, "env", "server.port")
 	assert.Equal(t, 0, exit)
-	plain := _stripANSI(stdout)
+	plain := testutil.StripAnsi(stdout)
 	assert.Assert(t, strings.Contains(plain, "alias"), "want deprecated-alias label, got: %q", plain)
 }
 
@@ -372,7 +366,7 @@ func TestShowEnv_SourceLabel_EmptyEnvFallsBackToYAML(t *testing.T) {
 
 	stdout, _, exit := _runShow(t, "env", "server.root")
 	assert.Equal(t, 0, exit)
-	plain := _stripANSI(stdout)
+	plain := testutil.StripAnsi(stdout)
 	assert.Assert(t, strings.Contains(plain, "declared"))
 	assert.Assert(t, strings.Contains(plain, "/workspace"))
 }
@@ -384,7 +378,7 @@ func TestShowEnv_DeprecatedAlias_StderrAndLabel(t *testing.T) {
 
 	stdout, stderr, exit := _runShow(t, "env", "server.port")
 	assert.Equal(t, 0, exit)
-	plain := _stripANSI(stdout)
+	plain := testutil.StripAnsi(stdout)
 	assert.Assert(t, strings.Contains(plain, "alias"), "want source label, got: %q", plain)
 	assert.Assert(t, strings.Contains(stderr, "Deprecated: [WS_PORT] use [WS_SERVER_PORT] instead"), "want deprecation warn, got: %q", stderr)
 }
@@ -435,7 +429,7 @@ func TestShowEnv_TypePath_DefaultMode_RendersExpandedValue(t *testing.T) {
 
 	stdout, _, exit := _runShow(t, "env", "secrets.token_file")
 	assert.Equal(t, 0, exit)
-	plain := _stripANSI(stdout)
+	plain := testutil.StripAnsi(stdout)
 	assert.Assert(t, strings.Contains(plain, "/home/kloud/.ws/secrets/token"), "want expanded value, got: %q", plain)
 	assert.Assert(t, strings.Contains(plain, "declared"), "want yaml-default source label, got: %q", plain)
 }
@@ -457,9 +451,9 @@ func TestShowEnv_TypePath_SourceLabel_NullDefault_TypePath(t *testing.T) {
 
 	stdout, _, exit := _runShow(t, "env", "auth.github_token_file")
 	assert.Equal(t, 0, exit)
-	plain := _stripANSI(stdout)
+	plain := testutil.StripAnsi(stdout)
 	assert.Assert(t, strings.Contains(plain, "declared"), "want yaml-default source label, got: %q", plain)
-	assert.Equal(t, "", _extractField(plain, "Value"), "want empty Value field, got: %q", plain)
+	assert.Equal(t, "(unset)", _extractField(plain, "Value"), "want (unset) Value field, got: %q", plain)
 }
 
 func TestShowEnv_Secret_FilePrefix_ValueFlag(t *testing.T) {
@@ -475,7 +469,7 @@ func TestShowEnv_Secret_FilePrefix_ValueFlag(t *testing.T) {
 	t.Setenv("WS_AUTH_PASSWORD", "file:"+pwFile)
 	stdout, _, exit = _runShow(t, "env", "auth.password")
 	assert.Equal(t, 0, exit)
-	plain := _stripANSI(stdout)
+	plain := testutil.StripAnsi(stdout)
 	assert.Assert(t, strings.Contains(plain, "file"), "want env-file source label, got: %q", plain)
 	assert.Assert(t, !strings.Contains(plain, "super-secret"), "want secret value redacted, got: %q", plain)
 	assert.Assert(t, strings.Contains(plain, "<redacted>"), "want redaction marker, got: %q", plain)
@@ -491,7 +485,7 @@ func TestShowEnv_Secret_ConventionDefault_SourceLabel(t *testing.T) {
 
 	stdout, _, exit := _runShow(t, "env", "auth.password")
 	assert.Equal(t, 0, exit)
-	plain := _stripANSI(stdout)
+	plain := testutil.StripAnsi(stdout)
 	assert.Assert(t, strings.Contains(plain, "mount"), "want secret-file-default source label, got: %q", plain)
 	assert.Assert(t, !strings.Contains(plain, "conv-secret"), "want secret value redacted, got: %q", plain)
 	assert.Assert(t, strings.Contains(plain, "<redacted>"), "want redaction marker, got: %q", plain)
@@ -525,7 +519,7 @@ func TestShow_RawFlagInheritedByAllLeaves(t *testing.T) {
 }
 
 func _hasSkip(stderr, key string) bool {
-	return strings.Contains(_stripANSI(stderr), "Skipped: env ["+key+"] not set")
+	return strings.Contains(testutil.StripAnsi(stderr), "Skipped: env ["+key+"] not set")
 }
 
 func TestShowEnv_ValueOrSkip_ValueSet_PrintsExitsZero(t *testing.T) {

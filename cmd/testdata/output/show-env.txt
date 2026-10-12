@@ -1,0 +1,7 @@
+
+  server.port WS_SERVER_PORT
+
+  Port on which the web server listens.
+
+  Value   8443
+  Source  process

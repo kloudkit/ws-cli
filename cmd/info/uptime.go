@@ -35,10 +35,10 @@ var uptimeCmd = &cobra.Command{
 			statusValue = "Long running"
 		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.Title().Render("Uptime"))
+		styles.PrintTitle(cmd.OutOrStdout(), "Uptime")
 
-		t := styles.Table().Rows(
-			[]string{"Started at", styles.Code().Render(started.Format("2006-01-02 15:04:05 MST"))},
+		t := styles.NewTable().Rows(
+			[]string{"Started at", started.Format("2006-01-02 15:04:05 MST")},
 			[]string{"Running for", styles.FormatDuration(running)},
 			[]string{"Status", statusValue},
 		)

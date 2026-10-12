@@ -1,7 +1,6 @@
 package template
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/kloudkit/ws-cli/internals/path"
@@ -23,31 +22,29 @@ func runList(cmd *cobra.Command, args []string) error {
 	templates := template.SupportedTemplates
 	names := template.GetTemplateNames()
 
-	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.TitleWithCount("Templates Available", len(names)))
+	out := cmd.OutOrStdout()
 
-	listItems := make([]any, len(names))
+	styles.PrintTitleCount(out, "Templates Available", len(names))
+
+	items := make([]styles.DescriptionItem, len(names))
 	for i, name := range names {
 		config := templates[name]
-		resolvedPath := path.ResolveConfigPath(config.SourcePath)
-		location := styles.Muted().Render(fmt.Sprintf("(%s)", path.ShortenHomePath(resolvedPath)))
+		description := path.ShortenHomePath(path.ResolveConfigPath(config.SourcePath))
 
-		localIndicator := ""
 		if _, err := os.Stat(config.OutputName); err == nil {
-			localIndicator = styles.Success().Render("(applied)")
+			description += " " + styles.Success().Render("(applied)")
 		}
 
-		listItems[i] = fmt.Sprintf("%s %s %s", styles.Key().Render(name), location, localIndicator)
+		items[i] = styles.DescriptionItem{Name: name, Description: description}
 	}
 
-	l := styles.List(listItems...)
+	styles.PrintList(out, items)
 
-	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", l.String())
-
-	styles.PrintHints(cmd.OutOrStdout(), [][]string{
-		{"ws-cli template apply <name>", "Apply a template"},
-		{"ws-cli template show <name>", "View template contents"},
-		{"ws-cli template show --local <name>", "View applied template"},
-	})
+	styles.PrintHints(out,
+		styles.Hint{Command: "ws template apply <name>", Description: "Apply a template"},
+		styles.Hint{Command: "ws template show <name>", Description: "View template contents"},
+		styles.Hint{Command: "ws template show --local <name>", Description: "View applied template"},
+	)
 
 	return nil
 }

@@ -4,17 +4,13 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/kloudkit/ws-cli/internals/testutil"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
 )
-
-func stripAnsi(s string) string {
-	return regexp.MustCompile(`\x1b\[[0-9;]*m`).ReplaceAllString(s, "")
-}
 
 func TestResponseRecorderStatusAndSize(t *testing.T) {
 	cases := []struct {
@@ -79,7 +75,7 @@ func TestAccessLogMiddlewareLineFormat(t *testing.T) {
 
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 
-	line := strings.TrimRight(stripAnsi(buffer.String()), "\n")
+	line := strings.TrimRight(testutil.StripAnsi(buffer.String()), "\n")
 
 	assert.Assert(t, cmp.Regexp(`^\[.*?\]\s+(\w+)\s*(.*)$`, line))
 	assert.Assert(t, strings.Contains(line, "info"))

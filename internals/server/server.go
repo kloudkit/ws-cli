@@ -15,10 +15,33 @@ type Config struct {
 	Bind string
 }
 
-func Serve(config Config, handler http.Handler, description string, w io.Writer) error {
-	fmt.Fprintln(w, styles.Success().Render(fmt.Sprintf("Serving %s at port %d", description, config.Port)))
-	fmt.Fprintln(w, styles.Info().Render("To stop serving, press Ctrl+C"))
+func Serve(config Config, handler http.Handler, w io.Writer, announce func(url string)) error {
+	listener, err := net.Listen("tcp", net.JoinHostPort(config.Bind, strconv.Itoa(config.Port)))
+	if err != nil {
+		return err
+	}
 
-	host := net.JoinHostPort(config.Bind, strconv.Itoa(config.Port))
-	return http.ListenAndServe(host, accessLogMiddleware(handler, w))
+	return serve(listener, handler, w, announce)
+}
+
+func serve(listener net.Listener, handler http.Handler, w io.Writer, announce func(url string)) error {
+	announce(displayURL(listener.Addr()))
+
+	fmt.Fprintln(w)
+	styles.PrintMuted(w, "Press Ctrl+C to stop")
+
+	return http.Serve(listener, accessLogMiddleware(handler, w))
+}
+
+func displayURL(addr net.Addr) string {
+	host, port := "localhost", ""
+
+	if tcp, ok := addr.(*net.TCPAddr); ok {
+		port = strconv.Itoa(tcp.Port)
+		if !tcp.IP.IsUnspecified() && !tcp.IP.IsLoopback() {
+			host = tcp.IP.String()
+		}
+	}
+
+	return "http://" + net.JoinHostPort(host, port)
 }

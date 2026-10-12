@@ -22,7 +22,6 @@ type RotateOptions struct {
 	MasterKey    string
 	NewMasterKey string
 	Out          io.Writer
-	Styled       bool
 }
 
 type rotateTarget struct {
@@ -109,7 +108,7 @@ func Rotate(opts RotateOptions) error {
 		}
 	}
 
-	rep := reporter{out: opts.Out, styled: opts.Styled}
+	rep := reporter{out: opts.Out}
 	for i := range targets {
 		rep.rotated(targets[i].describe)
 	}

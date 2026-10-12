@@ -1,7 +1,6 @@
 package editor
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 
@@ -27,12 +26,12 @@ var selectionCmd = &cobra.Command{
 
 func renderSelection(out io.Writer, body []byte) error {
 	if len(body) == 0 {
-		styles.PrintWarning(out, "No active selection")
+		styles.PrintEmpty(out, "No active selection")
 		return nil
 	}
 
-	var selection editoripc.Selection
-	if err := json.Unmarshal(body, &selection); err != nil {
+	selection, err := editoripc.DecodeSelection(body)
+	if err != nil {
 		return fmt.Errorf("error parsing selection response: %w", err)
 	}
 
@@ -43,9 +42,11 @@ func renderSelection(out io.Writer, body []byte) error {
 	)
 
 	styles.PrintTitle(out, "Selection")
-	styles.PrintKeyValue(out, "Path", selection.Path)
-	styles.PrintKeyValue(out, "Range", location)
-	styles.PrintKeyCode(out, "Text", selection.Text)
+	styles.PrintKeyValues(out,
+		styles.Pair{Key: "Path", Value: selection.Path},
+		styles.Pair{Key: "Range", Value: location},
+		styles.Pair{Key: "Text", Value: selection.Text},
+	)
 
 	return nil
 }

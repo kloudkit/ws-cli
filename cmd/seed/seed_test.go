@@ -8,25 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
+	"github.com/kloudkit/ws-cli/internals/testutil"
 	"gotest.tools/v3/assert"
 )
 
-func resetCommandFlags(cmd *cobra.Command) {
-	cmd.Flags().VisitAll(func(flag *pflag.Flag) {
-		flag.Value.Set(flag.DefValue)
-		flag.Changed = false
-	})
-
-	for _, c := range cmd.Commands() {
-		resetCommandFlags(c)
-	}
-}
-
 func run(t *testing.T, args ...string) string {
 	t.Helper()
-	resetCommandFlags(SeedCmd)
+	testutil.ResetCommandFlags(SeedCmd)
 
 	buffer := new(bytes.Buffer)
 	SeedCmd.SetOut(buffer)
@@ -36,6 +24,18 @@ func run(t *testing.T, args ...string) string {
 	assert.NilError(t, SeedCmd.Execute())
 
 	return buffer.String()
+}
+
+func runErr(t *testing.T, args ...string) error {
+	t.Helper()
+	testutil.ResetCommandFlags(SeedCmd)
+
+	buffer := new(bytes.Buffer)
+	SeedCmd.SetOut(buffer)
+	SeedCmd.SetErr(buffer)
+	SeedCmd.SetArgs(args)
+
+	return SeedCmd.Execute()
 }
 
 func TestSeedCommand(t *testing.T) {
@@ -73,5 +73,43 @@ func TestSeedCommand(t *testing.T) {
 
 		assert.Assert(t, strings.Contains(output, dest))
 		assert.Assert(t, strings.Contains(output, "secret"))
+	})
+	for _, verb := range []string{"ls", "apply"} {
+		t.Run("EmptySource_"+verb, func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+			t.Setenv("WS__INTERNAL_ENV_REFERENCE", filepath.Join(t.TempDir(), "absent.yaml"))
+
+			source := t.TempDir()
+
+			output := testutil.StripAnsi(run(t, verb, "--source", source))
+
+			assert.Assert(t, strings.Contains(output, "No seed entries in ["+source+"]"))
+		})
+
+		t.Run("MissingExplicitSource_"+verb, func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+			t.Setenv("WS__INTERNAL_ENV_REFERENCE", filepath.Join(t.TempDir(), "absent.yaml"))
+
+			source := filepath.Join(t.TempDir(), "missing")
+
+			err := runErr(t, verb, "--source", source)
+
+			assert.ErrorContains(t, err, "seed source ["+source+"] not found")
+		})
+	}
+
+	t.Run("ListTitleCountsEntries", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		t.Setenv("WS__INTERNAL_ENV_REFERENCE", filepath.Join(t.TempDir(), "absent.yaml"))
+
+		source := t.TempDir()
+		assert.NilError(t, os.MkdirAll(filepath.Join(source, "etc"), 0o755))
+		assert.NilError(t, os.WriteFile(filepath.Join(source, "etc", "a.conf"), []byte("a"), 0o644))
+		assert.NilError(t, os.WriteFile(filepath.Join(source, "etc", "b.conf"), []byte("b"), 0o644))
+
+		output := testutil.StripAnsi(run(t, "ls", "--source", source))
+
+		assert.Assert(t, strings.Contains(output, "(2)"))
+		assert.Assert(t, strings.Contains(output, "/etc/a.conf"))
 	})
 }

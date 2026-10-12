@@ -1,0 +1,12 @@
+
+  Templates Available (4)
+
+  • ansible      — /etc/ansible/ansible.cfg
+  • markdownlint — ~/.config/markdownlint/config
+  • ruff         — ~/.config/ruff/ruff.toml
+  • yamllint     — ~/.config/yamllint/config
+
+  Quick actions
+    ws template apply <name>         Apply a template
+    ws template show <name>          View template contents
+    ws template show --local <name>  View applied template

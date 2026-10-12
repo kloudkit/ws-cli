@@ -27,21 +27,22 @@ var storeCmd = &cobra.Command{
 		}
 
 		if len(manifest.Artifacts) == 0 {
-			styles.PrintWarning(cmd.OutOrStdout(), "Feature store is empty")
+			styles.PrintEmpty(cmd.OutOrStdout(), "Feature store is empty")
 			return nil
 		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.TitleWithCount("Feature Store", len(manifest.Artifacts)))
+		styles.PrintTitleCount(cmd.OutOrStdout(), "Feature Store", len(manifest.Artifacts))
 
 		items := make([]styles.DescriptionItem, len(manifest.Artifacts))
 		for i, a := range manifest.Artifacts {
 			items[i] = styles.DescriptionItem{Name: a.Name, Description: a.Version}
 		}
 
-		fmt.Fprintln(cmd.OutOrStdout(), styles.List(styles.DescriptionList(items)...))
+		styles.PrintList(cmd.OutOrStdout(), items)
 
 		if manifest.Built != "" {
-			fmt.Fprintf(cmd.OutOrStdout(), "\n  %s\n", styles.Muted().Render("Built: "+manifest.Built))
+			fmt.Fprintln(cmd.OutOrStdout())
+			styles.PrintMuted(cmd.OutOrStdout(), "Built: "+manifest.Built)
 		}
 
 		return nil

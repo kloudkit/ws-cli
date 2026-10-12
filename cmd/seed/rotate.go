@@ -19,7 +19,7 @@ func runRotate(cmd *cobra.Command, args []string) error {
 	master, _ := cmd.Flags().GetString("master")
 	newMaster, _ := cmd.Flags().GetString("new-master")
 
-	resolved, err := seed.ResolveSource(source)
+	resolved, err := seed.ResolveSource(source, cmd.Flags().Changed("source"))
 	if err != nil {
 		return err
 	}
@@ -29,7 +29,6 @@ func runRotate(cmd *cobra.Command, args []string) error {
 		MasterKey:    master,
 		NewMasterKey: newMaster,
 		Out:          cmd.OutOrStdout(),
-		Styled:       isTerminal(cmd.OutOrStdout()),
 	})
 }
 

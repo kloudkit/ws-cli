@@ -23,9 +23,7 @@ var loginCmd = &cobra.Command{
 			return err
 		}
 
-		file, _ := cmd.Flags().GetString("output")
-
-		return emit(cmd, hash, "Password hash written to "+file, true,
-			printKey("Workspace Password Hash", hash, "Use this hash for WS_AUTH_PASSWORD_HASHED"))
+		return emit(cmd, hash, "Password hash written", true,
+			printKey("Workspace Password Hash", hash, "Use this hash for WS_AUTH_PASSWORD_HASHED."))
 	},
 }

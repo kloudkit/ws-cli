@@ -3,11 +3,11 @@ package logs
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/kloudkit/ws-cli/internals/logger"
-	"github.com/kloudkit/ws-cli/internals/styles"
 )
 
 var validLogLevels = []string{"debug", "info", "warn", "error"}
@@ -35,38 +35,19 @@ func execute(cmd *cobra.Command, args []string) error {
 	target, _ := cmd.Flags().GetString("target")
 
 	if level != "" && !slices.Contains(validLogLevels, level) {
-		styles.PrintErrorWithOptions(cmd.ErrOrStderr(), "Invalid log level. Must be one of:", [][]string{
-			{"debug", "Debug information"},
-			{"info", "General information"},
-			{"warn", "Warning messages"},
-			{"error", "Error messages only"},
-		})
-		return fmt.Errorf("invalid log level")
+		return fmt.Errorf("invalid log level %q (valid: %s)", level, strings.Join(validLogLevels, ", "))
 	}
 
 	if !slices.Contains(validLogTargets, target) {
-		styles.PrintErrorWithOptions(cmd.ErrOrStderr(), "Invalid log target. Must be one of:", [][]string{
-			{"main", "Combined workspace log"},
-			{"metrics", "Metrics exporter log"},
-			{"docker", "In-container Docker daemon log"},
-			{"auth_proxy", "OIDC authentication proxy log"},
-			{"cloudflared", "Cloudflared tunnel log"},
-		})
-		return fmt.Errorf("invalid log target")
+		return fmt.Errorf("invalid log target %q (valid: %s)", target, strings.Join(validLogTargets, ", "))
 	}
 
 	reader, err := logger.NewReader(tail, level, target)
 	if err != nil {
-		styles.PrintError(cmd.ErrOrStderr(), fmt.Sprintf("Failed to initialize log reader: %s", err))
 		return err
 	}
 
-	if err := reader.ReadLogs(cmd.OutOrStdout(), follow); err != nil {
-		styles.PrintError(cmd.ErrOrStderr(), fmt.Sprintf("Error reading logs: %s", err))
-		return err
-	}
-
-	return nil
+	return reader.ReadLogs(cmd.OutOrStdout(), follow)
 }
 
 func init() {

@@ -22,11 +22,13 @@ var extensionsCmd = &cobra.Command{
 			rows = append(rows, []string{ext.Name, ext.Version})
 		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.TitleWithCount("Extensions", len(extensions)))
+		if len(extensions) == 0 {
+			styles.PrintEmpty(cmd.OutOrStdout(), "No extensions installed")
+			return nil
+		}
 
-		t := styles.Table("Name", "Version").Rows(rows...)
-
-		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", t.Render())
+		styles.PrintTitleCount(cmd.OutOrStdout(), "Extensions", len(extensions))
+		fmt.Fprintln(cmd.OutOrStdout(), styles.NewTable("Name", "Version").Rows(rows...).Render())
 
 		return nil
 	},

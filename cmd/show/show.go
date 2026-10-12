@@ -14,7 +14,7 @@ var ShowCmd = &cobra.Command{
 ws show env server.port
 
 # Reverse-tunnel a local port to the workspace node
-ws_node_ip=$(ws show ip node); ssh -N -R "3001:${ws_node_ip}:3001" "${ws_node_ip}"`,
+ws_node_ip=$(ws show ip node --raw); ssh -N -R "3001:${ws_node_ip}:3001" "${ws_node_ip}"`,
 }
 
 func makeValueCmd(use, short, long, title, label string, getter func() (string, error)) *cobra.Command {
@@ -43,10 +43,13 @@ func emit(cmd *cobra.Command, title, kind, label, value string) error {
 	}
 
 	styles.PrintTitle(out, title)
+
+	pairs := []styles.Pair{}
 	if kind != "" {
-		styles.PrintKeyValue(out, "Type", kind)
+		pairs = append(pairs, styles.Pair{Key: "Type", Value: kind})
 	}
-	styles.PrintKeyCode(out, label, value)
+
+	styles.PrintKeyValues(out, append(pairs, styles.Pair{Key: label, Value: value})...)
 
 	return nil
 }

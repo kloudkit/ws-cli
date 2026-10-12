@@ -25,23 +25,23 @@ var listCmd = &cobra.Command{
 		}
 
 		if len(result.Features) == 0 {
-			styles.PrintWarning(cmd.OutOrStdout(), "No features found")
+			styles.PrintEmpty(cmd.OutOrStdout(), "No features found")
 			return nil
 		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", styles.TitleWithCount("Features Available", len(result.Features)))
+		styles.PrintTitleCount(cmd.OutOrStdout(), "Features Available", len(result.Features))
 
 		items := make([]styles.DescriptionItem, len(result.Features))
 		for i, f := range result.Features {
 			items[i] = styles.DescriptionItem{Name: f.Name, Description: describeSource(f)}
 		}
 
-		fmt.Fprintln(cmd.OutOrStdout(), styles.List(styles.DescriptionList(items)...))
+		styles.PrintList(cmd.OutOrStdout(), items)
 
-		styles.PrintHints(cmd.OutOrStdout(), [][]string{
-			{"ws-cli feature install <name>", "Install a feature"},
-			{"ws-cli feature info <name>", "View feature details"},
-		})
+		styles.PrintHints(cmd.OutOrStdout(),
+			styles.Hint{Command: "ws feature install <name>", Description: "Install a feature"},
+			styles.Hint{Command: "ws feature info <name>", Description: "View feature details"},
+		)
 
 		return nil
 	},

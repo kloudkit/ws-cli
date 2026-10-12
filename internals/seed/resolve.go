@@ -59,7 +59,7 @@ func (v Vars) expand(value string) string {
 	return path.Expand(replaced)
 }
 
-func ResolveSource(flag string) (string, error) {
+func ResolveSource(flag string, explicit bool) (string, error) {
 	if flag == "" {
 		resolved, err := config.Resolve("seed", "source")
 		if err != nil {
@@ -69,7 +69,20 @@ func ResolveSource(flag string) (string, error) {
 		flag = resolved
 	}
 
-	return path.Expand(flag), nil
+	source := path.Expand(flag)
+
+	if explicit {
+		info, err := os.Stat(source)
+		if err != nil {
+			return "", fmt.Errorf("seed source [%s] not found", source)
+		}
+
+		if !info.IsDir() {
+			return "", fmt.Errorf("seed source [%s] is not a directory", source)
+		}
+	}
+
+	return source, nil
 }
 
 func BuildPlan(source string, force bool) (*Plan, error) {

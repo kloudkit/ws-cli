@@ -2,6 +2,7 @@ package styles
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -20,6 +21,20 @@ func FormatBytes(bytes uint64) string {
 	}
 
 	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+func FormatCount(n uint64) string {
+	digits := strconv.FormatUint(n, 10)
+
+	var out strings.Builder
+	for i, digit := range digits {
+		if i > 0 && (len(digits)-i)%3 == 0 {
+			out.WriteByte(',')
+		}
+		out.WriteRune(digit)
+	}
+
+	return out.String()
 }
 
 func FormatPercent(used, total uint64) string {

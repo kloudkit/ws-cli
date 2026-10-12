@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kloudkit/ws-cli/internals/testutil"
 	"gotest.tools/v3/assert"
 )
 
@@ -26,7 +27,7 @@ func TestShowIP_Internal_RendersValue(t *testing.T) {
 
 	stdout, _, err := _runIPCmd(t, "Internal IP Address", getter)
 	assert.NilError(t, err)
-	plain := _stripANSI(stdout)
+	plain := testutil.StripAnsi(stdout)
 	assert.Assert(t, strings.Contains(strings.ToUpper(plain), "INTERNAL IP ADDRESS"), "want title, got: %q", plain)
 	assert.Assert(t, strings.Contains(plain, "10.0.0.1"), "want IP value, got: %q", plain)
 }
@@ -36,7 +37,7 @@ func TestShowIP_Node_RendersValue(t *testing.T) {
 
 	stdout, _, err := _runIPCmd(t, "Node IP Address", getter)
 	assert.NilError(t, err)
-	plain := _stripANSI(stdout)
+	plain := testutil.StripAnsi(stdout)
 	assert.Assert(t, strings.Contains(strings.ToUpper(plain), "NODE IP ADDRESS"), "want title, got: %q", plain)
 	assert.Assert(t, strings.Contains(plain, "192.168.1.5"), "want IP value, got: %q", plain)
 }
