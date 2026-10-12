@@ -3,9 +3,15 @@ package config
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"errors"
+	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
+
+var extensionsTimeout = 10 * time.Second
 
 type Extension struct {
 	Name    string
@@ -13,9 +19,19 @@ type Extension struct {
 }
 
 func GetExtensions() ([]Extension, error) {
-	out, err := exec.Command("code", "--list-extensions", "--show-versions").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), extensionsTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "code", "--list-extensions", "--show-versions")
+	cmd.WaitDelay = time.Second
+
+	out, err := cmd.Output()
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return nil, fmt.Errorf("`code --list-extensions` did not answer within %s", extensionsTimeout)
+	}
+
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("`code --list-extensions` failed: %w", err)
 	}
 
 	var extensions []Extension

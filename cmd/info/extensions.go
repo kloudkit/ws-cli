@@ -15,7 +15,10 @@ var extensionsCmd = &cobra.Command{
 	Short:       "Display installed extensions",
 	Long:        "List the installed VS Code extensions with their versions.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		extensions, _ := config.GetExtensions()
+		extensions, err := config.GetExtensions()
+		if err != nil {
+			return err
+		}
 
 		var rows [][]string
 		for _, ext := range extensions {
