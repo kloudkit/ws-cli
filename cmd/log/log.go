@@ -43,7 +43,7 @@ var stampCmd = &cobra.Command{
 
 var stripCmd = &cobra.Command{
 	Use:         "strip",
-	Annotations: map[string]string{"since": "next"},
+	Annotations: map[string]string{"since": "0.5.3"},
 	Hidden:      true,
 	Short:       "Strip ANSI escapes from stdin",
 	Long:        "Copy stdin to stdout line by line with every ANSI escape sequence removed. The entrypoint uses it to keep the workspace log file plain while the console stays colored.",
