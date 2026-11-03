@@ -7,56 +7,30 @@ import (
 )
 
 func TestString(t *testing.T) {
-	t.Run("DefaultValue", func(t *testing.T) {
-		t.Setenv("FOO", "")
+	t.Setenv("FOO", "")
+	assert.Equal(t, String("FOO", "bar"), "bar")
+	assert.Equal(t, String("FOO"), "")
 
-		assert.Equal(t, "bar", String("FOO", "bar"))
-	})
+	t.Setenv("FOO", "baz")
+	assert.Equal(t, String("FOO", "bar"), "baz")
+	assert.Equal(t, GetAll()["FOO"], "baz")
 
-	t.Run("EnvValue", func(t *testing.T) {
-		t.Setenv("FOO", "baz")
-
-		assert.Equal(t, "baz", String("FOO", "bar"))
-	})
+	t.Setenv("HOME", "")
+	assert.Equal(t, Home(), "/home/kloud")
 }
 
 func TestIsSSHSession(t *testing.T) {
-	clear := func(t *testing.T) {
-		for _, key := range []string{"SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"} {
-			t.Setenv(key, "")
-		}
+	keys := []string{"SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"}
+
+	for _, key := range keys {
+		t.Setenv(key, "")
 	}
+	assert.Assert(t, !IsSSHSession())
 
-	t.Run("NotSSH", func(t *testing.T) {
-		clear(t)
-
-		assert.Assert(t, !IsSSHSession())
-	})
-
-	t.Run("SSHConnection", func(t *testing.T) {
-		clear(t)
-		t.Setenv("SSH_CONNECTION", "1.2.3.4 51000 5.6.7.8 22")
-
-		assert.Assert(t, IsSSHSession())
-	})
-
-	t.Run("SSHTTY", func(t *testing.T) {
-		clear(t)
-		t.Setenv("SSH_TTY", "/dev/pts/0")
-
-		assert.Assert(t, IsSSHSession())
-	})
-}
-
-func TestGetAll(t *testing.T) {
-	t.Run("ReturnsAllEnvVars", func(t *testing.T) {
-		t.Setenv("TEST_KEY1", "value1")
-		t.Setenv("TEST_KEY2", "value2")
-
-		envMap := GetAll()
-
-		assert.Equal(t, "value1", envMap["TEST_KEY1"])
-		assert.Equal(t, "value2", envMap["TEST_KEY2"])
-		assert.Assert(t, len(envMap) > 0)
-	})
+	for _, key := range keys {
+		t.Run(key, func(t *testing.T) {
+			t.Setenv(key, "set")
+			assert.Assert(t, IsSSHSession())
+		})
+	}
 }

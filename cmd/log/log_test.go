@@ -1,56 +1,31 @@
 package log
 
 import (
-	"bytes"
+	"strings"
 	"testing"
 
-	"github.com/kloudkit/ws-cli/internals/testutil"
+	"github.com/kloudkit/ws-cli/cmd/clitest"
+
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
 )
 
 func TestLogCommand(t *testing.T) {
-	t.Run("WarnInvokesLogWithFlags", func(t *testing.T) {
-		buffer := new(bytes.Buffer)
-		cmd := LogCmd
-		cmd.SetOut(buffer)
-		cmd.SetArgs([]string{"warn", "hello", "--indent", "2", "--stamp"})
+	const stamp = `^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] `
 
-		err := cmd.Execute()
-		assert.NilError(t, err)
-		assert.Assert(t, cmp.Regexp(
-			`^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] warn      - hello\n$`,
-			testutil.StripAnsi(buffer.String()),
-		))
-	})
+	cases := []struct {
+		args, stdin, want string
+	}{
+		{"warn hello --indent 2 --stamp", "", stamp + `warn      - hello\n$`},
+		{"info --pipe --indent 1 --stamp", "foo\n", stamp + `info    - foo\n$`},
+		{"stamp --pipe=false", "", stamp + `\n$`},
+	}
 
-	t.Run("InfoUsesPipeWhenFlagged", func(t *testing.T) {
-		buffer := new(bytes.Buffer)
-		cmd := LogCmd
-		cmd.SetIn(bytes.NewBufferString("foo\n"))
-		cmd.SetOut(buffer)
-		cmd.SetArgs([]string{"info", "--pipe", "--indent", "1", "--stamp"})
-
-		err := cmd.Execute()
-		assert.NilError(t, err)
-		assert.Assert(t, cmp.Regexp(
-			`^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] info    - foo\n$`,
-			testutil.StripAnsi(buffer.String()),
-		))
-	})
-
-	t.Run("StampInvokesLog", func(t *testing.T) {
-		buffer := new(bytes.Buffer)
-		cmd := LogCmd
-		cmd.PersistentFlags().Set("pipe", "false")
-		cmd.SetOut(buffer)
-		cmd.SetArgs([]string{"stamp"})
-
-		err := cmd.Execute()
-		assert.NilError(t, err)
-		assert.Assert(t, cmp.Regexp(
-			`^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z] \n$`,
-			testutil.StripAnsi(buffer.String()),
-		))
-	})
+	for _, c := range cases {
+		t.Run(c.args, func(t *testing.T) {
+			out, err := clitest.Run(LogCmd, c.stdin, strings.Fields(c.args)...)
+			assert.NilError(t, err)
+			assert.Assert(t, cmp.Regexp(c.want, out))
+		})
+	}
 }

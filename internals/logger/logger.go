@@ -21,10 +21,10 @@ var (
 	levelRegex = regexp.MustCompile(`^\[[^\]]+\] (debug|info|warn|error)\b`)
 	timeFormat = "[2006-01-02T15:04:05.000Z]"
 	styleMap   = map[string]lipgloss.Style{
-		"info":  styles.Info(),
-		"error": styles.Error(),
-		"warn":  styles.Warning(),
-		"debug": styles.Muted(),
+		"info":  styles.Info,
+		"error": styles.Error,
+		"warn":  styles.Warning,
+		"debug": styles.Muted,
 	}
 )
 
@@ -32,18 +32,6 @@ type Reader struct {
 	logPath     string
 	levelFilter string
 	tailLines   int
-}
-
-func timestamp() string {
-	return time.Now().UTC().Format(timeFormat)
-}
-
-func formatLevel(level string) string {
-	if style, ok := styleMap[level]; ok {
-		return style.Width(5).Render(level)
-	}
-
-	return level
 }
 
 func Pipe(reader io.Reader, writer io.Writer, level string, indent int, withStamp bool) {
@@ -57,20 +45,20 @@ func Pipe(reader io.Reader, writer io.Writer, level string, indent int, withStam
 func Log(writer io.Writer, level, message string, indent int, withStamp bool) {
 	var parts []string
 	if withStamp {
-		parts = append(parts, timestamp())
+		parts = append(parts, time.Now().UTC().Format(timeFormat))
 	}
 
-	if len(level) > 0 {
-		parts = append(parts, formatLevel(level))
+	if style, ok := styleMap[level]; ok {
+		parts = append(parts, style.Width(5).Render(level))
+	} else if level != "" {
+		parts = append(parts, level)
 	}
 
 	if indent > 0 {
-		parts = append(parts, strings.Repeat("  ", indent)+"- "+message)
-	} else {
-		parts = append(parts, message)
+		message = strings.Repeat("  ", indent) + "- " + message
 	}
 
-	fmt.Fprintln(writer, strings.Join(parts, " "))
+	fmt.Fprintln(writer, strings.Join(append(parts, message), " "))
 }
 
 func NewReader(tailLines int, levelFilter, target string) (*Reader, error) {

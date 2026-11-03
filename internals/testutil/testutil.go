@@ -32,6 +32,11 @@ func StartIPC(t *testing.T, handler http.Handler) {
 
 	socket := filepath.Join(t.TempDir(), "pipe.sock")
 	t.Setenv("VSCODE_IPC_HOOK_CLI", socket)
+	ServeUnix(t, socket, handler)
+}
+
+func ServeUnix(t *testing.T, socket string, handler http.Handler) {
+	t.Helper()
 
 	listener, err := net.Listen("unix", socket)
 	assert.NilError(t, err)

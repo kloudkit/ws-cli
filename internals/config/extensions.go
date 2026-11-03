@@ -1,8 +1,6 @@
 package config
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -35,17 +33,10 @@ func GetExtensions() ([]Extension, error) {
 	}
 
 	var extensions []Extension
-	scanner := bufio.NewScanner(bytes.NewReader(out))
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		parts := strings.Split(line, "@")
-
-		if len(parts) == 2 {
-			extensions = append(extensions, Extension{
-				Name:    parts[0],
-				Version: parts[1],
-			})
+	for line := range strings.Lines(string(out)) {
+		name, version, ok := strings.Cut(strings.TrimSpace(line), "@")
+		if ok && !strings.Contains(version, "@") {
+			extensions = append(extensions, Extension{Name: name, Version: version})
 		}
 	}
 

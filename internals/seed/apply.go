@@ -14,36 +14,14 @@ import (
 	"github.com/kloudkit/ws-cli/internals/styles"
 )
 
+var errExists = errors.New("exists")
+
 type Options struct {
 	Source    string
 	Force     bool
 	Dests     []string
 	MasterKey string
 	Out       io.Writer
-}
-
-type reporter struct {
-	out io.Writer
-}
-
-func (r reporter) seeded(dest string) {
-	styles.PrintSuccess(r.out, fmt.Sprintf("Seeded [%s]", dest))
-}
-
-func (r reporter) skip(dest, reason string) {
-	styles.PrintWarning(r.out, fmt.Sprintf("Skipping [%s] (%s)", dest, reason))
-}
-
-func (r reporter) notice(dest string) {
-	styles.PrintKeyValues(r.out, styles.Pair{Key: "Notice", Value: fmt.Sprintf("[%s] runs next boot; ensure +x if executable", dest)})
-}
-
-func (r reporter) rotated(describe string) {
-	styles.PrintSuccess(r.out, fmt.Sprintf("Rotated %s", describe))
-}
-
-func (r reporter) empty(source string) {
-	styles.PrintEmpty(r.out, fmt.Sprintf("No seed entries in [%s]", source))
 }
 
 type keyResolver struct {
@@ -54,16 +32,7 @@ type keyResolver struct {
 	err     error
 }
 
-func (k *keyResolver) master() ([]byte, error) {
-	if !k.loaded {
-		k.key, k.err = secrets.ResolveMasterKey(k.flag)
-		k.loaded = true
-	}
-
-	return k.key, k.err
-}
-
-func (k *keyResolver) resolveNamed(name string) ([]byte, error) {
+func (k *keyResolver) named(name string) ([]byte, error) {
 	value, ok := k.secrets[name]
 	if !ok {
 		return nil, fmt.Errorf("secret %q not declared", name)
@@ -75,17 +44,21 @@ func (k *keyResolver) resolveNamed(name string) ([]byte, error) {
 func (k *keyResolver) decrypt(value string) ([]byte, error) {
 	resolved, err := secrets.ResolveEncryptedValue(value)
 	if err != nil {
-		return nil, fmt.Errorf("secret source unresolved")
+		return nil, errors.New("secret source unresolved")
 	}
 
-	master, err := k.master()
-	if err != nil {
-		return nil, fmt.Errorf("master key unavailable")
+	if !k.loaded {
+		k.key, k.err = secrets.ResolveMasterKey(k.flag)
+		k.loaded = true
 	}
 
-	plain, err := secrets.Decrypt(secrets.NormalizeEncrypted(resolved), master)
+	if k.err != nil {
+		return nil, errors.New("master key unavailable")
+	}
+
+	plain, err := secrets.Decrypt(secrets.NormalizeEncrypted(resolved), k.key)
 	if err != nil {
-		return nil, fmt.Errorf("decrypt failed")
+		return nil, errors.New("decrypt failed")
 	}
 
 	return plain, nil
@@ -99,167 +72,128 @@ func Apply(opts Options) error {
 
 	ops := plan.Ops
 	if len(opts.Dests) > 0 {
-		ops, err = plan.filterDests(opts.Dests)
-		if err != nil {
+		if ops, err = plan.filterDests(opts.Dests); err != nil {
 			return err
 		}
 	}
 
-	declared := map[string]string{}
-	if plan.Manifest != nil {
-		declared = plan.Manifest.Secrets
-	}
-
-	keys := &keyResolver{flag: opts.MasterKey, secrets: declared}
-	defer func() { clear(keys.key) }()
-	rep := reporter{out: opts.Out}
-
 	if len(ops) == 0 {
-		rep.empty(plan.Source)
+		styles.PrintEmpty(opts.Out, fmt.Sprintf("No seed entries in [%s]", plan.source))
 		return nil
 	}
+
+	keys := &keyResolver{flag: opts.MasterKey, secrets: plan.manifest.Secrets}
+	defer func() { clear(keys.key) }()
 
 	failures := 0
 	for _, op := range ops {
-		if err := plan.applyOne(op, keys, rep); err != nil {
+		wrote, err := plan.applyOne(op, keys)
+
+		switch {
+		case errors.Is(err, errExists):
+			styles.PrintWarning(opts.Out, fmt.Sprintf("Skipping [%s] (exists)", op.Dest))
+		case err != nil:
+			styles.PrintWarning(opts.Out, fmt.Sprintf("Skipping [%s] (%s)", op.Dest, err))
 			failures++
+		default:
+			if wrote && consumedNotice(op.Dest, plan.vars.Home) {
+				styles.PrintKeyValues(opts.Out, styles.Pair{Key: "Notice", Value: fmt.Sprintf("[%s] runs next boot; ensure +x if executable", op.Dest)})
+			}
+
+			styles.PrintSuccess(opts.Out, fmt.Sprintf("Seeded [%s]", op.Dest))
 		}
 	}
 
-	if failures > 0 {
-		noun := "entries"
-		if failures == 1 {
-			noun = "entry"
-		}
-
-		return fmt.Errorf("%d seed %s failed to apply", failures, noun)
+	switch {
+	case failures == 1:
+		return errors.New("1 seed entry failed to apply")
+	case failures > 1:
+		return fmt.Errorf("%d seed entries failed to apply", failures)
 	}
 
 	return nil
 }
 
-func (p *Plan) applyOne(op ResolvedOp, keys *keyResolver, rep reporter) error {
+func (p *Plan) applyOne(op ResolvedOp, keys *keyResolver) (bool, error) {
 	ancestor := nearestExistingAncestor(op.Dest)
 	if !ownsPath(ancestor) {
-		rep.skip(op.Dest, "destination not owned")
-		return fmt.Errorf("destination not owned")
+		return false, errors.New("destination not owned")
 	}
 
-	if op.Op != OpBlock && op.Op != OpLineInfile && !internalIO.CanOverride(op.Dest, op.Force) {
-		rep.skip(op.Dest, "exists")
-		return nil
+	edit := op.Op == OpBlock || op.Op == OpLineInfile
+	if !edit && !internalIO.CanOverride(op.Dest, op.Force) {
+		return false, errExists
 	}
 
-	content, mode, err := p.materialize(op, keys)
-	if err != nil {
-		rep.skip(op.Dest, err.Error())
-		return err
+	var existing []byte
+	if op.Op != OpCopy {
+		existing, _ = os.ReadFile(op.Dest)
 	}
 
-	if (op.Op == OpBlock || op.Op == OpLineInfile) && bytes.Equal(content, readExisting(op.Dest)) {
-		rep.seeded(op.Dest)
-		return nil
+	content, mode, err := p.materialize(op, existing, keys)
+	if err != nil || edit && bytes.Equal(content, existing) {
+		return false, err
 	}
 
-	anchor := chooseAnchor(op.Dest, p.Vars, ancestor)
-	if err := writeAtomic(anchor, op.Dest, content, mode); err != nil {
-		rep.skip(op.Dest, err.Error())
-		return err
-	}
-
-	if consumedNotice(op.Dest, p.Vars.Home) {
-		rep.notice(op.Dest)
-	}
-
-	rep.seeded(op.Dest)
-	return nil
+	return true, writeAtomic(chooseAnchor(op.Dest, p.vars, ancestor), op.Dest, content, mode)
 }
 
-func (p *Plan) materialize(op ResolvedOp, keys *keyResolver) ([]byte, fs.FileMode, error) {
-	raw, err := p.sourceBytes(op)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, 0, fmt.Errorf("no source available")
-		}
+func (p *Plan) materialize(op ResolvedOp, existing []byte, keys *keyResolver) ([]byte, fs.FileMode, error) {
+	var raw []byte
+	var err error
 
+	if op.Content != nil {
+		raw = []byte(*op.Content)
+	} else if raw, err = os.ReadFile(op.Source); errors.Is(err, fs.ErrNotExist) {
+		return nil, 0, errors.New("no source available")
+	} else if err != nil {
 		return nil, 0, fmt.Errorf("source unreadable: %w", err)
 	}
 
-	mode, err := resolveMode(op, op.Secret || (op.Template && referencesSecrets(raw)))
+	mode, err := resolveMode(op, raw)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	content, err := p.transform(op, raw, keys)
+	content := raw
+	switch {
+	case op.Secret:
+		content, err = keys.decrypt(string(raw))
+	case op.Template:
+		content, err = renderTemplate(raw, p.vars, keys.named)
+	}
+
 	if err != nil {
 		return nil, 0, err
 	}
 
 	switch op.Op {
 	case OpMerge:
-		if content, err = mergeContent(readExisting(op.Dest), content, op.Dest); err != nil {
-			return nil, 0, err
-		}
+		content, err = mergeContent(existing, content, op.Dest)
 	case OpAppend:
-		content = slices.Concat(readExisting(op.Dest), content)
+		content = slices.Concat(existing, content)
 	case OpPrepend:
-		content = slices.Concat(content, readExisting(op.Dest))
+		content = slices.Concat(content, existing)
 	case OpBlock:
-		if content, err = ensureBlock(readExisting(op.Dest), content, op.Comment); err != nil {
-			return nil, 0, err
-		}
+		content, err = ensureBlock(existing, content, op.Comment)
 	case OpLineInfile:
-		if content, err = ensureLine(readExisting(op.Dest), content); err != nil {
-			return nil, 0, err
-		}
+		content, err = ensureLine(existing, content)
 	}
 
-	return content, mode, nil
+	return content, mode, err
 }
 
-func (p *Plan) transform(op ResolvedOp, raw []byte, keys *keyResolver) ([]byte, error) {
-	if op.Secret {
-		return keys.decrypt(string(raw))
-	}
-
-	if op.Template {
-		return renderTemplate(raw, p.Vars, keys.resolveNamed)
-	}
-
-	return raw, nil
-}
-
-func (p *Plan) sourceBytes(op ResolvedOp) ([]byte, error) {
-	if op.Content != nil {
-		return []byte(*op.Content), nil
-	}
-
-	return os.ReadFile(op.Source)
-}
-
-func resolveMode(op ResolvedOp, secretBearing bool) (fs.FileMode, error) {
-	if secretBearing {
+func resolveMode(op ResolvedOp, raw []byte) (fs.FileMode, error) {
+	switch {
+	case op.Secret || op.Template && bytes.Contains(raw, []byte("${secrets.")):
 		return 0o600, nil
-	}
-
-	if op.Mode != "" {
+	case op.Mode != "":
 		return internalIO.ParseFileMode(op.Mode)
 	}
 
-	if op.Op.inPlace() {
-		if info, err := os.Stat(op.Dest); err == nil {
-			return info.Mode().Perm(), nil
-		}
+	if info, err := os.Stat(op.Dest); err == nil && op.Op != OpCopy {
+		return info.Mode().Perm(), nil
 	}
 
 	return 0o644, nil
-}
-
-func readExisting(dest string) []byte {
-	data, err := os.ReadFile(dest)
-	if err != nil {
-		return nil
-	}
-
-	return data
 }

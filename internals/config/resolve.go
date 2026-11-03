@@ -32,20 +32,13 @@ const (
 	SourceSecretFileDefault
 )
 
+var sourceLabels = [...]string{"process", "alias", "declared", "file", "mount"}
+
 func (s ResolveSource) Label() string {
-	switch s {
-	case SourceEnv:
-		return "process"
-	case SourceDeprecatedAlias:
-		return "alias"
-	case SourceDefault:
-		return "declared"
-	case SourceEnvFile:
-		return "file"
-	case SourceSecretFileDefault:
-		return "mount"
+	if s < 0 || int(s) >= len(sourceLabels) {
+		return ""
 	}
-	return ""
+	return sourceLabels[s]
 }
 
 const defaultSecretConventionRoot = "/run/secrets/workspace"
@@ -249,5 +242,5 @@ func DeprecationLine(alias, preferred string) string {
 }
 
 func BothSetLine(alias, preferred string) string {
-	return fmt.Sprintf("Both [%s] (deprecated) and [%s] are set\n. Aborting", alias, preferred)
+	return fmt.Sprintf("Both [%s] (deprecated) and [%s] are set. Aborting", alias, preferred)
 }

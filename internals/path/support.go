@@ -1,7 +1,6 @@
 package path
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -48,14 +47,6 @@ func ExpandHome(path string) string {
 
 func Expand(path string) string {
 	return ExpandHome(filepath.Clean(os.ExpandEnv(path)))
-}
-
-func GetCurrentWorkingDirectory(segments ...string) (string, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current directory: %w", err)
-	}
-	return AppendSegments(cwd, segments...), nil
 }
 
 func ShortenHomePath(path_ string) string {

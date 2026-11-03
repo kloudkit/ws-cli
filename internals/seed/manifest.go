@@ -1,15 +1,40 @@
 package seed
 
 import (
+	"cmp"
+	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
-const ManifestName = ".seed.yaml"
+const manifestName = ".seed.yaml"
+
+type Op string
+
+const (
+	OpCopy       Op = "copy"
+	OpMerge      Op = "merge"
+	OpAppend     Op = "append"
+	OpPrepend    Op = "prepend"
+	OpBlock      Op = "block"
+	OpLineInfile Op = "lineinfile"
+)
+
+var knownOps = []Op{OpCopy, OpMerge, OpAppend, OpPrepend, OpBlock, OpLineInfile}
+
+type SeedOp struct {
+	Mode     string  `yaml:"mode"`
+	Content  *string `yaml:"content"`
+	Secret   bool    `yaml:"secret"`
+	Op       Op      `yaml:"op"`
+	Template bool    `yaml:"template"`
+	Force    bool    `yaml:"force"`
+	Comment  string  `yaml:"comment"`
+}
 
 type Manifest struct {
 	Version string            `yaml:"version"`
@@ -17,20 +42,11 @@ type Manifest struct {
 	Seeds   map[string]SeedOp `yaml:"seeds"`
 }
 
-func ManifestPath(source string) string {
-	return filepath.Join(source, ManifestName)
+func manifestPath(source string) string {
+	return filepath.Join(source, manifestName)
 }
 
-func LoadManifest(path string) (*Manifest, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read manifest %q: %w", path, err)
-	}
-
-	return ParseManifest(data)
-}
-
-func ParseManifest(data []byte) (*Manifest, error) {
+func parseManifest(data []byte) (*Manifest, error) {
 	var manifest Manifest
 	if err := yaml.Unmarshal(data, &manifest); err != nil {
 		return nil, fmt.Errorf("failed to parse manifest: %w", err)
@@ -41,46 +57,31 @@ func ParseManifest(data []byte) (*Manifest, error) {
 	}
 
 	for name, value := range manifest.Secrets {
-		if err := validateSecretValue(name, value); err != nil {
-			return nil, err
+		if !strings.HasPrefix(value, "file:") && !strings.Contains(value, "$") {
+			return nil, fmt.Errorf("secret %q: expected ciphertext or file: ref", name)
 		}
 	}
 
 	for dest, op := range manifest.Seeds {
-		if !op.hasBehavior() {
-			return nil, fmt.Errorf("seed %q: a copy-only entry is not allowed (use the mirror tier)", dest)
+		if err := op.validate(); err != nil {
+			return nil, fmt.Errorf("seed %q: %w", dest, err)
 		}
 
-		if op.Op == "" {
-			op.Op = OpCopy
-			manifest.Seeds[dest] = op
-		}
-
-		if err := validateOp(dest, op); err != nil {
-			return nil, err
-		}
+		op.Op = cmp.Or(op.Op, OpCopy)
+		manifest.Seeds[dest] = op
 	}
 
 	return &manifest, nil
 }
 
-func validateSecretValue(name, value string) error {
-	if value != "" && (strings.HasPrefix(value, "file:") || strings.Contains(value, "$")) {
-		return nil
-	}
-
-	return fmt.Errorf("secret %q: expected ciphertext or file: ref", name)
-}
-
-func validateOp(dest string, op SeedOp) error {
-	switch op.Op {
-	case OpCopy, OpMerge, OpAppend, OpPrepend, OpBlock, OpLineInfile:
-	default:
-		return fmt.Errorf("seed %q: unknown op %q", dest, op.Op)
-	}
-
-	if op.Comment != "" && op.Op != OpBlock {
-		return fmt.Errorf("seed %q: comment is only valid with op: block", dest)
+func (o SeedOp) validate() error {
+	switch {
+	case !o.Secret && o.Mode == "" && cmp.Or(o.Op, OpCopy) == OpCopy && !o.Template && o.Content == nil:
+		return errors.New("a copy-only entry is not allowed (use the mirror tier)")
+	case !slices.Contains(knownOps, cmp.Or(o.Op, OpCopy)):
+		return fmt.Errorf("unknown op %q", o.Op)
+	case o.Comment != "" && o.Op != OpBlock:
+		return errors.New("comment is only valid with op: block")
 	}
 
 	return nil

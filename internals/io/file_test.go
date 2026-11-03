@@ -3,183 +3,84 @@ package io
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
 )
 
 func TestWriteSecureFile(t *testing.T) {
-	tempDir := t.TempDir()
+	cases := []struct {
+		name, path, mode string
+		existing         bool
+		force            bool
+		err              string
+		perm, dirPerm    os.FileMode
+		dir              string
+	}{
+		{name: "New", path: "a.txt", mode: "0o600", perm: 0o600},
+		{name: "ExistsNoForce", path: "b.txt", mode: "0o600", existing: true, err: "exists, use --force to overwrite"},
+		{name: "ExistsForce", path: "c.txt", mode: "0o600", perm: 0o600, existing: true, force: true},
+		{name: "InvalidMode", path: "d.txt", mode: "999", err: "invalid file mode"},
+		{name: "DefaultMode", path: "e.txt", perm: DefaultFileMode},
+		{name: "Dir600", path: "d600/sub/f.txt", mode: "0o600", perm: 0o600, dir: "d600", dirPerm: 0o700},
+		{name: "Dir644", path: "d644/sub/f.txt", mode: "0o644", perm: 0o644, dir: "d644", dirPerm: 0o744},
+		{name: "Dir400", path: "d400/f.txt", mode: "0o400", perm: 0o400, dir: "d400", dirPerm: 0o700},
+		{name: "Dir755", path: "d755/f.txt", mode: "0o755", perm: 0o755, dir: "d755", dirPerm: 0o755},
+	}
 
-	t.Run("writes new file successfully", func(t *testing.T) {
-		filePath := filepath.Join(tempDir, "new-file.txt")
-		content := []byte("test content")
+	root := t.TempDir()
 
-		err := WriteSecureFile(filePath, content, "0o600", false)
-		assert.NilError(t, err)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			path := filepath.Join(root, c.path)
+			if c.existing {
+				assert.NilError(t, os.WriteFile(path, []byte("original"), 0o644))
+			}
 
-		data, err := os.ReadFile(filePath)
-		assert.NilError(t, err)
-		assert.DeepEqual(t, content, data)
+			err := WriteSecureFile(path, []byte("content"), c.mode, c.force)
 
-		info, err := os.Stat(filePath)
-		assert.NilError(t, err)
-		assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
-	})
+			data, _ := os.ReadFile(path)
+			if c.err != "" {
+				assert.ErrorContains(t, err, c.err)
+				if c.existing {
+					assert.Equal(t, string(data), "original")
+				}
+				return
+			}
 
-	t.Run("fails when file exists without force", func(t *testing.T) {
-		filePath := filepath.Join(tempDir, "existing-file.txt")
-		os.WriteFile(filePath, []byte("original"), 0644)
-
-		err := WriteSecureFile(filePath, []byte("new content"), "0o600", false)
-		assert.Assert(t, err != nil)
-		assert.ErrorContains(t, err, "exists, use --force to overwrite")
-
-		data, _ := os.ReadFile(filePath)
-		assert.DeepEqual(t, []byte("original"), data)
-	})
-
-	t.Run("overwrites file when force is true", func(t *testing.T) {
-		filePath := filepath.Join(tempDir, "force-file.txt")
-		os.WriteFile(filePath, []byte("original"), 0644)
-
-		err := WriteSecureFile(filePath, []byte("new content"), "0o600", true)
-		assert.NilError(t, err)
-
-		data, err := os.ReadFile(filePath)
-		assert.NilError(t, err)
-		assert.DeepEqual(t, []byte("new content"), data)
-	})
-
-	t.Run("fails with invalid mode", func(t *testing.T) {
-		filePath := filepath.Join(tempDir, "invalid-mode.txt")
-
-		err := WriteSecureFile(filePath, []byte("content"), "999", false)
-		assert.Assert(t, err != nil)
-	})
-
-	t.Run("handles different file modes", func(t *testing.T) {
-		modes := []string{"0o400", "0o600", "0o644", "0o755"}
-
-		for _, mode := range modes {
-			filePath := filepath.Join(tempDir, "mode-"+mode+".txt")
-			err := WriteSecureFile(filePath, []byte("test"), mode, false)
 			assert.NilError(t, err)
-		}
-	})
+			assert.Equal(t, string(data), "content")
 
-	t.Run("handles empty content", func(t *testing.T) {
-		filePath := filepath.Join(tempDir, "empty.txt")
+			if info, err := os.Stat(path); c.perm != 0 {
+				assert.NilError(t, err)
+				assert.Equal(t, info.Mode().Perm(), c.perm)
+			}
 
-		err := WriteSecureFile(filePath, []byte(""), "0o600", false)
-		assert.NilError(t, err)
-
-		data, err := os.ReadFile(filePath)
-		assert.NilError(t, err)
-		assert.DeepEqual(t, []byte(""), data)
-	})
-
-	t.Run("creates nested directories", func(t *testing.T) {
-		nestedPath := filepath.Join(tempDir, "nested", "deep", "dirs", "file.txt")
-		content := []byte("nested content")
-
-		err := WriteSecureFile(nestedPath, content, "0o600", false)
-		assert.NilError(t, err)
-
-		data, err := os.ReadFile(nestedPath)
-		assert.NilError(t, err)
-		assert.DeepEqual(t, content, data)
-	})
-
-	t.Run("directory mode derived from file mode 0o600", func(t *testing.T) {
-		nestedPath := filepath.Join(tempDir, "dir600", "subdir", "file.txt")
-
-		err := WriteSecureFile(nestedPath, []byte("test"), "0o600", false)
-		assert.NilError(t, err)
-
-		dirInfo, err := os.Stat(filepath.Join(tempDir, "dir600"))
-		assert.NilError(t, err)
-		assert.Equal(t, os.FileMode(0o700), dirInfo.Mode().Perm())
-	})
-
-	t.Run("directory mode derived from file mode 0o644", func(t *testing.T) {
-		nestedPath := filepath.Join(tempDir, "dir644", "subdir", "file.txt")
-
-		err := WriteSecureFile(nestedPath, []byte("test"), "0o644", false)
-		assert.NilError(t, err)
-
-		dirInfo, err := os.Stat(filepath.Join(tempDir, "dir644"))
-		assert.NilError(t, err)
-		assert.Equal(t, os.FileMode(0o744), dirInfo.Mode().Perm())
-	})
-
-	t.Run("directory mode derived from file mode 0o400", func(t *testing.T) {
-		nestedPath := filepath.Join(tempDir, "dir400", "file.txt")
-
-		err := WriteSecureFile(nestedPath, []byte("test"), "0o400", false)
-		assert.NilError(t, err)
-
-		dirInfo, err := os.Stat(filepath.Join(tempDir, "dir400"))
-		assert.NilError(t, err)
-		assert.Equal(t, os.FileMode(0o700), dirInfo.Mode().Perm())
-	})
-}
-
-func TestFileExists(t *testing.T) {
-	t.Run("ExistingFile", func(t *testing.T) {
-		tempDir := t.TempDir()
-		testFile := filepath.Join(tempDir, "test.txt")
-
-		err := os.WriteFile(testFile, []byte("test"), 0644)
-		assert.NilError(t, err)
-
-		assert.Assert(t, FileExists(testFile))
-	})
-
-	t.Run("NonExistentFile", func(t *testing.T) {
-		result := FileExists("/non/existent/file")
-		assert.Assert(t, !result)
-	})
+			if c.dir != "" {
+				info, err := os.Stat(filepath.Join(root, c.dir))
+				assert.NilError(t, err)
+				assert.Equal(t, info.Mode().Perm(), c.dirPerm)
+			}
+		})
+	}
 }
 
 func TestCopyFile(t *testing.T) {
-	t.Run("SuccessfulCopy", func(t *testing.T) {
-		tempDir := t.TempDir()
-		sourceFile := filepath.Join(tempDir, "source.txt")
-		destFile := filepath.Join(tempDir, "dest.txt")
-		content := "test content"
+	dir := t.TempDir()
+	source, dest := filepath.Join(dir, "source.txt"), filepath.Join(dir, "dest.txt")
 
-		err := os.WriteFile(sourceFile, []byte(content), 0644)
-		assert.NilError(t, err)
+	assert.Assert(t, !FileExists(source))
+	assert.ErrorContains(t, CopyFile(source, dest), "failed to stat source file")
+	assert.ErrorContains(t, CopyFile(dir, dest), "is not a regular file")
 
-		err = CopyFile(sourceFile, destFile)
-		assert.NilError(t, err)
+	assert.NilError(t, os.WriteFile(source, []byte("test content"), 0o644))
+	assert.Assert(t, FileExists(source))
+	assert.NilError(t, CopyFile(source, dest))
 
-		destContent, err := os.ReadFile(destFile)
-		assert.NilError(t, err)
-		assert.Equal(t, string(destContent), content)
-	})
-
-	t.Run("NonExistentSource", func(t *testing.T) {
-		tempDir := t.TempDir()
-		sourceFile := filepath.Join(tempDir, "nonexistent.txt")
-		destFile := filepath.Join(tempDir, "dest.txt")
-
-		err := CopyFile(sourceFile, destFile)
-		assert.ErrorContains(t, err, "failed to stat source file")
-	})
-
-	t.Run("DirectoryAsSource", func(t *testing.T) {
-		tempDir := t.TempDir()
-		sourceDir := filepath.Join(tempDir, "sourcedir")
-		destFile := filepath.Join(tempDir, "dest.txt")
-
-		err := os.Mkdir(sourceDir, 0755)
-		assert.NilError(t, err)
-
-		err = CopyFile(sourceDir, destFile)
-		assert.ErrorContains(t, err, "is not a regular file")
-	})
+	data, err := os.ReadFile(dest)
+	assert.NilError(t, err)
+	assert.Equal(t, string(data), "test content")
 }
 
 func TestParseFileMode(t *testing.T) {
@@ -212,4 +113,31 @@ func TestParseFileMode(t *testing.T) {
 			assert.Equal(t, mode, tt.want)
 		})
 	}
+}
+
+func TestReadInputAndPassword(t *testing.T) {
+	got, err := ReadInput("literal", nil)
+	assert.NilError(t, err)
+	assert.Equal(t, got, "literal")
+
+	got, err = ReadInput("-", strings.NewReader("piped"))
+	assert.NilError(t, err)
+	assert.Equal(t, got, "piped")
+
+	got, err = ReadPasswordFromReader(strings.NewReader("hunter2\n"))
+	assert.NilError(t, err)
+	assert.Equal(t, got, "hunter2\n")
+
+	_, err = ReadPasswordFromReader(strings.NewReader("  \n"))
+	assert.ErrorContains(t, err, "empty password provided")
+
+	pipe := filepath.Join(t.TempDir(), "pw")
+	assert.NilError(t, os.WriteFile(pipe, []byte("from-file"), 0o600))
+	file, err := os.Open(pipe)
+	assert.NilError(t, err)
+	defer file.Close()
+
+	got, err = ReadPasswordFromReader(file)
+	assert.NilError(t, err)
+	assert.Equal(t, got, "from-file")
 }

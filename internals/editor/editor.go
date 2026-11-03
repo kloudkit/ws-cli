@@ -52,7 +52,7 @@ type Selection struct {
 type OpenRequest struct {
 	Path      string `json:"path"`
 	NewWindow bool   `json:"newWindow"`
-	Preview   bool   `json:"preview,omitempty"`
+	Preview   bool   `json:"preview"`
 	Selection *Range `json:"selection,omitempty"`
 }
 
@@ -103,43 +103,35 @@ func FetchDiagnostics(uri string) ([]byte, error) {
 		envelope["uri"] = uri
 	}
 
-	return fetch("", envelope)
+	return fetch(envelope)
 }
 
 func FetchEditors() ([]byte, error) {
-	return fetch("", map[string]any{"type": "editorList"})
+	return fetch(map[string]any{"type": "editorList"})
 }
 
 func FetchSelection() ([]byte, error) {
-	return fetch("", map[string]any{"type": "editorSelection"})
+	return fetch(map[string]any{"type": "editorSelection"})
 }
 
 func Open(req OpenRequest) error {
-	envelope := map[string]any{
-		"type":      "editorOpen",
-		"path":      req.Path,
-		"preview":   req.Preview,
-		"newWindow": req.NewWindow,
-	}
-
-	if req.Selection != nil {
-		envelope["selection"] = req.Selection
-	}
-
-	_, err := net.SendEnvelope(req.Path, envelope)
+	_, err := net.SendEnvelope(req.Path, struct {
+		Type string `json:"type"`
+		OpenRequest
+	}{"editorOpen", req})
 
 	return err
 }
 
 func Notify(req NotifyRequest) ([]byte, error) {
-	return fetch("", struct {
+	return fetch(struct {
 		Type string `json:"type"`
 		NotifyRequest
 	}{"notify", req})
 }
 
-func fetch(filePath string, envelope any) ([]byte, error) {
-	body, err := net.SendEnvelope(filePath, envelope)
+func fetch(envelope any) ([]byte, error) {
+	body, err := net.SendEnvelope("", envelope)
 	if err != nil {
 		return nil, err
 	}

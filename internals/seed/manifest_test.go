@@ -24,7 +24,7 @@ func TestParseManifest(t *testing.T) {
 
 	for _, tt := range rejected {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ParseManifest([]byte(tt.yaml))
+			_, err := parseManifest([]byte(tt.yaml))
 			assert.ErrorContains(t, err, tt.want)
 		})
 	}
@@ -41,20 +41,20 @@ func TestParseManifest(t *testing.T) {
 
 	for _, tt := range accepted {
 		t.Run(tt.name, func(t *testing.T) {
-			manifest, err := ParseManifest([]byte(tt.yaml))
+			manifest, err := parseManifest([]byte(tt.yaml))
 			assert.NilError(t, err)
 			assert.Equal(t, manifest.Seeds["/tmp/x"].Op, tt.op)
 		})
 	}
 
 	t.Run("SecretValueFileRefAccepted", func(t *testing.T) {
-		manifest, err := ParseManifest([]byte("version: v1\nsecrets:\n  TOKEN: file:/run/secrets/token\n"))
+		manifest, err := parseManifest([]byte("version: v1\nsecrets:\n  TOKEN: file:/run/secrets/token\n"))
 		assert.NilError(t, err)
 		assert.Equal(t, manifest.Secrets["TOKEN"], "file:/run/secrets/token")
 	})
 
 	t.Run("InlineContentEntryAccepted", func(t *testing.T) {
-		manifest, err := ParseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    content: \"hi\\n\"\n"))
+		manifest, err := parseManifest([]byte("version: v1\nseeds:\n  /tmp/x:\n    content: \"hi\\n\"\n"))
 		assert.NilError(t, err)
 		assert.Equal(t, *manifest.Seeds["/tmp/x"].Content, "hi\n")
 		assert.Equal(t, manifest.Seeds["/tmp/x"].Op, OpCopy)

@@ -13,17 +13,24 @@ import (
 )
 
 const (
-	Argon2Time    = 3
-	Argon2Memory  = 64 * 1024 // 64MB
-	Argon2Threads = 4
-	Argon2KeyLen  = 32
-	SaltLen       = 16
+	argonTime    = 3
+	argonMemory  = 64 * 1024
+	argonThreads = 4
+	argonKeyLen  = 32
 )
 
-func Encrypt(plainText []byte, masterKey []byte) (string, error) {
-	salt := make([]byte, SaltLen)
+func newSalt() []byte {
+	salt := make([]byte, 16)
 	rand.Read(salt)
+	return salt
+}
 
+func argonKey(secret, salt []byte) []byte {
+	return argon2.IDKey(secret, salt, argonTime, argonMemory, argonThreads, argonKeyLen)
+}
+
+func Encrypt(plainText []byte, masterKey []byte) (string, error) {
+	salt := newSalt()
 	aesGCM, err := deriveKeyAndGCM(masterKey, salt)
 	if err != nil {
 		return "", err
@@ -48,7 +55,7 @@ func ResolveEncryptedValue(encrypted string) (string, error) {
 		return encrypted, nil
 	}
 
-	filePath := strings.TrimPrefix(encrypted, "file:")
+	filePath := encrypted[len("file:"):]
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read encrypted file %s: %w", filePath, err)
@@ -87,7 +94,7 @@ func Decrypt(encodedValue string, masterKey []byte) ([]byte, error) {
 }
 
 func deriveKeyAndGCM(masterKey, salt []byte) (cipher.AEAD, error) {
-	key := argon2.IDKey(masterKey, salt, Argon2Time, Argon2Memory, Argon2Threads, Argon2KeyLen)
+	key := argonKey(masterKey, salt)
 	defer clear(key)
 
 	block, err := aes.NewCipher(key)
@@ -99,14 +106,11 @@ func deriveKeyAndGCM(masterKey, salt []byte) (cipher.AEAD, error) {
 }
 
 func HashPasswordForWorkspace(password string) (string, error) {
-	salt := make([]byte, SaltLen)
-	rand.Read(salt)
-
-	hash := argon2.IDKey([]byte(password), salt, Argon2Time, Argon2Memory, Argon2Threads, Argon2KeyLen)
+	salt := newSalt()
 
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
-		argon2.Version, Argon2Memory, Argon2Time, Argon2Threads,
+		argon2.Version, argonMemory, argonTime, argonThreads,
 		base64.RawStdEncoding.EncodeToString(salt),
-		base64.RawStdEncoding.EncodeToString(hash),
+		base64.RawStdEncoding.EncodeToString(argonKey([]byte(password), salt)),
 	), nil
 }

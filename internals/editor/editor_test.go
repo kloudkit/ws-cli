@@ -28,139 +28,58 @@ func envelopeOf(t *testing.T, r *http.Request) map[string]any {
 	return envelope
 }
 
-func fixture(t *testing.T, name string) []byte {
-	t.Helper()
+func TestEnvelopes(t *testing.T) {
+	cases := []struct {
+		name     string
+		response string
+		call     func() ([]byte, error)
+		want     map[string]any
+		absent   []string
+		body     string
+	}{
+		{"DiagnosticsURI", `[{"uri":"x"}]`, func() ([]byte, error) { return editor.FetchDiagnostics("file:///workspace/main.go") },
+			map[string]any{"type": "diagnostics", "uri": "file:///workspace/main.go"}, nil, `[{"uri":"x"}]`},
+		{"DiagnosticsAll", "[]", func() ([]byte, error) { return editor.FetchDiagnostics("") },
+			map[string]any{"type": "diagnostics"}, []string{"uri"}, "[]"},
+		{"Editors", "[]", editor.FetchEditors, map[string]any{"type": "editorList"}, nil, "[]"},
+		{"Selection", `{"path":"a"}`, editor.FetchSelection, map[string]any{"type": "editorSelection"}, nil, `{"path":"a"}`},
+		{"SelectionNull", "null", editor.FetchSelection, map[string]any{"type": "editorSelection"}, nil, ""},
+		{"Open", `{"opened":true}`, func() ([]byte, error) {
+			return nil, editor.Open(editor.OpenRequest{Path: "/workspace/main.go", NewWindow: true, Selection: &editor.Range{End: editor.Position{Line: 2, Character: 5}}})
+		}, map[string]any{"type": "editorOpen", "path": "/workspace/main.go", "newWindow": true, "selection": map[string]any{
+			"start": map[string]any{"line": float64(0), "character": float64(0)},
+			"end":   map[string]any{"line": float64(2), "character": float64(5)},
+		}}, nil, ""},
+		{"Notify", `{"action":"Yes","timedOut":false}`, func() ([]byte, error) {
+			return editor.Notify(editor.NotifyRequest{Message: "Deploy now?", Actions: []any{"Yes", "No"}, Timeout: 5000})
+		}, map[string]any{"type": "notify", "message": "Deploy now?", "actions": []any{"Yes", "No"}, "timeout": float64(5000)}, nil, `{"action":"Yes","timedOut":false}`},
+		{"NotifyMinimal", "null", func() ([]byte, error) { return editor.Notify(editor.NotifyRequest{Message: "hi"}) },
+			map[string]any{"type": "notify", "message": "hi"}, []string{"detail", "actions", "timeout", "modal", "severity"}, ""},
+	}
 
-	data, err := os.ReadFile(filepath.Join("testdata", name))
-	assert.NilError(t, err)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var envelope map[string]any
 
-	return data
-}
+			testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				envelope = envelopeOf(t, r)
+				_, _ = w.Write([]byte(c.response))
+			}))
 
-func TestFetchDiagnosticsForwardsURI(t *testing.T) {
-	body := fixture(t, "diagnostics.json")
+			body, err := c.call()
+			assert.NilError(t, err)
+			assert.Equal(t, string(body), c.body)
 
-	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		envelope := envelopeOf(t, r)
-		assert.Equal(t, envelope["type"], "diagnostics")
-		assert.Equal(t, envelope["uri"], "file:///workspace/main.go")
-		_, _ = w.Write(body)
-	}))
+			for key, want := range c.want {
+				assert.DeepEqual(t, envelope[key], want)
+			}
 
-	got, err := editor.FetchDiagnostics("file:///workspace/main.go")
-	assert.NilError(t, err)
-	assert.DeepEqual(t, got, body)
-}
-
-func TestFetchDiagnosticsWithoutURIOmitsField(t *testing.T) {
-	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		envelope := envelopeOf(t, r)
-		_, hasURI := envelope["uri"]
-		assert.Assert(t, !hasURI)
-		_, _ = w.Write([]byte("[]"))
-	}))
-
-	got, err := editor.FetchDiagnostics("")
-	assert.NilError(t, err)
-	assert.Equal(t, string(got), "[]")
-}
-
-func TestFetchEditors(t *testing.T) {
-	body := fixture(t, "editors.json")
-
-	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, envelopeOf(t, r)["type"], "editorList")
-		_, _ = w.Write(body)
-	}))
-
-	got, err := editor.FetchEditors()
-	assert.NilError(t, err)
-	assert.DeepEqual(t, got, body)
-}
-
-func TestFetchSelection(t *testing.T) {
-	body := fixture(t, "selection.json")
-
-	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, envelopeOf(t, r)["type"], "editorSelection")
-		_, _ = w.Write(body)
-	}))
-
-	got, err := editor.FetchSelection()
-	assert.NilError(t, err)
-	assert.DeepEqual(t, got, body)
-}
-
-func TestFetchSelectionNullIsNil(t *testing.T) {
-	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("null"))
-	}))
-
-	got, err := editor.FetchSelection()
-	assert.NilError(t, err)
-	assert.Equal(t, len(got), 0)
-}
-
-func TestOpenSendsEnvelope(t *testing.T) {
-	var envelope map[string]any
-
-	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		envelope = envelopeOf(t, r)
-		_, _ = w.Write(fixture(t, "open.json"))
-	}))
-
-	err := editor.Open(editor.OpenRequest{
-		Path:      "/workspace/main.go",
-		NewWindow: true,
-		Selection: &editor.Range{End: editor.Position{Line: 2, Character: 5}},
-	})
-	assert.NilError(t, err)
-
-	assert.Equal(t, envelope["type"], "editorOpen")
-	assert.Equal(t, envelope["path"], "/workspace/main.go")
-	assert.Equal(t, envelope["newWindow"], true)
-	assert.Assert(t, envelope["selection"] != nil)
-}
-
-func TestNotifyForwardsPayload(t *testing.T) {
-	var envelope map[string]any
-
-	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		envelope = envelopeOf(t, r)
-		_, _ = w.Write([]byte(`{"action":"Yes","timedOut":false}`))
-	}))
-
-	body, err := editor.Notify(editor.NotifyRequest{
-		Message: "Deploy now?",
-		Actions: []any{"Yes", "No"},
-		Timeout: 5000,
-	})
-	assert.NilError(t, err)
-
-	assert.Equal(t, envelope["type"], "notify")
-	assert.Equal(t, envelope["message"], "Deploy now?")
-	assert.Assert(t, envelope["actions"] != nil)
-	assert.Equal(t, envelope["timeout"], float64(5000))
-	assert.Equal(t, string(body), `{"action":"Yes","timedOut":false}`)
-}
-
-func TestNotifyOmitsEmptyOptionals(t *testing.T) {
-	var envelope map[string]any
-
-	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		envelope = envelopeOf(t, r)
-		_, _ = w.Write([]byte("null"))
-	}))
-
-	_, err := editor.Notify(editor.NotifyRequest{Message: "hi"})
-	assert.NilError(t, err)
-
-	_, hasDetail := envelope["detail"]
-	_, hasActions := envelope["actions"]
-	_, hasTimeout := envelope["timeout"]
-	assert.Assert(t, !hasDetail)
-	assert.Assert(t, !hasActions)
-	assert.Assert(t, !hasTimeout)
+			for _, key := range c.absent {
+				_, has := envelope[key]
+				assert.Assert(t, !has, key)
+			}
+		})
+	}
 }
 
 func TestErrorResponseSurfacesBody(t *testing.T) {
@@ -182,35 +101,19 @@ func TestServerDownIsFriendly(t *testing.T) {
 }
 
 func TestFixturesMatchContract(t *testing.T) {
-	t.Run("diagnostics", func(t *testing.T) {
-		var v []editor.DiagnosticFile
-		decodeStrict(t, "diagnostics.json", &v)
-	})
+	for name, target := range map[string]any{
+		"diagnostics.json": &[]editor.DiagnosticFile{},
+		"editors.json":     &[]editor.Tab{},
+		"selection.json":   &editor.Selection{},
+		"open.json":        &struct{ Opened bool }{},
+	} {
+		data, err := os.ReadFile(filepath.Join("testdata", name))
+		assert.NilError(t, err)
 
-	t.Run("editors", func(t *testing.T) {
-		var v []editor.Tab
-		decodeStrict(t, "editors.json", &v)
-	})
-
-	t.Run("selection", func(t *testing.T) {
-		var v editor.Selection
-		decodeStrict(t, "selection.json", &v)
-	})
-
-	t.Run("open", func(t *testing.T) {
-		var v struct {
-			Opened bool `json:"opened"`
-		}
-		decodeStrict(t, "open.json", &v)
-	})
-}
-
-func decodeStrict(t *testing.T, name string, target any) {
-	t.Helper()
-
-	decoder := json.NewDecoder(bytes.NewReader(fixture(t, name)))
-	decoder.DisallowUnknownFields()
-	assert.NilError(t, decoder.Decode(target))
+		decoder := json.NewDecoder(bytes.NewReader(data))
+		decoder.DisallowUnknownFields()
+		assert.NilError(t, decoder.Decode(target), name)
+	}
 }
 
 func TestNormalizePath(t *testing.T) {
@@ -230,19 +133,12 @@ func TestNormalizePath(t *testing.T) {
 	}
 }
 
-func TestDecodeTabsNormalizesPaths(t *testing.T) {
+func TestDecodeNormalizesPaths(t *testing.T) {
 	tabs, err := editor.DecodeTabs([]byte(`[{"path":"\\workspace\\go.work","active":true},{"path":"/etc/hosts"}]`))
 	assert.NilError(t, err)
+	assert.DeepEqual(t, []string{tabs[0].Path, tabs[1].Path}, []string{"/workspace/go.work", "/etc/hosts"})
 
-	assert.Equal(t, len(tabs), 2)
-	assert.Equal(t, tabs[0].Path, "/workspace/go.work")
-	assert.Equal(t, tabs[1].Path, "/etc/hosts")
-}
-
-func TestDecodeSelectionNormalizesPath(t *testing.T) {
 	selection, err := editor.DecodeSelection([]byte(`{"path":"\\workspace\\main.go","text":"x"}`))
 	assert.NilError(t, err)
-
-	assert.Equal(t, selection.Path, "/workspace/main.go")
-	assert.Equal(t, selection.Text, "x")
+	assert.DeepEqual(t, *selection, editor.Selection{Path: "/workspace/main.go", Text: "x"})
 }

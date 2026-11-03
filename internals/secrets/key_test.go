@@ -18,80 +18,58 @@ envs:
         secret: true
 `
 
-func _installMasterKeyFixture(t *testing.T) {
+func setupSecrets(t *testing.T, env string) string {
 	t.Helper()
-	dir := t.TempDir()
-	path := filepath.Join(dir, "env.reference.yaml")
-	assert.NilError(t, os.WriteFile(path, []byte(masterKeyFixture), 0o644))
-	t.Setenv("WS__INTERNAL_ENV_REFERENCE", path)
-}
+	reference := filepath.Join(t.TempDir(), "env.reference.yaml")
+	assert.NilError(t, os.WriteFile(reference, []byte(masterKeyFixture), 0o644))
+	t.Setenv("WS__INTERNAL_ENV_REFERENCE", reference)
 
-func _newSecretRoot(t *testing.T) string {
-	t.Helper()
 	root := t.TempDir()
 	t.Setenv("WS__INTERNAL_SECRETS_ROOT", root)
+	t.Setenv("WS_SECRETS_MASTER_KEY", env)
+
 	return root
 }
 
+func writeFile(t *testing.T, path, content string) string {
+	t.Helper()
+	assert.NilError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	assert.NilError(t, os.WriteFile(path, []byte(content), 0o600))
+
+	return path
+}
+
 func TestResolveMasterKey(t *testing.T) {
-	t.Run("FromFlag", func(t *testing.T) {
-		_installMasterKeyFixture(t)
-		_newSecretRoot(t)
-		key := "this-is-not-base64-because-of-symbols!"
-		resolved, err := ResolveMasterKey(key)
+	keyFile := writeFile(t, filepath.Join(t.TempDir(), "master.key"), "secretkey")
+	prefixFile := writeFile(t, filepath.Join(t.TempDir(), "mk"), "file-prefix-key\n")
 
-		assert.NilError(t, err)
-		assert.Equal(t, key, string(resolved))
-	})
+	cases := []struct {
+		name, flag, env, convention, want string
+	}{
+		{name: "Flag", flag: "this-is-not-base64-because-of-symbols!", want: "this-is-not-base64-because-of-symbols!"},
+		{name: "Base64Flag", flag: "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=", want: "12345678901234567890123456789012"},
+		{name: "FlagFile", flag: keyFile, want: "secretkey"},
+		{name: "Env", env: "env-secret-key", want: "env-secret-key"},
+		{name: "FlagWinsOverEnv", flag: "flag-key", env: "env-key", want: "flag-key"},
+		{name: "EnvFilePrefix", env: "file:" + prefixFile, want: "file-prefix-key"},
+		{name: "Convention", convention: "convention-key\n", want: "convention-key"},
+	}
 
-	t.Run("FromBase64Flag", func(t *testing.T) {
-		_installMasterKeyFixture(t)
-		_newSecretRoot(t)
-		rawKey := []byte("12345678901234567890123456789012")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			root := setupSecrets(t, c.env)
+			if c.convention != "" {
+				writeFile(t, filepath.Join(root, "secrets", "master_key"), c.convention)
+			}
 
-		resolved, err := ResolveMasterKey("MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=")
-		assert.NilError(t, err)
-		assert.DeepEqual(t, rawKey, resolved)
-	})
-
-	t.Run("FromFile", func(t *testing.T) {
-		_installMasterKeyFixture(t)
-		_newSecretRoot(t)
-		keyFile := filepath.Join(t.TempDir(), "master.key")
-		keyContent := "secretkey"
-		err := os.WriteFile(keyFile, []byte(keyContent), 0600)
-		assert.NilError(t, err)
-
-		resolved, err := ResolveMasterKey(keyFile)
-		assert.NilError(t, err)
-		assert.Equal(t, keyContent, string(resolved))
-	})
-
-	t.Run("FromEnv", func(t *testing.T) {
-		_installMasterKeyFixture(t)
-		_newSecretRoot(t)
-		keyContent := "env-secret-key"
-		t.Setenv("WS_SECRETS_MASTER_KEY", keyContent)
-
-		resolved, err := ResolveMasterKey("")
-		assert.NilError(t, err)
-		assert.Equal(t, keyContent, string(resolved))
-	})
-
-	t.Run("Precedence", func(t *testing.T) {
-		_installMasterKeyFixture(t)
-		_newSecretRoot(t)
-		t.Setenv("WS_SECRETS_MASTER_KEY", "env-key")
-
-		resolved, err := ResolveMasterKey("flag-key")
-		assert.NilError(t, err)
-		assert.Equal(t, "flag-key", string(resolved))
-	})
+			resolved, err := ResolveMasterKey(c.flag)
+			assert.NilError(t, err)
+			assert.Equal(t, string(resolved), c.want)
+		})
+	}
 
 	t.Run("NotFound", func(t *testing.T) {
-		_installMasterKeyFixture(t)
-		_newSecretRoot(t)
-		t.Setenv("WS_SECRETS_MASTER_KEY", "")
+		setupSecrets(t, "")
 
 		_, err := ResolveMasterKey("")
 		assert.ErrorContains(t, err, "master key not found")
@@ -100,85 +78,40 @@ func TestResolveMasterKey(t *testing.T) {
 	})
 }
 
-func TestResolveMasterKey_FromConventionPath(t *testing.T) {
-	_installMasterKeyFixture(t)
-	root := _newSecretRoot(t)
-	keyContent := "convention-key"
-	keyPath := filepath.Join(root, "secrets/master_key")
-	assert.NilError(t, os.MkdirAll(filepath.Dir(keyPath), 0o755))
-	assert.NilError(t, os.WriteFile(keyPath, []byte(keyContent+"\n"), 0o600))
-	t.Setenv("WS_SECRETS_MASTER_KEY", "")
-
-	resolved, err := ResolveMasterKey("")
-	assert.NilError(t, err)
-	assert.Equal(t, keyContent, string(resolved))
-}
-
-func TestResolveMasterKey_FromFilePrefix(t *testing.T) {
-	_installMasterKeyFixture(t)
-	_newSecretRoot(t)
-	keyFile := filepath.Join(t.TempDir(), "mk")
-	assert.NilError(t, os.WriteFile(keyFile, []byte("file-prefix-key\n"), 0o600))
-	t.Setenv("WS_SECRETS_MASTER_KEY", "file:"+keyFile)
-
-	resolved, err := ResolveMasterKey("")
-	assert.NilError(t, err)
-	assert.Equal(t, "file-prefix-key", string(resolved))
-}
-
 func TestMaterializeMasterKey(t *testing.T) {
-	t.Run("FromEnvValue", func(t *testing.T) {
-		root := _newSecretRoot(t)
-		t.Setenv("WS_SECRETS_MASTER_KEY", "raw-key-value")
+	source := writeFile(t, filepath.Join(t.TempDir(), "mk"), "file-key\n")
 
-		path, err := MaterializeMasterKey()
-		assert.NilError(t, err)
-		assert.Equal(t, path, filepath.Join(root, "secrets", "master_key"))
+	cases := []struct {
+		name, env, existing, want string
+		written                   bool
+	}{
+		{name: "EnvValue", env: "raw-key-value", want: "raw-key-value", written: true},
+		{name: "FilePrefix", env: "file:" + source, want: "file-key", written: true},
+		{name: "UnsetIsNoop"},
+		{name: "ExistingIsNoop", env: "new-value", existing: "original", want: "original"},
+	}
 
-		data, err := os.ReadFile(path)
-		assert.NilError(t, err)
-		assert.Equal(t, string(data), "raw-key-value")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			target := filepath.Join(setupSecrets(t, c.env), "secrets", "master_key")
+			if c.existing != "" {
+				writeFile(t, target, c.existing)
+			}
 
-		info, err := os.Stat(path)
-		assert.NilError(t, err)
-		assert.Equal(t, info.Mode().Perm(), os.FileMode(0o600))
-	})
+			path, err := MaterializeMasterKey()
+			assert.NilError(t, err)
 
-	t.Run("FromFilePrefix", func(t *testing.T) {
-		_newSecretRoot(t)
-		source := filepath.Join(t.TempDir(), "mk")
-		assert.NilError(t, os.WriteFile(source, []byte("file-key\n"), 0o600))
-		t.Setenv("WS_SECRETS_MASTER_KEY", "file:"+source)
+			if c.written {
+				assert.Equal(t, path, target)
+				info, err := os.Stat(path)
+				assert.NilError(t, err)
+				assert.Equal(t, info.Mode().Perm(), os.FileMode(0o600))
+			} else {
+				assert.Equal(t, path, "")
+			}
 
-		path, err := MaterializeMasterKey()
-		assert.NilError(t, err)
-
-		data, err := os.ReadFile(path)
-		assert.NilError(t, err)
-		assert.Equal(t, string(data), "file-key")
-	})
-
-	t.Run("UnsetIsNoop", func(t *testing.T) {
-		_newSecretRoot(t)
-		t.Setenv("WS_SECRETS_MASTER_KEY", "")
-
-		path, err := MaterializeMasterKey()
-		assert.NilError(t, err)
-		assert.Equal(t, path, "")
-	})
-
-	t.Run("ExistingIsNoop", func(t *testing.T) {
-		root := _newSecretRoot(t)
-		existing := filepath.Join(root, "secrets", "master_key")
-		assert.NilError(t, os.MkdirAll(filepath.Dir(existing), 0o755))
-		assert.NilError(t, os.WriteFile(existing, []byte("original"), 0o600))
-		t.Setenv("WS_SECRETS_MASTER_KEY", "new-value")
-
-		path, err := MaterializeMasterKey()
-		assert.NilError(t, err)
-		assert.Equal(t, path, "")
-
-		data, _ := os.ReadFile(existing)
-		assert.Equal(t, string(data), "original")
-	})
+			data, _ := os.ReadFile(target)
+			assert.Equal(t, string(data), c.want)
+		})
+	}
 }

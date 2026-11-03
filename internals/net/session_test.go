@@ -3,13 +3,13 @@ package net_test
 import (
 	"encoding/json"
 	"io"
-	gonet "net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/kloudkit/ws-cli/internals/net"
+	"github.com/kloudkit/ws-cli/internals/testutil"
 	"gotest.tools/v3/assert"
 )
 
@@ -35,18 +35,6 @@ func TestSessionSocketPath(t *testing.T) {
 	}
 }
 
-func listen(t *testing.T, socket string, handler http.Handler) {
-	t.Helper()
-
-	listener, err := gonet.Listen("unix", socket)
-	assert.NilError(t, err)
-
-	server := &http.Server{Handler: handler}
-	go func() { _ = server.Serve(listener) }()
-
-	t.Cleanup(func() { _ = server.Close() })
-}
-
 func TestSendEnvelopeResolvesViaRegistry(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -58,14 +46,14 @@ func TestSendEnvelopeResolvesViaRegistry(t *testing.T) {
 	var resolvedFilePath string
 	assert.NilError(t, os.MkdirAll(filepath.Dir(net.SessionSocketPath()), 0o755))
 
-	listen(t, net.SessionSocketPath(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.ServeUnix(t, net.SessionSocketPath(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, r.URL.Path, "/session")
 		resolvedFilePath = r.URL.Query().Get("filePath")
 		_ = json.NewEncoder(w).Encode(map[string]string{"socketPath": pipe})
 	}))
 
 	var gotType string
-	listen(t, pipe, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.ServeUnix(t, pipe, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		var envelope map[string]any
 		_ = json.Unmarshal(body, &envelope)
@@ -85,7 +73,7 @@ func TestSendEnvelopePrefersHook(t *testing.T) {
 	pipe := filepath.Join(t.TempDir(), "hook.sock")
 	t.Setenv("VSCODE_IPC_HOOK_CLI", pipe)
 
-	listen(t, pipe, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.ServeUnix(t, pipe, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("[]"))
 	}))
 

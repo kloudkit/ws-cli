@@ -4,23 +4,25 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"unicode"
 
 	"github.com/kloudkit/ws-cli/internals/env"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 type Property struct {
-	Type            string
-	Default         *string
-	Delimiter       string
-	Pattern         string
-	Description     string
-	LongDescription string
-	Secret          bool
-	Group           string
-	Name            string
+	Type            string  `yaml:"type"`
+	Default         *string `yaml:"-"`
+	Delimiter       string  `yaml:"delimiter"`
+	Pattern         string  `yaml:"pattern"`
+	Description     string  `yaml:"description"`
+	LongDescription string  `yaml:"longDescription"`
+	Secret          bool    `yaml:"secret"`
+	Group           string  `yaml:"-"`
+	Name            string  `yaml:"-"`
 }
 
 type Deprecation struct {
@@ -34,6 +36,8 @@ type EnvReference struct {
 	Deprecations       map[string]Deprecation
 	AliasesByPreferred map[string][]string
 }
+
+var propertyTypes = []string{"string", "boolean", "integer", "path"}
 
 func RuntimeKey(group, prop string) string {
 	return "WS_" + strings.ToUpper(group) + "_" + strings.ToUpper(prop)
@@ -52,13 +56,8 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 	var raw struct {
 		Envs map[string]struct {
 			Properties map[string]struct {
-				Type            string `yaml:"type"`
-				Default         any    `yaml:"default"`
-				Delimiter       string `yaml:"delimiter"`
-				Pattern         string `yaml:"pattern"`
-				Description     string `yaml:"description"`
-				LongDescription string `yaml:"longDescription"`
-				Secret          bool   `yaml:"secret"`
+				Property `yaml:",inline"`
+				Default  any `yaml:"default"`
 			} `yaml:"properties"`
 		} `yaml:"envs"`
 		Deprecated map[string]Deprecation `yaml:"deprecated"`
@@ -75,44 +74,33 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 
 	for groupKey, group := range raw.Envs {
 		for propKey, prop := range group.Properties {
-			switch prop.Type {
-			case "string", "boolean", "integer", "path":
-			default:
-				return nil, fmt.Errorf(
-					"env reference [%s.%s]: unknown type [%s]",
-					groupKey, propKey, prop.Type,
-				)
+			fail := func(format string, args ...any) error {
+				return fmt.Errorf("env reference [%s.%s]: "+format, append([]any{groupKey, propKey}, args...)...)
 			}
-			if (prop.Type == "path" || prop.Secret) && prop.Default != nil {
-				s, ok := prop.Default.(string)
-				if !ok {
+			if !slices.Contains(propertyTypes, prop.Type) {
+				return nil, fail("unknown type [%s]", prop.Type)
+			}
+
+			var def *string
+			if prop.Default != nil {
+				s, isString := prop.Default.(string)
+				if !isString && (prop.Type == "path" || prop.Secret) {
 					constraint := "type [path]"
 					if prop.Secret {
 						constraint = "secret"
 					}
-					return nil, fmt.Errorf(
-						"env reference [%s.%s]: %s requires default to be null or string, got %T",
-						groupKey, propKey, constraint, prop.Default,
-					)
+					return nil, fail("%s requires default to be null or string, got %T", constraint, prop.Default)
 				}
 				if prop.Secret && strings.HasPrefix(s, "file:") {
-					return nil, fmt.Errorf(
-						"env reference [%s.%s]: secret properties cannot declare a [file:] default literal",
-						groupKey, propKey,
-					)
+					return nil, fail("secret properties cannot declare a [file:] default literal")
 				}
+				s = fmt.Sprint(prop.Default)
+				def = &s
 			}
-			ref.Properties[RuntimeKey(groupKey, propKey)] = Property{
-				Type:            prop.Type,
-				Default:         defaultFromAny(prop.Default),
-				Delimiter:       prop.Delimiter,
-				Pattern:         prop.Pattern,
-				Description:     prop.Description,
-				LongDescription: prop.LongDescription,
-				Secret:          prop.Secret,
-				Group:           groupKey,
-				Name:            propKey,
-			}
+
+			property := prop.Property
+			property.Default, property.Group, property.Name = def, groupKey, propKey
+			ref.Properties[RuntimeKey(groupKey, propKey)] = property
 		}
 	}
 
@@ -134,27 +122,16 @@ func parseEnvReference(data []byte) (*EnvReference, error) {
 
 func resolveCanonical(start, target string, deprecations map[string]Deprecation) (string, error) {
 	seen := map[string]bool{start: true}
-	current := target
-	for current != "" {
+	for current := target; current != ""; current = deprecations[current].Use {
 		if seen[current] {
 			return "", fmt.Errorf("deprecation cycle through [%s]", current)
 		}
 		seen[current] = true
-		next, isAlias := deprecations[current]
-		if !isAlias {
+		if _, isAlias := deprecations[current]; !isAlias {
 			return current, nil
 		}
-		current = next.Use
 	}
 	return "", nil
-}
-
-func defaultFromAny(v any) *string {
-	if v == nil {
-		return nil
-	}
-	s := fmt.Sprint(v)
-	return &s
 }
 
 func (p Property) Validate(value string) error {
@@ -164,19 +141,19 @@ func (p Property) Validate(value string) error {
 
 	key := RuntimeKey(p.Group, p.Name)
 
+	var err error
 	switch p.Type {
 	case "integer":
-		if _, err := ParseInt(value); err != nil {
-			return fmt.Errorf("env [%s]: %w", key, err)
-		}
+		_, err = ParseInt(value)
 	case "boolean":
-		if _, err := ParseBool(value); err != nil {
-			return fmt.Errorf("env [%s]: %w", key, err)
-		}
+		_, err = ParseBool(value)
 	case "path":
 		if strings.IndexFunc(value, unicode.IsControl) >= 0 {
-			return fmt.Errorf("env [%s]: path contains a control character", key)
+			err = fmt.Errorf("path contains a control character")
 		}
+	}
+	if err != nil {
+		return fmt.Errorf("env [%s]: %w", key, err)
 	}
 
 	if p.Pattern == "" {
@@ -195,4 +172,38 @@ func (p Property) Validate(value string) error {
 	}
 
 	return nil
+}
+
+func ParseBool(s string) (bool, error) {
+	switch strings.ToLower(s) {
+	case "1", "true", "yes", "on":
+		return true, nil
+	case "0", "false", "no", "off":
+		return false, nil
+	}
+	return false, fmt.Errorf("not a boolean: %q (accepted: 1/true/yes/on or 0/false/no/off)", s)
+}
+
+func ParseInt(s string) (int64, error) {
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("not an integer: %q", s)
+	}
+	return n, nil
+}
+
+func ParseList(s, delim string) []string {
+	if s == "" {
+		return nil
+	}
+	if delim == "" {
+		delim = " "
+	}
+	out := []string{}
+	for p := range strings.SplitSeq(s, delim) {
+		if trimmed := strings.TrimSpace(p); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }

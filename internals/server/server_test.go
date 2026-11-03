@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/kloudkit/ws-cli/internals/testutil"
 	"gotest.tools/v3/assert"
+	"gotest.tools/v3/assert/cmp"
 )
 
 func TestServeTakenPortPrintsNothing(t *testing.T) {
@@ -62,5 +64,27 @@ func TestDisplayURL(t *testing.T) {
 	for _, tt := range tests {
 		got := displayURL(&net.TCPAddr{IP: net.ParseIP(tt.ip), Port: 8080})
 		assert.Equal(t, got, tt.want)
+	}
+}
+
+func TestAccessLogRecordsStatusAndSize(t *testing.T) {
+	cases := []struct {
+		handler      http.HandlerFunc
+		status, size string
+	}{
+		{func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("hello")) }, "200", "5"},
+		{func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNotFound) }, "404", "0"},
+	}
+
+	for _, c := range cases {
+		var buffer bytes.Buffer
+		req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+		req.RemoteAddr = "10.0.0.5:53124"
+
+		accessLog(c.handler, &buffer).ServeHTTP(httptest.NewRecorder(), req)
+
+		line := strings.TrimRight(testutil.StripAnsi(buffer.String()), "\n")
+		assert.Assert(t, cmp.Regexp(`^\[.*?\]\s+info\s+`, line))
+		assert.Assert(t, cmp.Regexp(`GET /healthz `+c.status+` \d+(\.\d+)?(ns|µs|ms|s) 10\.0\.0\.5:53124 `+c.size+`$`, line))
 	}
 }

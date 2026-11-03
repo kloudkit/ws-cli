@@ -10,7 +10,6 @@ import (
 var (
 	Base     = color.RGBA{48, 52, 70, 255}
 	Surface0 = color.RGBA{65, 69, 89, 255}
-	Surface1 = color.RGBA{81, 87, 109, 255}
 	Surface2 = color.RGBA{98, 104, 128, 255}
 	Overlay0 = color.RGBA{115, 121, 148, 255}
 	Overlay1 = color.RGBA{131, 139, 167, 255}
@@ -23,6 +22,20 @@ var (
 	Teal     = color.RGBA{129, 200, 190, 255}
 	Mauve    = color.RGBA{202, 158, 230, 255}
 	Peach    = color.RGBA{239, 159, 118, 255}
+)
+
+var (
+	Header    = lipgloss.NewStyle().Foreground(Mauve).Bold(true)
+	SubHeader = lipgloss.NewStyle().Foreground(Blue).Bold(true)
+	Key       = lipgloss.NewStyle().Foreground(Teal).Bold(true)
+	Value     = lipgloss.NewStyle().Foreground(Text)
+	Info      = lipgloss.NewStyle().Foreground(Blue)
+	Success   = lipgloss.NewStyle().Foreground(Green)
+	Warning   = lipgloss.NewStyle().Foreground(Yellow)
+	Error     = lipgloss.NewStyle().Foreground(Red).Bold(true)
+	Muted     = lipgloss.NewStyle().Foreground(Overlay0)
+	Count     = lipgloss.NewStyle().Foreground(Overlay1)
+	Border    = lipgloss.NewStyle().Foreground(Surface2)
 )
 
 func FrappeColorScheme(lipgloss.LightDarkFunc) fang.ColorScheme {

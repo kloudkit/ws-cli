@@ -9,23 +9,14 @@ import (
 )
 
 func TestLookup(t *testing.T) {
-	t.Run("ExistingTemplate", func(t *testing.T) {
-		config, err := lookup("markdownlint")
-		assert.NilError(t, err)
-		assert.Equal(t, config.SourcePath, ".config/markdownlint/config")
-		assert.Equal(t, config.OutputName, ".markdownlint.json")
-	})
+	config, err := lookup("markdownlint")
+	assert.NilError(t, err)
+	assert.DeepEqual(t, config, Config{SourcePath: ".config/markdownlint/config", OutputName: ".markdownlint.json"})
 
-	t.Run("NonExistentTemplate", func(t *testing.T) {
-		_, err := lookup("nonexistent")
-		assert.ErrorContains(t, err, "template 'nonexistent' not found")
-	})
-}
+	_, err = lookup("nonexistent")
+	assert.ErrorContains(t, err, "template 'nonexistent' not found")
 
-func TestGetTemplateNames(t *testing.T) {
-	t.Run("ReturnsAllTemplates", func(t *testing.T) {
-		assert.DeepEqual(t, GetTemplateNames(), []string{"ansible", "markdownlint", "ruff", "yamllint"})
-	})
+	assert.DeepEqual(t, GetTemplateNames(), []string{"ansible", "markdownlint", "ruff", "yamllint"})
 }
 
 func seedTemplate(t *testing.T, rel, content string) string {
@@ -41,63 +32,38 @@ func seedTemplate(t *testing.T, rel, content string) string {
 }
 
 func TestApplyTemplate(t *testing.T) {
-	t.Run("CopiesTemplateToTarget", func(t *testing.T) {
-		tempDir := seedTemplate(t, ".config/markdownlint/config", `{"line-length": false}`)
+	target := filepath.Join(seedTemplate(t, ".config/ruff/ruff.toml", "line-length = 88"), "project")
+	assert.NilError(t, os.MkdirAll(target, 0o755))
+	dest := filepath.Join(target, ".ruff.toml")
 
-		targetDir := filepath.Join(tempDir, "project")
-		err := os.MkdirAll(targetDir, 0755)
-		assert.NilError(t, err)
+	assert.NilError(t, ApplyTemplate("ruff", target, false))
+	content, err := os.ReadFile(dest)
+	assert.NilError(t, err)
+	assert.Equal(t, string(content), "line-length = 88")
 
-		err = ApplyTemplate("markdownlint", targetDir, false)
-		assert.NilError(t, err)
+	assert.NilError(t, os.WriteFile(dest, []byte("existing content"), 0o644))
+	assert.ErrorContains(t, ApplyTemplate("ruff", target, false), "file already exists")
 
-		destFile := filepath.Join(targetDir, ".markdownlint.json")
-		_, err = os.Stat(destFile)
-		assert.NilError(t, err)
+	assert.NilError(t, ApplyTemplate("ruff", target, true))
+	content, err = os.ReadFile(dest)
+	assert.NilError(t, err)
+	assert.Equal(t, string(content), "line-length = 88")
 
-		content, err := os.ReadFile(destFile)
-		assert.NilError(t, err)
-
-		expected := `{"line-length": false}`
-		assert.Equal(t, string(content), expected)
-	})
-
-	t.Run("WithForceOverwritesExisting", func(t *testing.T) {
-		tempDir := seedTemplate(t, ".config/ruff/ruff.toml", `line-length = 88`)
-
-		targetDir := filepath.Join(tempDir, "project")
-		err := os.MkdirAll(targetDir, 0755)
-		assert.NilError(t, err)
-
-		destFile := filepath.Join(targetDir, ".ruff.toml")
-		err = os.WriteFile(destFile, []byte("existing content"), 0644)
-		assert.NilError(t, err)
-
-		err = ApplyTemplate("ruff", targetDir, false)
-		assert.ErrorContains(t, err, "file already exists")
-
-		err = ApplyTemplate("ruff", targetDir, true)
-		assert.NilError(t, err)
-
-		content, err := os.ReadFile(destFile)
-		assert.NilError(t, err)
-
-		expected := `line-length = 88`
-		assert.Equal(t, string(content), expected)
-	})
+	assert.ErrorContains(t, ApplyTemplate("yamllint", target, false), "template source file not found")
 }
 
 func TestShowTemplate(t *testing.T) {
-	t.Run("ReturnsTemplateContent", func(t *testing.T) {
-		expectedContent := `extends: default
-rules:
-  line-length:
-    max: 120`
-		seedTemplate(t, ".config/yamllint/config", expectedContent)
+	const body = "extends: default\nrules:\n  line-length:\n    max: 120"
+	seedTemplate(t, ".config/yamllint/config", body)
 
-		content, err := ShowTemplate("yamllint", false)
-		assert.NilError(t, err)
+	content, err := ShowTemplate("yamllint", false)
+	assert.NilError(t, err)
+	assert.Equal(t, content, body)
 
-		assert.Equal(t, content, expectedContent)
-	})
+	t.Chdir(t.TempDir())
+	assert.NilError(t, os.WriteFile(".yamllint", []byte("local"), 0o644))
+
+	content, err = ShowTemplate("yamllint", true)
+	assert.NilError(t, err)
+	assert.Equal(t, content, "local")
 }

@@ -63,22 +63,34 @@ const fixtureLog = "[2026-10-11T10:00:00.000Z] \x1b[38;2;140;170;238minfo \x1b[m
 	"[2026-10-11T10:00:07.000Z] \n" +
 	"[2026-10-11T10:00:08.000Z] debug   - Done\n"
 
+func _reader(t *testing.T, files map[string]string, target string, tail int, level string) (*Reader, string) {
+	t.Helper()
+
+	dir := t.TempDir()
+	for name, content := range files {
+		assert.NilError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644))
+	}
+
+	t.Setenv("WS_LOGGING_DIR", dir)
+	t.Setenv("WS_LOGGING_MAIN_FILE", "workspace.log")
+	t.Setenv("WS_LOGGING_METRICS_FILE", "metrics.log")
+	t.Setenv("WS_LOGGING_DOCKER_FILE", "dockerd.log")
+
+	reader, err := NewReader(tail, level, target)
+	assert.NilError(t, err)
+
+	return reader, filepath.Join(dir, "workspace.log")
+}
+
 func readFixture(t *testing.T, content string, tail int, level string) string {
 	t.Helper()
 
-	tempDir := t.TempDir()
-	assert.NilError(t, os.WriteFile(filepath.Join(tempDir, "test.log"), []byte(content), 0644))
-
-	t.Setenv("WS_LOGGING_DIR", tempDir)
-	t.Setenv("WS_LOGGING_MAIN_FILE", "test.log")
-
-	reader, err := NewReader(tail, level, "main")
-	assert.NilError(t, err)
+	reader, _ := _reader(t, map[string]string{"workspace.log": content}, "main", tail, level)
 
 	var buf bytes.Buffer
 	assert.NilError(t, reader.ReadLogs(&buf, false))
 
-	return testutil.StripAnsi(buf.String())
+	return buf.String()
 }
 
 func TestReaderFiltering(t *testing.T) {
@@ -136,7 +148,7 @@ func TestReaderFiltering(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := readFixture(t, tt.content, tt.tail, tt.level)
+			got := testutil.StripAnsi(readFixture(t, tt.content, tt.tail, tt.level))
 			assert.Equal(t, got, strings.Join(tt.want, "\n")+"\n")
 		})
 	}
@@ -151,50 +163,30 @@ func TestReaderTailSpansChunks(t *testing.T) {
 		}
 	}
 
-	got := readFixture(t, content.String(), 3, "error")
+	got := testutil.StripAnsi(readFixture(t, content.String(), 3, "error"))
 	assert.Equal(t, got, "[2026-10-11T10:00:00.000Z] error line 4984\n"+
 		"[2026-10-11T10:00:00.000Z] error line 4991\n"+
 		"[2026-10-11T10:00:00.000Z] error line 4998\n")
 
-	got = readFixture(t, content.String(), 2, "")
+	got = testutil.StripAnsi(readFixture(t, content.String(), 2, ""))
 	assert.Equal(t, got, "[2026-10-11T10:00:00.000Z] error line 4998\n"+
 		"[2026-10-11T10:00:00.000Z] info  line 4999\n")
 }
 
 func TestReaderRecolorsLevels(t *testing.T) {
-	tempDir := t.TempDir()
-	assert.NilError(t, os.WriteFile(filepath.Join(tempDir, "test.log"), []byte(fixtureLog), 0644))
-
-	t.Setenv("WS_LOGGING_DIR", tempDir)
-	t.Setenv("WS_LOGGING_MAIN_FILE", "test.log")
-
-	reader, err := NewReader(1, "warn", "main")
-	assert.NilError(t, err)
-
-	var buf bytes.Buffer
-	assert.NilError(t, reader.ReadLogs(&buf, false))
-
 	want := "[2026-10-11T10:00:02.000Z] " + styleMap["warn"].Render("warn") + "  Slow disk\n"
-	assert.Equal(t, buf.String(), want)
+	assert.Equal(t, readFixture(t, fixtureLog, 1, "warn"), want)
 }
 
 func TestReaderFollowHonorsTail(t *testing.T) {
-	tempDir := t.TempDir()
-	logPath := filepath.Join(tempDir, "test.log")
-	assert.NilError(t, os.WriteFile(logPath, []byte("a\nb\nc\n"), 0644))
-
-	t.Setenv("WS_LOGGING_DIR", tempDir)
-	t.Setenv("WS_LOGGING_MAIN_FILE", "test.log")
-
-	reader, err := NewReader(2, "", "main")
-	assert.NilError(t, err)
+	reader, logPath := _reader(t, map[string]string{"workspace.log": "a\nb\nc\n"}, "main", 2, "")
 
 	out := &syncBuffer{}
 	go reader.ReadLogs(out, true)
 
 	waitFor(t, func() bool { return out.String() == "b\nc\n" })
 
-	file, err := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY, 0o644)
 	assert.NilError(t, err)
 	_, err = file.WriteString("d\n")
 	assert.NilError(t, err)
@@ -249,73 +241,21 @@ func TestStrip(t *testing.T) {
 }
 
 func TestReaderTargets(t *testing.T) {
-	tempDir := t.TempDir()
-
 	files := map[string]string{
-		"workspace.log": "main marker line",
-		"metrics.log":   "metrics marker line",
-		"dockerd.log":   "docker marker line",
+		"workspace.log": "main marker line\n",
+		"metrics.log":   "metrics marker line\n",
+		"dockerd.log":   "",
 	}
 
-	for name, content := range files {
-		assert.NilError(t, os.WriteFile(filepath.Join(tempDir, name), []byte(content+"\n"), 0644))
+	for target, want := range map[string]string{"main": "main marker line", "": "main marker line", "metrics": "metrics marker line", "docker": ""} {
+		reader, _ := _reader(t, files, target, 0, "")
+
+		var buf bytes.Buffer
+		assert.NilError(t, reader.ReadLogs(&buf, false))
+		assert.Equal(t, want, strings.TrimSpace(buf.String()), target)
 	}
 
-	t.Setenv("WS_LOGGING_DIR", tempDir)
-	t.Setenv("WS_LOGGING_MAIN_FILE", "workspace.log")
-	t.Setenv("WS_LOGGING_METRICS_FILE", "metrics.log")
-	t.Setenv("WS_LOGGING_DOCKER_FILE", "dockerd.log")
-
-	tests := []struct {
-		name     string
-		target   string
-		expected string
-	}{
-		{"main", "main", "main marker line"},
-		{"metrics", "metrics", "metrics marker line"},
-		{"docker", "docker", "docker marker line"},
-		{"empty defaults to main", "", "main marker line"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			reader, err := NewReader(0, "", tt.target)
-			assert.NilError(t, err)
-
-			var buf bytes.Buffer
-			err = reader.ReadLogs(&buf, false)
-			assert.NilError(t, err)
-
-			assert.Equal(t, tt.expected, strings.TrimSpace(buf.String()))
-		})
-	}
-}
-
-func TestReaderTargetMissingFile(t *testing.T) {
-	tempDir := t.TempDir()
-
-	t.Setenv("WS_LOGGING_DIR", tempDir)
-	t.Setenv("WS_LOGGING_METRICS_FILE", "metrics.log")
-
+	t.Setenv("WS_LOGGING_METRICS_FILE", "absent.log")
 	_, err := NewReader(0, "", "metrics")
-
 	assert.ErrorContains(t, err, "log file not found")
-}
-
-func TestReaderEmptyFile(t *testing.T) {
-	tempDir := t.TempDir()
-
-	assert.NilError(t, os.WriteFile(filepath.Join(tempDir, "metrics.log"), []byte{}, 0644))
-
-	t.Setenv("WS_LOGGING_DIR", tempDir)
-	t.Setenv("WS_LOGGING_METRICS_FILE", "metrics.log")
-
-	reader, err := NewReader(0, "", "metrics")
-	assert.NilError(t, err)
-
-	var buf bytes.Buffer
-	err = reader.ReadLogs(&buf, false)
-	assert.NilError(t, err)
-
-	assert.Equal(t, "", buf.String())
 }

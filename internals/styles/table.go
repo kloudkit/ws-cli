@@ -1,6 +1,9 @@
 package styles
 
 import (
+	"fmt"
+	"io"
+	"slices"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -24,8 +27,8 @@ func (t *Table) Rows(rows ...[]string) *Table {
 	return t
 }
 
-func (t *Table) Render() string {
-	return t.RenderWidth(TerminalWidth())
+func (t *Table) Print(w io.Writer) {
+	fmt.Fprintln(w, t.RenderWidth(TerminalWidth()))
 }
 
 func (t *Table) RenderWidth(maxWidth int) string {
@@ -43,17 +46,17 @@ func (t *Table) RenderWidth(maxWidth int) string {
 
 	tbl := table.New().
 		Border(lipgloss.RoundedBorder()).
-		BorderStyle(lipgloss.NewStyle().Foreground(Surface2)).
+		BorderStyle(Border).
 		StyleFunc(func(row, col int) lipgloss.Style {
 			base := lipgloss.NewStyle().Padding(0, 1).Width(widths[col] + 2)
 
 			switch {
 			case row == table.HeaderRow:
-				return base.Inherit(Header())
+				return base.Inherit(Header)
 			case col == 0:
-				return base.Inherit(Key())
+				return base.Inherit(Key)
 			default:
-				return base.Inherit(Value())
+				return base.Inherit(Value)
 			}
 		}).
 		Rows(wrapped...)
@@ -98,12 +101,7 @@ func (t *Table) columnWidths(available int) []int {
 	for i := range order {
 		order[i] = i
 	}
-
-	for i := 1; i < len(order); i++ {
-		for j := i; j > 0 && widths[order[j]] > widths[order[j-1]]; j-- {
-			order[j], order[j-1] = order[j-1], order[j]
-		}
-	}
+	slices.SortStableFunc(order, func(a, b int) int { return widths[b] - widths[a] })
 
 	for _, floor := range []int{minColumnWidth, 1} {
 		for _, col := range order {

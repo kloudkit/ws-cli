@@ -2,7 +2,9 @@ package metrics
 
 import (
 	"errors"
+	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/kloudkit/ws-cli/internals/config"
@@ -10,8 +12,9 @@ import (
 )
 
 const (
-	counter = prometheus.CounterValue
-	gauge   = prometheus.GaugeValue
+	Namespace = "workspace"
+	counter   = prometheus.CounterValue
+	gauge     = prometheus.GaugeValue
 )
 
 type metric[T any] struct {
@@ -21,7 +24,6 @@ type metric[T any] struct {
 	val       func(*T) float64
 }
 
-// group emits its metrics from a single fetch per scrape, and nothing when the fetch fails.
 type group[T any] struct {
 	fetch   func() (*T, error)
 	metrics []metric[T]
@@ -186,4 +188,107 @@ func collectorGroups() []collectorGroup {
 			{"gpu", newDesc("gpu", "power_watts", "GPU power consumption in watts"), gauge, func(s *GPUStats) float64 { return s.PowerWatts }},
 		}},
 	}
+}
+
+type RegistryResult struct {
+	Registry *prometheus.Registry
+	Expanded []string
+	Invalid  []string
+	Warnings []string
+}
+
+func BuildRegistry(collectors []string) (*RegistryResult, error) {
+	result := &RegistryResult{}
+	groups := collectorGroups()
+
+	var leaves, validated []string
+	for _, g := range groups {
+		leaves = append(leaves, g.leaves()...)
+	}
+
+	for _, c := range collectors {
+		if c = strings.TrimSpace(c); c == "" {
+			continue
+		}
+		if c == "*" {
+			validated = []string{"*"}
+			break
+		}
+		if slices.ContainsFunc(leaves, func(leaf string) bool { return leaf == c || strings.HasPrefix(leaf, c+".") }) {
+			validated = append(validated, c)
+		} else {
+			result.Invalid = append(result.Invalid, c)
+		}
+	}
+
+	if len(validated) == 0 && len(result.Invalid) > 0 {
+		return nil, fmt.Errorf("no valid collectors in %v", result.Invalid)
+	}
+
+	hasPressure, hasGPU := IsPressureAvailable(), IsGPUAvailable()
+	isPressure := func(c string) bool { return c == "pressure" || strings.HasPrefix(c, "pressure.") }
+
+	if !hasPressure && slices.ContainsFunc(validated, isPressure) {
+		result.Warnings = append(result.Warnings, "PSI pressure metrics not available (cgroup v2 only), skipping pressure collector")
+	}
+	if !hasGPU && slices.Contains(validated, "gpu") {
+		result.Warnings = append(result.Warnings, "GPU not available, skipping gpu collector")
+	}
+
+	enabled := func(leaf string) bool {
+		return isCollectorEnabled(leaf, validated) && (hasPressure || !isPressure(leaf)) && (hasGPU || leaf != "gpu")
+	}
+
+	result.Registry = prometheus.NewRegistry()
+	for _, g := range groups {
+		if c := g.only(enabled); c != nil {
+			result.Registry.MustRegister(c)
+		}
+	}
+
+	expanded := slices.DeleteFunc(leaves, func(leaf string) bool { return !enabled(leaf) })
+	slices.Sort(expanded)
+	result.Expanded = slices.Compact(expanded)
+	if len(result.Expanded) == 0 {
+		return nil, errors.New("no collectors enabled")
+	}
+
+	return result, nil
+}
+
+func DefaultPort() int {
+	port, err := config.ResolveInt("metrics", "port")
+	if err != nil {
+		return 9100
+	}
+	return int(port)
+}
+
+func DefaultCollectors() []string {
+	envCollectors, _ := config.Resolve("metrics", "collectors")
+	if envCollectors == "" {
+		return nil
+	}
+
+	var collectors []string
+	for _, c := range strings.Split(envCollectors, ",") {
+		if c = strings.TrimSpace(c); c != "" {
+			collectors = append(collectors, c)
+		}
+	}
+	return collectors
+}
+
+func isCollectorEnabled(name string, collectors []string) bool {
+	if len(collectors) == 0 || slices.Contains(collectors, "*") {
+		return true
+	}
+
+	for _, c := range collectors {
+		if c == name || strings.HasPrefix(name, c+".") || strings.HasPrefix(c, name+".") {
+			return true
+		}
+	}
+
+	return false
 }

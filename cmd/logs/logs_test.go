@@ -1,34 +1,19 @@
 package logs
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/kloudkit/ws-cli/cmd/clitest"
+
 	"github.com/kloudkit/ws-cli/internals/testutil"
-	"github.com/spf13/cobra"
 	"gotest.tools/v3/assert"
 )
 
 func executeLogs(args ...string) (string, error) {
-	buffer := new(bytes.Buffer)
-
-	LogsCmd.Flags().Set("target", "main")
-	LogsCmd.Flags().Set("tail", "0")
-	LogsCmd.Flags().Set("level", "")
-	LogsCmd.Flags().Set("follow", "false")
-
-	cmd := &cobra.Command{}
-	cmd.AddCommand(LogsCmd)
-	cmd.SetOut(buffer)
-	cmd.SetErr(buffer)
-	cmd.SetArgs(append([]string{"logs"}, args...))
-
-	err := cmd.Execute()
-
-	return buffer.String(), err
+	return clitest.Run(LogsCmd, "", args...)
 }
 
 func _seedLogs(t *testing.T) {
@@ -56,12 +41,18 @@ func _seedLogs(t *testing.T) {
 	t.Setenv("WS_LOGGING_CLOUDFLARED_FILE", "cloudflared.log")
 }
 
-func TestLogsDefaultTargetIsMain(t *testing.T) {
-	assert.Equal(t, "main", LogsCmd.Flags().Lookup("target").DefValue)
-}
-
-func TestLogsNoShortTargetAlias(t *testing.T) {
+func TestLogsFlags(t *testing.T) {
+	assert.Equal(t, LogsCmd.Flags().Lookup("target").DefValue, "main")
 	assert.Assert(t, LogsCmd.Flags().ShorthandLookup("T") == nil)
+
+	for arg, want := range map[string]string{
+		"--target=garbage": `invalid log target "garbage" (valid: main, metrics, docker, auth_proxy, cloudflared)`,
+		"--level=fatal":    `invalid log level "fatal" (valid: debug, info, warn, error)`,
+	} {
+		out, err := executeLogs(arg)
+		assert.ErrorContains(t, err, want)
+		assert.Assert(t, !strings.Contains(out, "Invalid log"))
+	}
 }
 
 func TestLogsValidTargets(t *testing.T) {
@@ -85,20 +76,6 @@ func TestLogsValidTargets(t *testing.T) {
 			assert.Assert(t, strings.Contains(out, tt.marker))
 		})
 	}
-}
-
-func TestLogsInvalidTargetRejected(t *testing.T) {
-	out, err := executeLogs("--target=garbage")
-
-	assert.ErrorContains(t, err, `invalid log target "garbage" (valid: main, metrics, docker, auth_proxy, cloudflared)`)
-	assert.Assert(t, !strings.Contains(out, "Invalid log target"))
-}
-
-func TestLogsInvalidLevelRejected(t *testing.T) {
-	out, err := executeLogs("--level=fatal")
-
-	assert.ErrorContains(t, err, `invalid log level "fatal" (valid: debug, info, warn, error)`)
-	assert.Assert(t, !strings.Contains(out, "Invalid log level"))
 }
 
 func TestLogsTargetComposesWithTailAndLevel(t *testing.T) {

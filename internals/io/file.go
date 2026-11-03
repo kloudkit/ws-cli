@@ -1,6 +1,7 @@
 package io
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -8,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 const DefaultFileMode fs.FileMode = 0o600
@@ -57,20 +60,12 @@ func CopyFile(source, dest string) error {
 		return fmt.Errorf("%s is not a regular file", source)
 	}
 
-	sourceFile, err := os.Open(source)
+	data, err := os.ReadFile(source)
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %w", err)
 	}
-	defer sourceFile.Close()
 
-	destFile, err := os.Create(dest)
-	if err != nil {
-		return fmt.Errorf("failed to create destination file: %w", err)
-	}
-	defer destFile.Close()
-
-	_, err = io.Copy(destFile, sourceFile)
-	if err != nil {
+	if err := os.WriteFile(dest, data, 0o666); err != nil {
 		return fmt.Errorf("failed to copy file: %w", err)
 	}
 
@@ -98,18 +93,39 @@ func WriteSecureFile(filePath string, content []byte, modeStr string, force bool
 		return fmt.Errorf("failed to write to file: %w", err)
 	}
 
-	return nil
+	return os.Chmod(filePath, fileMode)
 }
 
 func ReadInput(arg string, reader io.Reader) (string, error) {
-	if arg == "-" {
-		data, err := io.ReadAll(reader)
-		if err != nil {
-			return "", fmt.Errorf("failed to read from stdin: %w", err)
-		}
-
-		return string(data), nil
+	if arg != "-" {
+		return arg, nil
 	}
 
-	return arg, nil
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return "", fmt.Errorf("failed to read from stdin: %w", err)
+	}
+
+	return string(data), nil
+}
+
+func ReadPasswordFromReader(reader io.Reader) (string, error) {
+	if file, ok := reader.(*os.File); ok && term.IsTerminal(int(file.Fd())) {
+		fmt.Fprint(os.Stderr, "Enter password: ")
+		password, err := term.ReadPassword(int(file.Fd()))
+		fmt.Fprintln(os.Stderr)
+
+		if err != nil {
+			return "", fmt.Errorf("failed to read password: %w", err)
+		}
+
+		return string(password), nil
+	}
+
+	password, err := ReadInput("-", reader)
+	if err == nil && strings.TrimSpace(password) == "" {
+		err = errors.New("empty password provided")
+	}
+
+	return password, err
 }

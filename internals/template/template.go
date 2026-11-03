@@ -82,9 +82,7 @@ func ShowTemplate(name string, local bool) (string, error) {
 
 	sourcePath := path.ResolveConfigPath(config.SourcePath)
 	if local {
-		if sourcePath, err = path.GetCurrentWorkingDirectory(config.OutputName); err != nil {
-			return "", err
-		}
+		sourcePath, _ = filepath.Abs(config.OutputName)
 	}
 
 	content, err := os.ReadFile(sourcePath)

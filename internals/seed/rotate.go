@@ -2,6 +2,8 @@ package seed
 
 import (
 	"bytes"
+	"cmp"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -12,7 +14,8 @@ import (
 	"strings"
 
 	"github.com/kloudkit/ws-cli/internals/secrets"
-	"gopkg.in/yaml.v3"
+	"github.com/kloudkit/ws-cli/internals/styles"
+	"go.yaml.in/yaml/v3"
 )
 
 const rotateProbeName = ".ws-rotate-probe"
@@ -25,25 +28,25 @@ type RotateOptions struct {
 }
 
 type rotateTarget struct {
-	describe  string
-	cipher    string
-	plain     []byte
-	writePath string
-	writeBack func(string) error
+	describe string
+	cipher   string
+	plain    []byte
+	path     string
+	node     []string
 }
 
 func Rotate(opts RotateOptions) error {
 	if opts.NewMasterKey == "" {
-		return fmt.Errorf("a new master key is required (use --new-master)")
+		return errors.New("a new master key is required (use --new-master)")
 	}
 
-	manifestPath := ManifestPath(opts.Source)
-	raw, err := os.ReadFile(manifestPath)
+	file := manifestPath(opts.Source)
+	raw, err := os.ReadFile(file)
 	if err != nil {
-		return fmt.Errorf("failed to read manifest %q: %w", manifestPath, err)
+		return fmt.Errorf("failed to read manifest %q: %w", file, err)
 	}
 
-	manifest, err := ParseManifest(raw)
+	manifest, err := parseManifest(raw)
 	if err != nil {
 		return err
 	}
@@ -65,205 +68,148 @@ func Rotate(opts RotateOptions) error {
 	}
 	defer clear(newKey)
 
-	targets, err := collectTargets(opts.Source, manifest, &doc)
-	if err != nil {
-		return err
-	}
-
+	targets, err := collectTargets(opts.Source, manifest)
 	defer func() {
 		for i := range targets {
 			clear(targets[i].plain)
 		}
 	}()
 
-	for i := range targets {
-		plain, err := secrets.Decrypt(secrets.NormalizeEncrypted(targets[i].cipher), oldKey)
-		if err != nil {
-			return fmt.Errorf("%s: decrypt failed (wrong current key?)", targets[i].describe)
-		}
-
-		targets[i].plain = plain
-	}
-
-	writeManifest := slices.ContainsFunc(targets, func(t rotateTarget) bool { return t.writePath == "" })
-
-	if err := preflightWritable(targets, manifestPath, writeManifest); err != nil {
+	if err != nil {
 		return err
 	}
 
 	for i := range targets {
-		reencrypted, err := secrets.Encrypt(targets[i].plain, newKey)
+		if targets[i].plain, err = secrets.Decrypt(targets[i].cipher, oldKey); err != nil {
+			return fmt.Errorf("%s: decrypt failed (wrong current key?)", targets[i].describe)
+		}
+	}
+
+	if err := preflightWritable(targets, file); err != nil {
+		return err
+	}
+
+	root, writeManifest := &doc, false
+	if doc.Kind == yaml.DocumentNode && len(doc.Content) > 0 {
+		root = doc.Content[0]
+	}
+
+	for _, target := range targets {
+		reencrypted, err := secrets.Encrypt(target.plain, newKey)
 		if err != nil {
-			return fmt.Errorf("%s: re-encrypt failed", targets[i].describe)
+			return fmt.Errorf("%s: re-encrypt failed", target.describe)
 		}
 
-		if err := targets[i].writeBack(reencrypted); err != nil {
-			return fmt.Errorf("%s: %w", targets[i].describe, err)
+		if target.path != "" {
+			err = atomicReplace(target.path, []byte(reencrypted))
+		} else {
+			err = setNode(root, reencrypted, target.node)
+			writeManifest = true
+		}
+
+		if err != nil {
+			return fmt.Errorf("%s: %w", target.describe, err)
 		}
 	}
 
 	if writeManifest {
-		if err := writeManifestFile(manifestPath, &doc); err != nil {
+		var buffer bytes.Buffer
+		encoder := yaml.NewEncoder(&buffer)
+		encoder.SetIndent(2)
+
+		if err := errors.Join(encoder.Encode(&doc), encoder.Close()); err != nil {
+			return fmt.Errorf("failed to encode manifest: %w", err)
+		}
+
+		if err := atomicReplace(file, buffer.Bytes()); err != nil {
 			return err
 		}
 	}
 
-	rep := reporter{out: opts.Out}
-	for i := range targets {
-		rep.rotated(targets[i].describe)
+	for _, target := range targets {
+		styles.PrintSuccess(opts.Out, "Rotated "+target.describe)
 	}
 
 	return nil
 }
 
-func collectTargets(source string, manifest *Manifest, doc *yaml.Node) ([]rotateTarget, error) {
-	root := documentRoot(doc)
+func collectTargets(source string, manifest *Manifest) ([]rotateTarget, error) {
 	vars := resolveVars()
 
 	var targets []rotateTarget
-
 	for _, name := range slices.Sorted(maps.Keys(manifest.Secrets)) {
-		target, err := valueTarget(
-			fmt.Sprintf("secret %q", name),
-			manifest.Secrets[name],
-			nodeSetter(root, "secrets", name),
-		)
-		if err != nil {
-			return nil, err
+		targets = append(targets, rotateTarget{
+			describe: fmt.Sprintf("secret %q", name),
+			cipher:   manifest.Secrets[name],
+			node:     []string{"secrets", name},
+		})
+	}
+
+	for _, rawDest := range slices.Sorted(maps.Keys(manifest.Seeds)) {
+		op := manifest.Seeds[rawDest]
+		target := rotateTarget{describe: fmt.Sprintf("seed %q", rawDest)}
+
+		switch {
+		case !op.Secret:
+			continue
+		case op.Content != nil:
+			target.cipher, target.node = *op.Content, []string{"seeds", rawDest, "content"}
+		default:
+			target.path = rhymingSource(source, vars.expand(rawDest))
 		}
 
 		targets = append(targets, target)
 	}
 
-	for _, rawDest := range slices.Sorted(maps.Keys(manifest.Seeds)) {
-		op := manifest.Seeds[rawDest]
-		if !op.Secret {
-			continue
+	for i := range targets {
+		if err := targets[i].load(); err != nil {
+			return targets, err
 		}
-
-		if op.Content != nil {
-			target, err := valueTarget(
-				fmt.Sprintf("seed %q", rawDest),
-				*op.Content,
-				nodeSetter(root, "seeds", rawDest, "content"),
-			)
-			if err != nil {
-				return nil, err
-			}
-
-			targets = append(targets, target)
-			continue
-		}
-
-		target, err := fileTarget(fmt.Sprintf("seed %q", rawDest), rhymingSource(source, vars.expand(rawDest)))
-		if err != nil {
-			return nil, err
-		}
-
-		targets = append(targets, target)
 	}
 
 	return targets, nil
 }
 
-func valueTarget(describe, value string, inline func(string) error) (rotateTarget, error) {
-	if path, ok := fileRef(value); ok {
-		return fileTarget(describe, path)
-	}
-
-	return rotateTarget{
-		describe:  describe,
-		cipher:    secrets.NormalizeEncrypted(value),
-		writeBack: inline,
-	}, nil
-}
-
-func fileTarget(describe, path string) (rotateTarget, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return rotateTarget{}, fmt.Errorf("%s: failed to read %q: %w", describe, path, err)
-	}
-
-	normalized := secrets.NormalizeEncrypted(string(data))
-	if ref, ok := fileRef(normalized); ok {
-		return fileTarget(describe, ref)
-	}
-
-	return rotateTarget{
-		describe:  describe,
-		cipher:    normalized,
-		writePath: path,
-		writeBack: fileWriter(path),
-	}, nil
-}
-
-func fileRef(value string) (string, bool) {
-	path, ok := strings.CutPrefix(value, "file:")
-
-	return path, ok && path != ""
-}
-
-func fileWriter(path string) func(string) error {
-	return func(reencrypted string) error {
-		return atomicReplace(path, []byte(reencrypted))
-	}
-}
-
-func nodeSetter(root *yaml.Node, path ...string) func(string) error {
-	return func(reencrypted string) error {
-		node := root
-		for _, key := range path {
-			node = mappingValue(node, key)
-		}
-
-		if node == nil {
-			return fmt.Errorf("manifest node %s not found", strings.Join(path, "."))
-		}
-
-		node.Value = reencrypted
-		node.Tag = "!!str"
-
-		return nil
-	}
-}
-
-func preflightWritable(targets []rotateTarget, manifestPath string, writeManifest bool) error {
-	paths := []string{}
-	for i := range targets {
-		if targets[i].writePath != "" {
-			paths = append(paths, targets[i].writePath)
+func (t *rotateTarget) load() error {
+	if t.path != "" {
+		if err := t.read(t.path); err != nil {
+			return err
 		}
 	}
 
-	if writeManifest {
-		paths = append(paths, manifestPath)
+	if ref, ok := strings.CutPrefix(t.cipher, "file:"); ok && ref != "" {
+		return t.read(ref)
 	}
 
-	dirs := map[string]bool{}
-	for _, p := range paths {
-		if info, err := os.Lstat(p); err == nil && info.Mode()&fs.ModeSymlink != 0 {
-			return fmt.Errorf("refusing to write through symlink %q", p)
-		}
-		dirs[filepath.Dir(p)] = true
-	}
-
-	for dir := range dirs {
-		probe := filepath.Join(dir, rotateProbeName)
-		if err := os.WriteFile(probe, []byte{}, 0o600); err != nil {
-			return fmt.Errorf("cannot write to %q: %w", dir, err)
-		}
-		os.Remove(probe)
-	}
+	t.cipher = secrets.NormalizeEncrypted(t.cipher)
 
 	return nil
 }
 
-func documentRoot(doc *yaml.Node) *yaml.Node {
-	if doc.Kind == yaml.DocumentNode && len(doc.Content) > 0 {
-		return doc.Content[0]
+func (t *rotateTarget) read(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("%s: failed to read %q: %w", t.describe, path, err)
 	}
 
-	return doc
+	t.path, t.cipher = path, secrets.NormalizeEncrypted(string(data))
+
+	return nil
+}
+
+func setNode(root *yaml.Node, value string, keys []string) error {
+	node := root
+	for _, key := range keys {
+		node = mappingValue(node, key)
+	}
+
+	if node == nil {
+		return fmt.Errorf("manifest node %s not found", strings.Join(keys, "."))
+	}
+
+	node.Value, node.Tag = value, "!!str"
+
+	return nil
 }
 
 func mappingValue(node *yaml.Node, key string) *yaml.Node {
@@ -280,20 +226,26 @@ func mappingValue(node *yaml.Node, key string) *yaml.Node {
 	return nil
 }
 
-func writeManifestFile(path string, doc *yaml.Node) error {
-	var buffer bytes.Buffer
-	encoder := yaml.NewEncoder(&buffer)
-	encoder.SetIndent(2)
+func preflightWritable(targets []rotateTarget, manifest string) error {
+	dirs := map[string]bool{}
+	for _, target := range targets {
+		p := cmp.Or(target.path, manifest)
+		if info, err := os.Lstat(p); err == nil && info.Mode()&fs.ModeSymlink != 0 {
+			return fmt.Errorf("refusing to write through symlink %q", p)
+		}
 
-	if err := encoder.Encode(doc); err != nil {
-		return fmt.Errorf("failed to encode manifest: %w", err)
+		dirs[filepath.Dir(p)] = true
 	}
 
-	if err := encoder.Close(); err != nil {
-		return fmt.Errorf("failed to encode manifest: %w", err)
+	for dir := range dirs {
+		probe := filepath.Join(dir, rotateProbeName)
+		if err := os.WriteFile(probe, []byte{}, 0o600); err != nil {
+			return fmt.Errorf("cannot write to %q: %w", dir, err)
+		}
+		os.Remove(probe)
 	}
 
-	return atomicReplace(path, buffer.Bytes())
+	return nil
 }
 
 func atomicReplace(path string, data []byte) error {

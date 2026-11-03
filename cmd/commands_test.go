@@ -9,7 +9,7 @@ import (
 	"github.com/kloudkit/ws-cli/cmd"
 	"github.com/kloudkit/ws-cli/internals/docs"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 	"gotest.tools/v3/assert"
 )
 
