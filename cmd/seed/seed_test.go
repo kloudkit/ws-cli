@@ -55,7 +55,7 @@ func TestList(t *testing.T) {
 
 	output, err = run(t, "ls", "--source", source(t, "", "etc/a.conf", "etc/b.conf"))
 	assert.NilError(t, err)
-	assert.Assert(t, strings.Contains(output, "(2)") && strings.Contains(output, "/etc/a.conf"), output)
+	assert.Assert(t, strings.Contains(output, "─ 2\n") && strings.Contains(output, "/etc/a.conf"), output)
 }
 
 func TestSourceEdges(t *testing.T) {

@@ -16,6 +16,8 @@ const minColumnWidth = 8
 type Table struct {
 	headers []string
 	rows    [][]string
+	title   string
+	extras  []any
 }
 
 func NewTable(headers ...string) *Table {
@@ -27,8 +29,19 @@ func (t *Table) Rows(rows ...[]string) *Table {
 	return t
 }
 
+func (t *Table) Title(title string, extras ...any) *Table {
+	t.title, t.extras = title, extras
+	return t
+}
+
 func (t *Table) Print(w io.Writer) {
-	fmt.Fprintln(w, t.RenderWidth(TerminalWidth()))
+	rendered := t.RenderWidth(TerminalWidth())
+	if t.title != "" {
+		first, _, _ := strings.Cut(rendered, "\n")
+		printTitle(w, ansi.StringWidth(first)-len(indent), t.title, t.extras)
+	}
+
+	fmt.Fprintln(w, rendered)
 }
 
 func (t *Table) RenderWidth(maxWidth int) string {

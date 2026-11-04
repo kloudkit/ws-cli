@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var errNoEditorOverSSH = errors.New(
@@ -63,6 +65,10 @@ var diagnosticsCmd = query("diagnostics", "Show language diagnostics for the wor
 var notifyCmd = cli.New("notify", "0.5.0", "Raise a notification in the editor",
 	"Read a JSON payload from stdin and raise it as a notification in the running editor window over the workspace IPC socket. Requires a \"message\"; optional \"detail\", \"actions\", \"modal\", \"timeout\", and \"severity\" tune it. Prints the chosen action (or timeout) as JSON. Blocked over SSH.",
 	func(cmd *cobra.Command, args []string) error {
+		if file, ok := cmd.InOrStdin().(*os.File); ok && term.IsTerminal(int(file.Fd())) {
+			return errors.New(`pipe a JSON payload on stdin, e.g. echo '{"message": "hi"}' | ws editor notify`)
+		}
+
 		raw, err := io.ReadAll(cmd.InOrStdin())
 		if err != nil {
 			return fmt.Errorf("error reading notification payload: %w", err)
@@ -190,8 +196,7 @@ func renderEditors(out io.Writer, body []byte) error {
 		rows[i] = []string{tab.Path, language, styles.Success.Render(styles.Check(tab.Active)), styles.Warning.Render(styles.Check(tab.Dirty))}
 	}
 
-	styles.PrintTitle(out, "Open Editors", len(tabs))
-	styles.NewTable("Path", "Language", "Active", "Dirty").Rows(rows...).Print(out)
+	styles.NewTable("Path", "Language", "Active", "Dirty").Title("Open Editors", len(tabs)).Rows(rows...).Print(out)
 
 	return nil
 }
@@ -211,8 +216,12 @@ func renderSelection(out io.Writer, body []byte) error {
 	styles.PrintKeyValues(out,
 		styles.Pair{Key: "Path", Value: selection.Path},
 		styles.Pair{Key: "Range", Value: location(selection.Range.Start) + "-" + location(selection.Range.End)},
-		styles.Pair{Key: "Text", Value: selection.Text},
 	)
+
+	if strings.TrimSpace(selection.Text) != "" {
+		fmt.Fprintln(out)
+		styles.PrintCode(out, selection.Text, selection.Path, selection.Range.Start.Line+1)
+	}
 
 	return nil
 }

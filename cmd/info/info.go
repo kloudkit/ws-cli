@@ -50,8 +50,7 @@ var versionCmd = cli.New("version", "0.2.0", "Display installed workspace versio
 			styles.PrintWarning(out, fmt.Sprintf("Could not read the editor version: %v", err))
 		}
 
-		styles.PrintTitle(out, "Versions")
-		styles.NewTable().Rows(rows...).Print(out)
+		styles.NewTable().Title("Versions").Rows(rows...).Print(out)
 
 		return nil
 	})
@@ -74,8 +73,7 @@ var envCmd = cli.New("env", "0.2.0", "Display effective workspace environment va
 			return nil
 		}
 
-		styles.PrintTitle(out, "Workspace Variables", len(rows))
-		styles.NewTable().Rows(rows...).Print(out)
+		styles.NewTable().Title("Workspace Variables", len(rows)).Rows(rows...).Print(out)
 
 		return nil
 	})
@@ -100,8 +98,7 @@ var extensionsCmd = cli.New("extensions", "0.2.0", "Display installed extensions
 			rows[i] = []string{ext.Name, ext.Version}
 		}
 
-		styles.PrintTitle(out, "Extensions", len(rows))
-		styles.NewTable("Name", "Version").Rows(rows...).Print(out)
+		styles.NewTable("Name", "Version").Title("Extensions", len(rows)).Rows(rows...).Print(out)
 
 		return nil
 	})
@@ -118,17 +115,17 @@ var metricsCmd = cli.New("metrics", "0.2.0", "Display workspace metrics",
 			return nil
 		}
 
-		memory := styles.FormatBytes(m.MemoryUsed) + " (no limit)"
+		memory := styles.FormatBytes(m.MemoryUsed) + " " + styles.Aside("no limit")
 		if m.MemoryTotal > 0 {
 			memory = usage(m.MemoryUsed, m.MemoryTotal)
 		}
 
 		rows := [][]string{
-			{"CPU", fmt.Sprintf("%.1f%% · %s CPU time", m.CPUUsage, styles.FormatCPUTime(m.CPUSeconds))},
+			{"CPU", fmt.Sprintf("%.1f%% %s", m.CPUUsage, styles.Muted.Render("· "+styles.FormatCPUTime(m.CPUSeconds)+" CPU time"))},
 			{"Memory", memory},
 			{"Memory RSS", styles.FormatBytes(m.MemoryRSS)},
 			{"Disk", usage(m.DiskUsed, m.DiskTotal)},
-			{"File Descriptors", fmt.Sprintf("%s open · limit %s per process", styles.FormatCount(m.FDOpen), styles.FormatCount(m.FDLimit))},
+			{"File Descriptors", styles.FormatCount(m.FDOpen) + " open " + styles.Muted.Render("· limit "+styles.FormatCount(m.FDLimit)+" per process")},
 		}
 
 		switch {
@@ -138,14 +135,13 @@ var metricsCmd = cli.New("metrics", "0.2.0", "Display workspace metrics",
 		default:
 			rows = append(rows,
 				[]string{"GPU Utilization", fmt.Sprintf("%.0f%%", m.GPU.UtilizationRatio*100)},
-				[]string{"GPU Memory", styles.FormatBytes(m.GPU.MemoryUsedBytes) + " / " + styles.FormatBytes(m.GPU.MemoryTotalBytes)},
+				[]string{"GPU Memory", usage(m.GPU.MemoryUsedBytes, m.GPU.MemoryTotalBytes)},
 				[]string{"GPU Temperature", fmt.Sprintf("%.0f°C", m.GPU.TemperatureCelsius)},
 				[]string{"GPU Power", fmt.Sprintf("%.1f W", m.GPU.PowerWatts)},
 			)
 		}
 
-		styles.PrintTitle(out, "Metrics")
-		styles.NewTable().Rows(rows...).Print(out)
+		styles.NewTable().Title("Metrics").Rows(rows...).Print(out)
 
 		return nil
 	})
@@ -171,8 +167,7 @@ var uptimeCmd = cli.New("uptime", "0.2.0", "Display the workspace uptime",
 			status = styles.Info.Render("Active")
 		}
 
-		styles.PrintTitle(out, "Uptime")
-		styles.NewTable().Rows(
+		styles.NewTable().Title("Uptime").Rows(
 			[]string{"Started at", started.Format("2006-01-02 15:04:05 MST")},
 			[]string{"Running for", styles.FormatDuration(running)},
 			[]string{"Status", status},
@@ -191,7 +186,7 @@ ws info metrics`,
 	envCmd, extensionsCmd, metricsCmd, uptimeCmd, versionCmd)
 
 func usage(used, total uint64) string {
-	return fmt.Sprintf("%s / %s (%s)", styles.FormatBytes(used), styles.FormatBytes(total), styles.FormatPercent(used, total))
+	return fmt.Sprintf("%s / %s %s", styles.FormatBytes(used), styles.FormatBytes(total), styles.Aside(styles.FormatPercent(used, total)))
 }
 
 func init() {

@@ -19,7 +19,7 @@ import (
 )
 
 var errNoEditor = errors.New(
-	"cannot reach the workspace editor — is an editor session open?",
+	"cannot reach the workspace editor; open an editor session first",
 )
 
 func SessionSocketPath() string {
@@ -32,15 +32,31 @@ func SessionSocketPath() string {
 	return filepath.Join(base, "ws-server", "session.sock")
 }
 
-func unixClient(socket string) *http.Client {
+const answerWithin = 3 * time.Second
+
+func unixClient(socket string, wait time.Duration) *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, _, _ string) (nativeNet.Conn, error) {
-				return (&nativeNet.Dialer{}).DialContext(ctx, "unix", socket)
+				return (&nativeNet.Dialer{Timeout: answerWithin}).DialContext(ctx, "unix", socket)
 			},
 		},
-		Timeout: 3 * time.Second,
+		Timeout: wait,
 	}
+}
+
+func requestError(err error, wait time.Duration) error {
+	var opErr *nativeNet.OpError
+	if errors.As(err, &opErr) && opErr.Op == "dial" {
+		return errNoEditor
+	}
+
+	var netErr nativeNet.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return fmt.Errorf("the workspace editor did not answer within %s", wait)
+	}
+
+	return fmt.Errorf("error talking to the workspace editor: %w", err)
 }
 
 func resolveWindowSocket(filePath string) (string, error) {
@@ -50,9 +66,9 @@ func resolveWindowSocket(filePath string) (string, error) {
 
 	target := "http://unix/session?filePath=" + url.QueryEscape(filePath)
 
-	resp, err := unixClient(SessionSocketPath()).Get(target)
+	resp, err := unixClient(SessionSocketPath(), answerWithin).Get(target)
 	if err != nil {
-		return "", errNoEditor
+		return "", requestError(err, answerWithin)
 	}
 	defer resp.Body.Close()
 
@@ -68,6 +84,10 @@ func resolveWindowSocket(filePath string) (string, error) {
 }
 
 func SendEnvelope(filePath string, envelope any) ([]byte, error) {
+	return SendEnvelopeWithin(filePath, envelope, answerWithin)
+}
+
+func SendEnvelopeWithin(filePath string, envelope any, wait time.Duration) ([]byte, error) {
 	socket, err := resolveWindowSocket(filePath)
 	if err != nil {
 		return nil, err
@@ -78,9 +98,9 @@ func SendEnvelope(filePath string, envelope any) ([]byte, error) {
 		return nil, fmt.Errorf("error encoding editor request: %w", err)
 	}
 
-	resp, err := unixClient(socket).Post("http://unix/", "application/json", bytes.NewReader(body))
+	resp, err := unixClient(socket, wait).Post("http://unix/", "application/json", bytes.NewReader(body))
 	if err != nil {
-		return nil, errNoEditor
+		return nil, requestError(err, wait)
 	}
 	defer resp.Body.Close()
 

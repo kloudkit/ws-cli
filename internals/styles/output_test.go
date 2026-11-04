@@ -22,9 +22,9 @@ func TestPrinters(t *testing.T) {
 		fn   func(*bytes.Buffer)
 		want string
 	}{
-		"Title":      {func(b *bytes.Buffer) { PrintTitle(b, "Template ruff") }, "\n  Template ruff\n\n"},
-		"TitleCount": {func(b *bytes.Buffer) { PrintTitle(b, "gh", 3) }, "\n  gh (3)\n\n"},
-		"TitleNote":  {func(b *bytes.Buffer) { PrintTitle(b, "server.port", "WS_SERVER_PORT") }, "\n  server.port WS_SERVER_PORT\n\n"},
+		"Title":      {func(b *bytes.Buffer) { PrintTitle(b, "Template ruff") }, "\n  Template ruff ──────────────────────────────────────────────────\n\n"},
+		"TitleCount": {func(b *bytes.Buffer) { PrintTitle(b, "gh", 3) }, "\n  gh ─────────────────────────────────────────────────────────── 3\n\n"},
+		"TitleNote":  {func(b *bytes.Buffer) { PrintTitle(b, "server.port", "WS_SERVER_PORT") }, "\n  server.port ───────────────────────────────────── WS_SERVER_PORT\n\n"},
 		"KeyValues": {
 			func(b *bytes.Buffer) {
 				PrintKeyValues(b, Pair{"URL", "http://localhost:8080"}, Pair{"Root", "/workspace"}, Pair{"Value", "line one\nline two"})
@@ -49,7 +49,7 @@ func TestPrinters(t *testing.T) {
 		"SuccessDetails": {func(b *bytes.Buffer) { PrintSuccess(b, "Done", Pair{"Output", "/tmp/k"}) }, "\n  ✓ Done\n\n  Output  /tmp/k\n"},
 		"Warning":        {func(b *bytes.Buffer) { PrintWarning(b, "Careful") }, "  ⚠ Careful\n"},
 		"Text":           {func(b *bytes.Buffer) { PrintText(b, "a\n\nb") }, "  a\n\n  b\n"},
-		"Code":           {func(b *bytes.Buffer) { PrintCode(b, "a: 1  \n\nb: 2\n") }, "  │ a: 1\n  │\n  │ b: 2\n"},
+		"Code":           {func(b *bytes.Buffer) { PrintCode(b, "a: 1  \n\nb: 2\n", "", 9) }, "   9 │ a: 1\n  10 │\n  11 │ b: 2\n"},
 		"MarkdownEmpty":  {func(b *bytes.Buffer) { assert.NilError(t, RenderMarkdown(b, "   \n\n")) }, ""},
 	}
 

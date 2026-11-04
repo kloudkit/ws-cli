@@ -44,7 +44,7 @@ func TestTemplateList(t *testing.T) {
 
 	out, err := run(t, "list")
 	assert.NilError(t, err)
-	assertHas(t, out, "Templates Available", "(4)", "ansible", "markdownlint", "yamllint", "~/.config/ruff/ruff.toml (applied)", "template apply <name>")
+	assertHas(t, out, "Templates Available", "─ 4\n", "ansible", "markdownlint", "yamllint", "~/.config/ruff/ruff.toml (applied)", "template apply <name>")
 	assert.Equal(t, strings.Count(out, "(applied)"), 1)
 }
 

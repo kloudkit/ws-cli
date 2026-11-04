@@ -1,4 +1,4 @@
 
-  Workspace Home Path
+  Workspace Home Path ────────────────────────────────────────────
 
   Path  /workspace

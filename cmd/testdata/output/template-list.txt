@@ -1,5 +1,5 @@
 
-  Templates Available (4)
+  Templates Available ────────────────────────────────────────── 4
 
   • ansible      — /etc/ansible/ansible.cfg
   • markdownlint — ~/.config/markdownlint/config

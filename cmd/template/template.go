@@ -48,7 +48,7 @@ var listCmd = cli.New("list", "0.2.0", "List all available configuration templat
 			items[i] = styles.DescriptionItem{Name: name, Description: sourcePath(config)}
 
 			if _, err := os.Stat(config.OutputName); err == nil {
-				items[i].Description += " " + styles.Success.Render("(applied)")
+				items[i].Description += " " + styles.Aside("applied")
 			}
 		}
 
@@ -73,13 +73,14 @@ var showCmd = cli.New("show <template>", "0.2.0", "Display the contents of a con
 			return err
 		}
 
-		title := "Template "
+		config := template.SupportedTemplates[args[0]]
+		title, source := "Template "+args[0], sourcePath(config)
 		if local {
-			title = "Local Template "
+			title, source = "Local Template "+args[0], config.OutputName
 		}
 
-		styles.PrintTitle(cmd.OutOrStdout(), title+args[0])
-		styles.PrintCode(cmd.OutOrStdout(), content)
+		styles.PrintTitle(cmd.OutOrStdout(), title, source)
+		styles.PrintCode(cmd.OutOrStdout(), content, config.OutputName, 1)
 
 		return nil
 	})

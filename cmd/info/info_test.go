@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
 	"gotest.tools/v3/assert"
 )
 
@@ -16,5 +17,5 @@ func TestVersionRendersResolvedVersionVerbatim(t *testing.T) {
 }
 
 func TestUsage(t *testing.T) {
-	assert.Equal(t, usage(1<<30, 4<<30), "1.0 GiB / 4.0 GiB (25.0%)")
+	assert.Equal(t, ansi.Strip(usage(1<<30, 4<<30)), "1.0 GiB / 4.0 GiB (25.0%)")
 }

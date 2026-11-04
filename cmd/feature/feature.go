@@ -76,7 +76,7 @@ var listCmd = cli.New("list", "0.2.0", "List available features that can be inst
 		for i, f := range result.Features {
 			items[i] = styles.DescriptionItem{Name: f.Name, Description: f.Description}
 			if f.Source != features.SourceSystem {
-				items[i].Description += " " + styles.Muted.Render("("+string(f.Source)+")")
+				items[i].Description += " " + styles.Aside(string(f.Source))
 			}
 		}
 

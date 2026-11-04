@@ -51,7 +51,7 @@ func TestEnvelopes(t *testing.T) {
 			"end":   map[string]any{"line": float64(2), "character": float64(5)},
 		}}, nil, ""},
 		{"Notify", `{"action":"Yes","timedOut":false}`, func() ([]byte, error) {
-			return editor.Notify(editor.NotifyRequest{Message: "Deploy now?", Actions: []any{"Yes", "No"}, Timeout: 5000})
+			return editor.Notify(editor.NotifyRequest{Message: "Deploy now?", Actions: []any{"Yes", "No"}, Timeout: new(5000)})
 		}, map[string]any{"type": "notify", "message": "Deploy now?", "actions": []any{"Yes", "No"}, "timeout": float64(5000)}, nil, `{"action":"Yes","timedOut":false}`},
 		{"NotifyMinimal", "null", func() ([]byte, error) { return editor.Notify(editor.NotifyRequest{Message: "hi"}) },
 			map[string]any{"type": "notify", "message": "hi"}, []string{"detail", "actions", "timeout", "modal", "severity"}, ""},

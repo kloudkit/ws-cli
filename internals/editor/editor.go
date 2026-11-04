@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/kloudkit/ws-cli/internals/net"
 )
@@ -61,7 +62,7 @@ type NotifyRequest struct {
 	Detail   string `json:"detail,omitempty"`
 	Actions  any    `json:"actions,omitempty"`
 	Modal    bool   `json:"modal,omitempty"`
-	Timeout  int    `json:"timeout,omitempty"`
+	Timeout  *int   `json:"timeout,omitempty"`
 	Severity string `json:"severity,omitempty"`
 }
 
@@ -124,14 +125,25 @@ func Open(req OpenRequest) error {
 }
 
 func Notify(req NotifyRequest) ([]byte, error) {
-	return fetch(struct {
+	wait := time.Duration(0)
+	if req.Timeout == nil {
+		wait = 35 * time.Second
+	} else if *req.Timeout > 0 {
+		wait = time.Duration(*req.Timeout+5) * time.Second
+	}
+
+	return fetchWithin(struct {
 		Type string `json:"type"`
 		NotifyRequest
-	}{"notify", req})
+	}{"notify", req}, wait)
 }
 
 func fetch(envelope any) ([]byte, error) {
-	body, err := net.SendEnvelope("", envelope)
+	return fetchWithin(envelope, 3*time.Second)
+}
+
+func fetchWithin(envelope any, wait time.Duration) ([]byte, error) {
+	body, err := net.SendEnvelopeWithin("", envelope, wait)
 	if err != nil {
 		return nil, err
 	}

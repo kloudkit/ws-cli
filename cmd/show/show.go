@@ -210,7 +210,7 @@ func runPretty(cmd *cobra.Command, dotted, key string, prop config.Property) err
 	display := value
 	switch {
 	case value == "":
-		display = styles.Muted.Render("(unset)")
+		display = styles.Aside("unset")
 	case prop.Secret:
 		display = styles.Muted.Render("<redacted>")
 	}
@@ -227,7 +227,7 @@ func runPretty(cmd *cobra.Command, dotted, key string, prop config.Property) err
 func sourceLabel(prop config.Property, source config.ResolveSource, value string) string {
 	label := source.Label()
 	if source == config.SourceEnv && prop.Default != nil && value == *prop.Default {
-		label += " (matches declared)"
+		label += " " + styles.Aside("matches declared")
 	}
 	return label
 }

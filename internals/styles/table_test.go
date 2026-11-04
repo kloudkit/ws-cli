@@ -1,6 +1,7 @@
 package styles
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -65,4 +66,13 @@ func TestTableNarrowTerminal(t *testing.T) {
 			assert.Assert(t, ansi.StringWidth(line) <= width, "width %d: %q", width, line)
 		}
 	}
+}
+
+func TestTableTitleRuleEndsAtTableEdge(t *testing.T) {
+	buf := &bytes.Buffer{}
+	NewTable("Name", "Version").Title("Extensions", 2).Rows([]string{"a.very-long-extension-name", "1.0.0"}).Print(buf)
+
+	lines := strings.Split(ansi.Strip(buf.String()), "\n")
+	assert.Equal(t, ansi.StringWidth(lines[1]), ansi.StringWidth(lines[3]))
+	assert.Assert(t, strings.HasSuffix(lines[1], "─ 2"), lines[1])
 }

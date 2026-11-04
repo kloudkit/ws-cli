@@ -3,9 +3,13 @@ package styles
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	lipgloss "charm.land/lipgloss/v2"
+	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/lexers"
+	chromastyles "github.com/alecthomas/chroma/v2/styles"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -51,17 +55,34 @@ func widest[T any](items []T, key func(T) string) int {
 	return width
 }
 
+const titleWidth = 64
+
 func PrintTitle(w io.Writer, title string, extras ...any) {
-	title = Header.Render(title)
-	for _, extra := range extras {
+	width := titleWidth
+	if terminal := TerminalWidth(); terminal > 0 {
+		width = min(width, terminal-2*len(indent))
+	}
+
+	printTitle(w, width, title, extras)
+}
+
+func printTitle(w io.Writer, width int, title string, extras []any) {
+	tail := make([]string, len(extras))
+	for i, extra := range extras {
 		if n, ok := extra.(int); ok {
-			title += " " + Count.Render(fmt.Sprintf("(%d)", n))
+			tail[i] = Count.Render(strconv.Itoa(n))
 		} else {
-			title += " " + Muted.Render(fmt.Sprint(extra))
+			tail[i] = Muted.Render(fmt.Sprint(extra))
 		}
 	}
 
-	fmt.Fprintf(w, "\n%s%s\n\n", indent, title)
+	suffix := strings.Join(tail, " ")
+	if suffix != "" {
+		suffix = " " + suffix
+	}
+
+	rule := max(width-ansi.StringWidth(title)-ansi.StringWidth(suffix)-1, 3)
+	fmt.Fprintf(w, "\n%s%s %s%s\n\n", indent, Header.Render(title), Border.Render(strings.Repeat("─", rule)), suffix)
 }
 
 func PrintSubHeader(w io.Writer, text string) { line(w, SubHeader, text) }
@@ -95,16 +116,62 @@ func PrintText(w io.Writer, text string) {
 	}
 }
 
-func PrintCode(w io.Writer, text string) {
-	gutter := Border.Render("│")
+func Aside(text string) string { return Muted.Render("(" + text + ")") }
 
-	for row := range strings.SplitSeq(strings.TrimRight(text, "\n"), "\n") {
-		if row = strings.TrimRight(row, " \t"); row == "" {
-			fmt.Fprintf(w, "%s%s\n", indent, gutter)
+func PrintCode(w io.Writer, text, filename string, first int) {
+	rows := highlight(text, filename)
+	width := len(strconv.Itoa(first + len(rows) - 1))
+
+	for i, row := range rows {
+		number := Muted.Render(fmt.Sprintf("%*d", width, first+i))
+		if row == "" {
+			fmt.Fprintf(w, "%s%s %s\n", indent, number, Border.Render("│"))
 		} else {
-			fmt.Fprintf(w, "%s%s %s\n", indent, gutter, Value.Render(row))
+			fmt.Fprintf(w, "%s%s %s %s\n", indent, number, Border.Render("│"), row)
 		}
 	}
+}
+
+func highlight(text, filename string) []string {
+	raw := strings.Split(strings.TrimRight(text, "\n"), "\n")
+	for i, row := range raw {
+		raw[i] = strings.TrimRight(row, " \t")
+	}
+
+	var tokens []chroma.Token
+	if lexer := lexers.Match(filename); lexer != nil {
+		tokens, _ = chroma.Tokenise(chroma.Coalesce(lexer), nil, strings.Join(raw, "\n"))
+	}
+
+	if len(tokens) == 0 {
+		for i, row := range raw {
+			if row != "" {
+				raw[i] = Value.Render(row)
+			}
+		}
+
+		return raw
+	}
+
+	theme, rows := chromastyles.Get("catppuccin-frappe"), []string{""}
+	for _, token := range tokens {
+		style := Value
+		if entry := theme.Get(token.Type); entry.Colour.IsSet() {
+			style = lipgloss.NewStyle().Foreground(lipgloss.Color(entry.Colour.String())).Italic(entry.Italic == chroma.Yes).Bold(entry.Bold == chroma.Yes)
+		}
+
+		for i, part := range strings.Split(token.Value, "\n") {
+			if i > 0 {
+				rows = append(rows, "")
+			}
+
+			if part != "" {
+				rows[len(rows)-1] += style.Render(part)
+			}
+		}
+	}
+
+	return rows[:len(raw)]
 }
 
 func PrintKeyValues(w io.Writer, pairs ...Pair) {
