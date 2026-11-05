@@ -12,11 +12,11 @@ import (
 
 var (
 	validLogLevels  = []string{"debug", "info", "warn", "error"}
-	validLogTargets = []string{"main", "metrics", "docker", "auth_proxy", "cloudflared"}
+	validLogTargets = []string{"main", "metrics", "docker", "cloudflared"}
 )
 
 var LogsCmd = cli.New("logs", "0.2.0", "Retrieve workspace logs",
-	"Read a workspace daemon's log — the main log by default, or --target metrics|docker|auth_proxy|cloudflared. Filter by --level, limit with --tail, or stream live with --follow.",
+	"Read a workspace daemon's log — the main log by default, or --target metrics|docker|cloudflared. Filter by --level, limit with --tail, or stream live with --follow.",
 	func(cmd *cobra.Command, args []string) error {
 		level, target := cli.String(cmd, "level"), cli.String(cmd, "target")
 
@@ -47,5 +47,5 @@ ws logs --target metrics`
 	LogsCmd.Flags().BoolP("follow", "f", false, "Follow log output in real-time")
 	LogsCmd.Flags().IntP("tail", "t", 0, "Number of lines to show from the end (0 for all)")
 	LogsCmd.Flags().StringP("level", "l", "", "Filter by log level (debug|info|warn|error)")
-	LogsCmd.Flags().String("target", "main", "Log target to read (main|metrics|docker|auth_proxy|cloudflared)")
+	LogsCmd.Flags().String("target", "main", "Log target to read (main|metrics|docker|cloudflared)")
 }

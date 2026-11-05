@@ -25,7 +25,6 @@ func _seedLogs(t *testing.T) {
 		"workspace.log":   "main marker",
 		"metrics.log":     "metrics marker",
 		"dockerd.log":     "docker marker",
-		"auth-proxy.log":  "auth proxy marker",
 		"cloudflared.log": "cloudflared marker",
 	}
 
@@ -37,7 +36,6 @@ func _seedLogs(t *testing.T) {
 	t.Setenv("WS_LOGGING_MAIN_FILE", "workspace.log")
 	t.Setenv("WS_LOGGING_METRICS_FILE", "metrics.log")
 	t.Setenv("WS_LOGGING_DOCKER_FILE", "dockerd.log")
-	t.Setenv("WS_LOGGING_AUTH_PROXY_FILE", "auth-proxy.log")
 	t.Setenv("WS_LOGGING_CLOUDFLARED_FILE", "cloudflared.log")
 }
 
@@ -46,7 +44,7 @@ func TestLogsFlags(t *testing.T) {
 	assert.Assert(t, LogsCmd.Flags().ShorthandLookup("T") == nil)
 
 	for arg, want := range map[string]string{
-		"--target=garbage": `invalid log target "garbage" (valid: main, metrics, docker, auth_proxy, cloudflared)`,
+		"--target=garbage": `invalid log target "garbage" (valid: main, metrics, docker, cloudflared)`,
 		"--level=fatal":    `invalid log level "fatal" (valid: debug, info, warn, error)`,
 	} {
 		out, err := executeLogs(arg)
@@ -63,7 +61,6 @@ func TestLogsValidTargets(t *testing.T) {
 		{"main", "main marker"},
 		{"metrics", "metrics marker"},
 		{"docker", "docker marker"},
-		{"auth_proxy", "auth proxy marker"},
 		{"cloudflared", "cloudflared marker"},
 	}
 
