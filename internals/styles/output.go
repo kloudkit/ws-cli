@@ -94,11 +94,11 @@ func PrintEmpty(w io.Writer, message string) {
 	line(w, Muted, "○ "+message)
 }
 
-func PrintWarning(w io.Writer, message string) { line(w, Warning, "⚠ "+message) }
+func PrintWarning(w io.Writer, message string) { fmt.Fprintln(w, Warning.Render("⚠ "+message)) }
 
 func PrintSuccess(w io.Writer, message string, details ...Pair) {
 	if len(details) == 0 {
-		line(w, Success, "✓ "+message)
+		fmt.Fprintln(w, Success.Render("✓ "+message))
 		return
 	}
 
