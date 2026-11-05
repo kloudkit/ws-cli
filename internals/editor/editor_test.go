@@ -50,6 +50,21 @@ func TestEnvelopes(t *testing.T) {
 			"start": map[string]any{"line": float64(0), "character": float64(0)},
 			"end":   map[string]any{"line": float64(2), "character": float64(5)},
 		}}, nil, ""},
+		{"OpenTab", `{"opened":true}`, func() ([]byte, error) { return nil, editor.Open(editor.OpenRequest{Path: "/workspace/a.md"}) },
+			map[string]any{"type": "editorOpen", "newWindow": false, "preview": false}, []string{"modal", "selection"}, ""},
+		{"OpenModal", `{"opened":true}`, func() ([]byte, error) {
+			return nil, editor.Open(editor.OpenRequest{Path: "/workspace/a.md", Modal: true})
+		},
+			map[string]any{"type": "editorOpen", "path": "/workspace/a.md", "modal": true}, nil, ""},
+		{"Reveal", "null", func() ([]byte, error) { return nil, editor.Reveal("/workspace/src") },
+			map[string]any{"type": "editorReveal", "path": "/workspace/src"}, nil, ""},
+		{"Terminal", "null", func() ([]byte, error) {
+			return nil, editor.OpenTerminal(editor.TerminalRequest{Cwd: "/workspace", Name: "tests", Command: "go test ./..."})
+		}, map[string]any{"type": "editorTerminal", "cwd": "/workspace", "name": "tests", "command": "go test ./..."}, nil, ""},
+		{"TerminalMinimal", "null", func() ([]byte, error) { return nil, editor.OpenTerminal(editor.TerminalRequest{Cwd: "/workspace"}) },
+			map[string]any{"type": "editorTerminal", "cwd": "/workspace"}, []string{"name", "command"}, ""},
+		{"Download", `{"downloaded":true}`, func() ([]byte, error) { return editor.Download("/workspace/big.iso") },
+			map[string]any{"type": "editorDownload", "path": "/workspace/big.iso"}, nil, `{"downloaded":true}`},
 		{"Notify", `{"action":"Yes","timedOut":false}`, func() ([]byte, error) {
 			return editor.Notify(editor.NotifyRequest{Message: "Deploy now?", Actions: []any{"Yes", "No"}, Timeout: new(5000)})
 		}, map[string]any{"type": "notify", "message": "Deploy now?", "actions": []any{"Yes", "No"}, "timeout": float64(5000)}, nil, `{"action":"Yes","timedOut":false}`},
@@ -93,6 +108,16 @@ func TestErrorResponseSurfacesBody(t *testing.T) {
 	assert.ErrorContains(t, err, "kernel exploded")
 }
 
+func TestUnknownRequestNeedsNewerImage(t *testing.T) {
+	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`"Unknown message type: editorDownload"`))
+	}))
+
+	_, err := editor.Download("/workspace/a.txt")
+	assert.ErrorContains(t, err, "newer workspace image")
+}
+
 func TestServerDownIsFriendly(t *testing.T) {
 	t.Setenv("VSCODE_IPC_HOOK_CLI", filepath.Join(t.TempDir(), "absent.sock"))
 
@@ -106,6 +131,7 @@ func TestFixturesMatchContract(t *testing.T) {
 		"editors.json":     &[]editor.Tab{},
 		"selection.json":   &editor.Selection{},
 		"open.json":        &struct{ Opened bool }{},
+		"download.json":    &editor.DownloadResult{},
 	} {
 		data, err := os.ReadFile(filepath.Join("testdata", name))
 		assert.NilError(t, err)

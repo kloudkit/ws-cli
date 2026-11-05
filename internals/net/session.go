@@ -22,6 +22,10 @@ var errNoEditor = errors.New(
 	"cannot reach the workspace editor; open an editor session first",
 )
 
+var errEditorTooOld = errors.New(
+	"the running editor does not support this command yet; it needs a newer workspace image",
+)
+
 func SessionSocketPath() string {
 	base := filepath.Join(env.Home(), ".local", "share")
 
@@ -111,8 +115,16 @@ func SendEnvelopeWithin(filePath string, envelope any, wait time.Duration) ([]by
 
 	if resp.StatusCode >= http.StatusMultipleChoices {
 		message := strings.TrimSpace(string(data))
+		if text := ""; json.Unmarshal(data, &text) == nil {
+			message = text
+		}
+
 		if message == "" {
 			message = resp.Status
+		}
+
+		if resp.StatusCode == http.StatusNotFound && strings.HasPrefix(message, "Unknown message type") {
+			return nil, errEditorTooOld
 		}
 
 		return nil, fmt.Errorf("workspace editor returned %d: %s", resp.StatusCode, message)

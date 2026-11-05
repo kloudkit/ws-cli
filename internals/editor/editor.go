@@ -54,7 +54,18 @@ type OpenRequest struct {
 	Path      string `json:"path"`
 	NewWindow bool   `json:"newWindow"`
 	Preview   bool   `json:"preview"`
+	Modal     bool   `json:"modal,omitempty"`
 	Selection *Range `json:"selection,omitempty"`
+}
+
+type TerminalRequest struct {
+	Cwd     string `json:"cwd"`
+	Name    string `json:"name,omitempty"`
+	Command string `json:"command,omitempty"`
+}
+
+type DownloadResult struct {
+	Downloaded bool `json:"downloaded"`
 }
 
 type NotifyRequest struct {
@@ -124,6 +135,24 @@ func Open(req OpenRequest) error {
 	return err
 }
 
+func Reveal(path string) error {
+	_, err := fetchWithin(path, map[string]any{"type": "editorReveal", "path": path}, 3*time.Second)
+	return err
+}
+
+func OpenTerminal(req TerminalRequest) error {
+	_, err := fetchWithin(req.Cwd, struct {
+		Type string `json:"type"`
+		TerminalRequest
+	}{"editorTerminal", req}, 3*time.Second)
+
+	return err
+}
+
+func Download(path string) ([]byte, error) {
+	return fetchWithin(path, map[string]any{"type": "editorDownload", "path": path}, 0)
+}
+
 func Notify(req NotifyRequest) ([]byte, error) {
 	wait := time.Duration(0)
 	if req.Timeout == nil {
@@ -132,18 +161,18 @@ func Notify(req NotifyRequest) ([]byte, error) {
 		wait = time.Duration(*req.Timeout+5) * time.Second
 	}
 
-	return fetchWithin(struct {
+	return fetchWithin("", struct {
 		Type string `json:"type"`
 		NotifyRequest
 	}{"notify", req}, wait)
 }
 
 func fetch(envelope any) ([]byte, error) {
-	return fetchWithin(envelope, 3*time.Second)
+	return fetchWithin("", envelope, 3*time.Second)
 }
 
-func fetchWithin(envelope any, wait time.Duration) ([]byte, error) {
-	body, err := net.SendEnvelopeWithin("", envelope, wait)
+func fetchWithin(filePath string, envelope any, wait time.Duration) ([]byte, error) {
+	body, err := net.SendEnvelopeWithin(filePath, envelope, wait)
 	if err != nil {
 		return nil, err
 	}

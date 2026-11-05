@@ -94,14 +94,14 @@ var notifyCmd = cli.New("notify", "0.5.0", "Raise a notification in the editor",
 	})
 
 var openCmd = cli.New("open <file>", "0.5.0", "Open a file in the editor",
-	"Open a file in the running editor window over the workspace IPC socket — a tab in the current window by default, a separate one with --new-window, jumping to a range with --selection. Fails fast over SSH, where there is no browser editor to open into.",
+	"Open a file in the running editor window over the workspace IPC socket — a tab in the current window by default, a separate one with --new-window, a centered overlay with --modal, jumping to a range with --selection. Fails fast over SSH, where there is no browser editor to open into.",
 	func(cmd *cobra.Command, args []string) error {
 		path, err := resolvePath(args[0])
 		if err != nil {
 			return err
 		}
 
-		req := editoripc.OpenRequest{Path: path, NewWindow: cli.Bool(cmd, "new-window"), Preview: cli.Bool(cmd, "preview")}
+		req := editoripc.OpenRequest{Path: path, NewWindow: cli.Bool(cmd, "new-window"), Preview: cli.Bool(cmd, "preview"), Modal: cli.Bool(cmd, "modal")}
 
 		if selection := cli.String(cmd, "selection"); selection != "" {
 			if req.Selection, err = parseSelection(selection); err != nil {
@@ -112,19 +112,96 @@ var openCmd = cli.New("open <file>", "0.5.0", "Open a file in the editor",
 		return editoripc.Open(req)
 	})
 
+var downloadCmd = cli.New("download <path>", "next", "Download a workspace file or folder to your computer",
+	"Ask the running editor window to download a workspace file or folder to your computer through the browser, like the Explorer's Download… action. Returns once the download has started; its progress shows in the editor and the browser. Fails when file downloads are disabled (WS_EDITOR_DISABLE_FILE_DOWNLOADS) or cancelled in the editor. Blocked over SSH.",
+	func(cmd *cobra.Command, args []string) error {
+		path, err := existingPath(args[0])
+		if err != nil {
+			return err
+		}
+
+		body, err := editoripc.Download(path)
+		if err != nil {
+			return err
+		}
+
+		if cli.Bool(cmd, "raw") {
+			printBody(cmd.OutOrStdout(), body)
+			return nil
+		}
+
+		var result editoripc.DownloadResult
+		if err := json.Unmarshal(body, &result); err != nil {
+			return fmt.Errorf("error parsing download response: %w", err)
+		}
+
+		if !result.Downloaded {
+			return errors.New("the download was cancelled in the editor")
+		}
+
+		styles.PrintSuccess(cmd.OutOrStdout(), "Download started", styles.Pair{Key: "Path", Value: path})
+
+		return nil
+	})
+
+var revealCmd = cli.New("reveal <path>", "next", "Reveal a file or folder in the Explorer sidebar",
+	"Show and select a workspace file or folder in the editor's Explorer sidebar without opening it, like the Reveal in Explorer View action. Blocked over SSH.",
+	func(cmd *cobra.Command, args []string) error {
+		path, err := existingPath(args[0])
+		if err != nil {
+			return err
+		}
+
+		return editoripc.Reveal(path)
+	})
+
+var terminalCmd = cli.New("terminal [-- command...]", "next", "Open a terminal session in the editor",
+	"Open a new integrated terminal in the running editor window, in the current directory or --cwd, named with --name. Arguments after -- are joined with spaces and run in the new terminal. Blocked over SSH.",
+	func(cmd *cobra.Command, args []string) error {
+		cwd, err := existingPath(cli.String(cmd, "cwd"))
+		if err != nil {
+			return err
+		}
+
+		if info, _ := os.Stat(cwd); !info.IsDir() {
+			return fmt.Errorf("%s: not a directory", cwd)
+		}
+
+		return editoripc.OpenTerminal(editoripc.TerminalRequest{Cwd: cwd, Name: cli.String(cmd, "name"), Command: strings.Join(args, " ")})
+	})
+
 var EditorCmd = cli.Group("editor", "0.5.0", "Inspect and drive the active editor session",
-	"Query and control the running VS Code / code-server window over the workspace IPC socket — list open tabs, read diagnostics and the current selection, or open a file. Blocked over SSH, where there is no browser editor to reach.",
+	"Query and control the running VS Code / code-server window over the workspace IPC socket — list open tabs, read diagnostics and the current selection, open, reveal, or download a file, or open a terminal. Blocked over SSH, where there is no browser editor to reach.",
 	`# List the open editor tabs
 ws editor list
 
 # Open a file at a specific line and column
-ws editor open src/main.go --selection 12:1`,
-	diagnosticsCmd, listCmd, notifyCmd, openCmd, selectionCmd)
+ws editor open src/main.go --selection 12:1
+
+# Preview a document in an overlay instead of a tab
+ws editor open README.md --modal
+
+# Run the tests in a new editor terminal
+ws editor terminal --name tests -- go test ./...`,
+	diagnosticsCmd, downloadCmd, listCmd, notifyCmd, openCmd, revealCmd, selectionCmd, terminalCmd)
 
 func printBody(out io.Writer, body []byte) {
 	if len(body) > 0 {
 		fmt.Fprintln(out, strings.TrimSpace(string(body)))
 	}
+}
+
+func existingPath(value string) (string, error) {
+	path, err := filepath.Abs(value)
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve path %q: %w", value, err)
+	}
+
+	if _, err := os.Stat(path); err != nil {
+		return "", fmt.Errorf("%s: %w", path, errors.Unwrap(err))
+	}
+
+	return path, nil
 }
 
 func location(p editoripc.Position) string {
@@ -291,6 +368,11 @@ echo '{"message": "Deploy now?", "actions": ["Yes", "No"]}' | ws editor notify`
 	openCmd.Flags().Bool("reuse-window", false, "Open in the current window as a tab (default)")
 	openCmd.Flags().Bool("new-window", false, "Open in a new window")
 	openCmd.Flags().Bool("preview", false, "Open as a preview tab (reuse-window only)")
+	openCmd.Flags().Bool("modal", false, "Open in a centered overlay instead of a tab")
 	openCmd.Flags().String("selection", "", "Select a range: LINE:COL[-LINE:COL] (1-based)")
-	openCmd.MarkFlagsMutuallyExclusive("reuse-window", "new-window")
+	openCmd.MarkFlagsMutuallyExclusive("reuse-window", "new-window", "modal")
+	openCmd.MarkFlagsMutuallyExclusive("preview", "modal")
+	downloadCmd.Args, revealCmd.Args = cobra.ExactArgs(1), cobra.ExactArgs(1)
+	terminalCmd.Flags().String("cwd", ".", "Working directory for the terminal")
+	terminalCmd.Flags().String("name", "", "Terminal tab name")
 }

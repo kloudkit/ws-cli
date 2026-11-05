@@ -1,11 +1,14 @@
 package editor
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/kloudkit/ws-cli/cmd/clitest"
 	editoripc "github.com/kloudkit/ws-cli/internals/editor"
+	"github.com/kloudkit/ws-cli/internals/testutil"
 	"gotest.tools/v3/assert"
 )
 
@@ -49,5 +52,35 @@ func TestParseSelection(t *testing.T) {
 	for _, bad := range []string{"", "5", "abc:1", "1:0", "0:1", "1:2-bogus"} {
 		_, err := parseSelection(bad)
 		assert.ErrorContains(t, err, "invalid selection", bad)
+	}
+}
+
+func TestPathCommandsRejectMissingPath(t *testing.T) {
+	testutil.FakeWorkspace(t)
+
+	missing := filepath.Join(t.TempDir(), "absent.iso")
+
+	for _, command := range []string{"download", "reveal"} {
+		_, err := clitest.Run(EditorCmd, "", command, missing)
+		assert.ErrorContains(t, err, missing+": no such file or directory")
+	}
+}
+
+func TestTerminalNeedsDirectory(t *testing.T) {
+	testutil.FakeWorkspace(t)
+
+	file := filepath.Join(t.TempDir(), "file.txt")
+	assert.NilError(t, os.WriteFile(file, nil, 0o600))
+
+	_, err := clitest.Run(EditorCmd, "", "terminal", "--cwd", file)
+	assert.ErrorContains(t, err, file+": not a directory")
+}
+
+func TestOpenModalExcludesTabFlags(t *testing.T) {
+	testutil.FakeWorkspace(t)
+
+	for _, other := range []string{"--new-window", "--reuse-window", "--preview"} {
+		_, err := clitest.Run(EditorCmd, "", "open", "README.md", "--modal", other)
+		assert.ErrorContains(t, err, "none of the others can be")
 	}
 }

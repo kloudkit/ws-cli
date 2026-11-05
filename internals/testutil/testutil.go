@@ -3,10 +3,12 @@ package testutil
 import (
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
+	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"gotest.tools/v3/assert"
@@ -45,4 +47,18 @@ func ServeUnix(t *testing.T, socket string, handler http.Handler) {
 	go func() { _ = server.Serve(listener) }()
 
 	t.Cleanup(func() { _ = server.Close() })
+}
+
+func FakeWorkspace(t *testing.T) {
+	t.Helper()
+
+	dir := t.TempDir()
+	manifest, reference := filepath.Join(dir, "manifest.json"), filepath.Join(dir, "env.reference.yaml")
+	assert.NilError(t, os.WriteFile(manifest, []byte(`{"version":"0.0.0"}`), 0o644))
+	assert.NilError(t, os.WriteFile(reference, []byte("envs: {}\n"), 0o644))
+
+	previous := config.DefaultManifestPath
+	config.DefaultManifestPath = manifest
+	t.Cleanup(func() { config.DefaultManifestPath = previous })
+	t.Setenv("WS__INTERNAL_ENV_REFERENCE", reference)
 }
