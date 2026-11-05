@@ -24,6 +24,17 @@ var errNoEditorOverSSH = errors.New(
 	"the editor commands are not available over SSH — there is no editor session to act on",
 )
 
+var errDownloadsDisabled = errors.New(
+	"file downloads are disabled in this workspace (WS_EDITOR_DISABLE_FILE_DOWNLOADS)",
+)
+
+var osExit = os.Exit
+
+func exit(code int) error {
+	osExit(code)
+	return nil
+}
+
 var severityStyles = map[string]func(...string) string{
 	"Error":       styles.Error.Render,
 	"Warning":     styles.Warning.Render,
@@ -112,12 +123,28 @@ var openCmd = cli.New("open <file>", "0.5.0", "Open a file in the editor",
 		return editoripc.Open(req)
 	})
 
-var downloadCmd = cli.New("download <path>", "next", "Download a workspace file or folder to your computer",
-	"Ask the running editor window to download a workspace file or folder to your computer through the browser, like the Explorer's Download… action. Returns once the download has started; its progress shows in the editor and the browser. Fails when file downloads are disabled (WS_EDITOR_DISABLE_FILE_DOWNLOADS) or cancelled in the editor. Blocked over SSH.",
+var downloadCmd = cli.New("download <file>", "next", "Download a workspace file to your computer",
+	"Ask the running editor window to download a workspace file of any size to your computer through the browser. The editor asks first; once you click Download it returns at once and the transfer shows in the browser's download bar. A folder is refused; archive it first with tar -czf <name>.tgz <name>. Fails when file downloads are disabled (WS_EDITOR_DISABLE_FILE_DOWNLOADS) or the prompt is cancelled. Blocked over SSH.",
 	func(cmd *cobra.Command, args []string) error {
+		disabled, err := downloadsDisabled()
+		if err != nil {
+			return err
+		}
+
+		if disabled {
+			return errDownloadsDisabled
+		}
+
 		path, err := existingPath(args[0])
 		if err != nil {
 			return err
+		}
+
+		if info, _ := os.Stat(path); info.IsDir() {
+			name := filepath.Base(path)
+			styles.PrintWarning(cmd.ErrOrStderr(), fmt.Sprintf("%s is a folder; archive it first: tar -czf %s.tgz %s", path, name, name))
+
+			return exit(1)
 		}
 
 		body, err := editoripc.Download(path)
@@ -189,6 +216,15 @@ func printBody(out io.Writer, body []byte) {
 	if len(body) > 0 {
 		fmt.Fprintln(out, strings.TrimSpace(string(body)))
 	}
+}
+
+func downloadsDisabled() (bool, error) {
+	value, err := config.Resolve("editor", "disable_file_downloads")
+	if err != nil {
+		return false, err
+	}
+
+	return config.ParseBool(value)
 }
 
 func existingPath(value string) (string, error) {

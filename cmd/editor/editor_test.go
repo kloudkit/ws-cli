@@ -1,6 +1,8 @@
 package editor
 
 import (
+	"bytes"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -82,5 +84,88 @@ func TestOpenModalExcludesTabFlags(t *testing.T) {
 	for _, other := range []string{"--new-window", "--reuse-window", "--preview"} {
 		_, err := clitest.Run(EditorCmd, "", "open", "README.md", "--modal", other)
 		assert.ErrorContains(t, err, "none of the others can be")
+	}
+}
+
+func runEditor(t *testing.T, args ...string) (stdout, stderr string, code int, err error) {
+	t.Helper()
+
+	original := osExit
+	osExit = func(c int) { code = c }
+	t.Cleanup(func() { osExit = original })
+
+	testutil.ResetCommandFlags(EditorCmd)
+
+	var out, errOut bytes.Buffer
+	EditorCmd.SetOut(&out)
+	EditorCmd.SetErr(&errOut)
+	EditorCmd.SetArgs(args)
+	err = EditorCmd.Execute()
+
+	return testutil.StripAnsi(out.String()), testutil.StripAnsi(errOut.String()), code, err
+}
+
+func editorAnswering(t *testing.T, body string) *int {
+	t.Helper()
+
+	requests := 0
+	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		_, _ = w.Write([]byte(body))
+	}))
+
+	return &requests
+}
+
+func TestDownloadRefusesFolder(t *testing.T) {
+	testutil.FakeWorkspace(t)
+	requests := editorAnswering(t, `{"downloaded":true}`)
+
+	folder := filepath.Join(t.TempDir(), "build")
+	assert.NilError(t, os.Mkdir(folder, 0o755))
+
+	stdout, stderr, code, err := runEditor(t, "download", folder)
+
+	assert.NilError(t, err)
+	assert.Equal(t, code, 1)
+	assert.Equal(t, stdout, "")
+	assert.Equal(t, stderr, "⚠ "+folder+" is a folder; archive it first: tar -czf build.tgz build\n")
+	assert.Equal(t, *requests, 0)
+}
+
+func TestDownloadRefusedWhenFileDownloadsDisabled(t *testing.T) {
+	for _, value := range []string{"1", "true", "yes", "on", "TRUE", "Yes"} {
+		t.Run(value, func(t *testing.T) {
+			testutil.FakeWorkspace(t)
+			requests := editorAnswering(t, `{"downloaded":true}`)
+			t.Setenv("WS_EDITOR_DISABLE_FILE_DOWNLOADS", value)
+
+			file := filepath.Join(t.TempDir(), "big.iso")
+			assert.NilError(t, os.WriteFile(file, nil, 0o600))
+
+			_, err := clitest.Run(EditorCmd, "", "download", file)
+
+			assert.Error(t, err, "file downloads are disabled in this workspace (WS_EDITOR_DISABLE_FILE_DOWNLOADS)")
+			assert.Equal(t, *requests, 0)
+		})
+	}
+}
+
+func TestDownloadSendsAFile(t *testing.T) {
+	for _, value := range []string{"", "false", "off"} {
+		t.Run("lock="+value, func(t *testing.T) {
+			testutil.FakeWorkspace(t)
+			requests := editorAnswering(t, `{"downloaded":true}`)
+			t.Setenv("WS_EDITOR_DISABLE_FILE_DOWNLOADS", value)
+
+			file := filepath.Join(t.TempDir(), "big.iso")
+			assert.NilError(t, os.WriteFile(file, nil, 0o600))
+
+			out, err := clitest.Run(EditorCmd, "", "download", file)
+
+			assert.NilError(t, err)
+			assert.Assert(t, strings.Contains(out, "Download started"), out)
+			assert.Equal(t, *requests, 1)
+		})
 	}
 }

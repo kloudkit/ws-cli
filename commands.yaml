@@ -59,9 +59,9 @@ commands:
               usage: Filter to a single file (URI or absolute path)
         - name: ws-cli editor download
           since: next
-          synopsis: Download a workspace file or folder to your computer
-          description: Ask the running editor window to download a workspace file or folder to your computer through the browser, like the Explorer's Download… action. Returns once the download has started; its progress shows in the editor and the browser. Fails when file downloads are disabled (WS_EDITOR_DISABLE_FILE_DOWNLOADS) or cancelled in the editor. Blocked over SSH.
-          usage: ws-cli editor download <path>
+          synopsis: Download a workspace file to your computer
+          description: Ask the running editor window to download a workspace file of any size to your computer through the browser. The editor asks first; once you click Download it returns at once and the transfer shows in the browser's download bar. A folder is refused; archive it first with tar -czf <name>.tgz <name>. Fails when file downloads are disabled (WS_EDITOR_DISABLE_FILE_DOWNLOADS) or the prompt is cancelled. Blocked over SSH.
+          usage: ws-cli editor download <file>
         - name: ws-cli editor list
           since: 0.5.0
           synopsis: List the currently open editor tabs

@@ -49,13 +49,21 @@ func ServeUnix(t *testing.T, socket string, handler http.Handler) {
 	t.Cleanup(func() { _ = server.Close() })
 }
 
+const fakeEnvReference = `envs:
+  editor:
+    properties:
+      disable_file_downloads:
+        type: boolean
+        default: false
+`
+
 func FakeWorkspace(t *testing.T) {
 	t.Helper()
 
 	dir := t.TempDir()
 	manifest, reference := filepath.Join(dir, "manifest.json"), filepath.Join(dir, "env.reference.yaml")
 	assert.NilError(t, os.WriteFile(manifest, []byte(`{"version":"0.0.0"}`), 0o644))
-	assert.NilError(t, os.WriteFile(reference, []byte("envs: {}\n"), 0o644))
+	assert.NilError(t, os.WriteFile(reference, []byte(fakeEnvReference), 0o644))
 
 	previous := config.DefaultManifestPath
 	config.DefaultManifestPath = manifest
