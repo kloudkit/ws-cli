@@ -257,7 +257,7 @@ func init() {
 }
 
 var pathVscodeCmd = cli.New("vscode-settings", "0.2.0", "Display the VS Code settings path",
-	"Print the path to the VS Code settings file — the user file by default, or the folder's with --workspace.",
+	"Print the path to the VS Code settings file: the user file by default, or the folder's with --workspace.",
 	func(cmd *cobra.Command, args []string) error {
 		if cli.Bool(cmd, "workspace") {
 			return emit(cmd, "VS Code Settings Path", "Workspace", "Path", "/workspace/.vscode/settings.json")
@@ -278,20 +278,20 @@ func makeValueCmd(use, short, long, title, label string, getter func() (string, 
 }
 
 var ShowCmd = cli.Group("show", "0.2.0", "Display information about the current workspace instance",
-	"Resolve and print facts about this workspace instance — settings, IP addresses, and paths. --raw drops the styling for use in scripts.",
+	"Resolve and print facts about this workspace instance: settings, IP addresses, and paths. --raw drops the styling for use in scripts.",
 	`# Resolve a setting by its dotted key
-ws show env server.port
+ws-cli show env server.port
 
 # Reverse-tunnel a local port to the workspace node
-ws_node_ip=$(ws show ip node --raw); ssh -N -R "3001:${ws_node_ip}:3001" "${ws_node_ip}"`,
+ws_node_ip=$(ws-cli show ip node --raw); ssh -N -R "3001:${ws_node_ip}:3001" "${ws_node_ip}"`,
 	envCmd,
 	cli.Group("ip", "0.2.0", "Display IP addresses",
-		"Print the workspace's IP addresses — the internal container address or the node it runs on.", "",
+		"Print the workspace's IP addresses: the internal container address or the node it runs on.", "",
 		makeValueCmd("internal", "Display the internal IP address", "Print the workspace container's internal IP address.", "Internal IP Address", "Address", net.GetInternalIP),
 		makeValueCmd("node", "Display the node/host IP address", "Print the IP address of the node hosting the workspace.", "Node IP Address", "Address", net.GetNodeIP),
 	),
 	cli.Group("path", "0.2.0", "Display various paths",
-		"Print well-known workspace paths — the home root or the VS Code settings file.", "",
+		"Print well-known workspace paths: the home root or the VS Code settings file.", "",
 		makeValueCmd("home", "Display the workspace home path", "Print the workspace home (server root) path.", "Workspace Home Path", "Path", func() (string, error) {
 			return config.MustResolve("server", "root"), nil
 		}),

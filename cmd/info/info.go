@@ -25,7 +25,7 @@ func Version() string {
 }
 
 var versionCmd = cli.New("version", "0.2.0", "Display installed workspace version",
-	"Print the workspace version. --all expands to the full table — workspace, ws-cli, and VS Code.",
+	"Print the workspace version. --all expands to the full table: workspace, ws-cli, and VS Code.",
 	func(cmd *cobra.Command, args []string) error {
 		out := cmd.OutOrStdout()
 
@@ -56,7 +56,7 @@ var versionCmd = cli.New("version", "0.2.0", "Display installed workspace versio
 	})
 
 var envCmd = cli.New("env", "0.2.0", "Display effective workspace environment variables",
-	"Print every WS_* variable in effect, sorted — the resolved environment the workspace booted with.",
+	"Print every WS_* variable in effect, sorted: the resolved environment the workspace booted with.",
 	func(cmd *cobra.Command, args []string) error {
 		out := cmd.OutOrStdout()
 		all := env.GetAll()
@@ -104,7 +104,7 @@ var extensionsCmd = cli.New("extensions", "0.2.0", "Display installed extensions
 	})
 
 var metricsCmd = cli.New("metrics", "0.2.0", "Display workspace metrics",
-	"Show live resource usage — CPU, memory, disk, and file descriptors, plus GPU with --gpu.",
+	"Show live resource usage: CPU, memory, disk, and file descriptors, plus GPU with --gpu.",
 	func(cmd *cobra.Command, args []string) error {
 		out := cmd.OutOrStdout()
 		includeGPU := cli.Bool(cmd, "gpu")
@@ -177,12 +177,12 @@ var uptimeCmd = cli.New("uptime", "0.2.0", "Display the workspace uptime",
 	})
 
 var InfoCmd = cli.Group("info", "0.2.0", "Display workspace information",
-	"Report facts about the running workspace — version, effective environment, installed extensions, live resource metrics, and uptime.",
+	"Report facts about the running workspace: version, effective environment, installed extensions, live resource metrics, and uptime.",
 	`# Show the full version table
-ws info version --all
+ws-cli info version --all
 
 # Watch live resource usage
-ws info metrics`,
+ws-cli info metrics`,
 	envCmd, extensionsCmd, metricsCmd, uptimeCmd, versionCmd)
 
 func usage(used, total uint64) string {

@@ -15,7 +15,7 @@ import (
 )
 
 var currentCmd = cli.New("current", "0.2.0", "Serve current directory as a static site",
-	"Serve the current directory over HTTP as a static site — a quick way to preview built files.",
+	"Serve the current directory over HTTP as a static site, a quick way to preview built files.",
 	func(cmd *cobra.Command, args []string) error {
 		root, err := os.Getwd()
 		if err != nil {
@@ -57,10 +57,10 @@ var metricsCmd = cli.New("metrics", "0.2.0", "Start the Prometheus metrics serve
 var ServeCmd = cli.Group("serve", "0.2.0", "Serve internal assets",
 	"Run a small HTTP server for the current directory on --port (default 38080).",
 	`# Serve the current directory
-ws serve current
+ws-cli serve current
 
 # Serve on a custom port
-ws serve current --port 38081`,
+ws-cli serve current --port 38081`,
 	currentCmd, metricsCmd)
 
 func serve(cmd *cobra.Command, handler http.Handler, announce func(io.Writer, string)) error {

@@ -63,7 +63,7 @@ var decryptCmd = transform("decrypt <encrypted|->", "Decrypt an encrypted value"
 	})
 
 var masterCmd = cli.New("master", "0.2.0", "Generate a cryptographically secure master key",
-	"Generate a random master key, printed base64-encoded — the key encrypt, decrypt, and the seed engine use. --length sets the byte size (default 32).",
+	"Generate a random master key, printed base64-encoded, for encrypt, decrypt, and the seed engine. --length sets the byte size (default 32).",
 	func(cmd *cobra.Command, args []string) error {
 		length := cli.Int(cmd, "length")
 		if length <= 0 {
@@ -109,16 +109,16 @@ var materializeCmd = cli.New("materialize", "0.5.0", "Project the configured mas
 	})
 
 var generateCmd = cli.Group("generate", "0.2.0", "Generate master keys or login password hashes",
-	"Generate the credentials the workspace needs — a master key for secrets, or a login password hash for the server.", "",
+	"Generate the credentials the workspace needs: a master key for secrets, or a login password hash for the server.", "",
 	masterCmd, loginCmd)
 
 var SecretsCmd = cli.Group("secrets", "0.2.0", "Manage encryption and decryption of secrets",
 	"Encrypt and decrypt values under a master key, and generate the keys themselves. Encrypted values are what the seed engine's secrets: map stores and decrypts at boot.",
 	`# Generate a master key
-ws secrets generate master
+ws-cli secrets generate master
 
 # Encrypt a value under it
-ws secrets encrypt "s3cr3t" --master ~/.ws/master.key`,
+ws-cli secrets encrypt "s3cr3t" --master ~/.ws/master.key`,
 	encryptCmd, decryptCmd, generateCmd, materializeCmd)
 
 func emitKey(cmd *cobra.Command, value, done, title, hint string) error {

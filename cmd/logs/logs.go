@@ -16,7 +16,7 @@ var (
 )
 
 var LogsCmd = cli.New("logs", "0.2.0", "Retrieve workspace logs",
-	"Read a workspace daemon's log — the main log by default, or --target metrics|docker|cloudflared. Filter by --level, limit with --tail, or stream live with --follow.",
+	"Read a workspace daemon's log: the main log by default, or --target metrics|docker|cloudflared. Filter by --level, limit with --tail, or stream live with --follow.",
 	func(cmd *cobra.Command, args []string) error {
 		level, target := cli.String(cmd, "level"), cli.String(cmd, "target")
 
@@ -39,10 +39,10 @@ var LogsCmd = cli.New("logs", "0.2.0", "Retrieve workspace logs",
 func init() {
 	LogsCmd.Args = cobra.NoArgs
 	LogsCmd.Example = `# Stream errors live, starting from the last 100 lines
-ws logs --level=error --tail=100 --follow
+ws-cli logs --level=error --tail=100 --follow
 
 # Read a specific target instead of the main log
-ws logs --target metrics`
+ws-cli logs --target metrics`
 
 	LogsCmd.Flags().BoolP("follow", "f", false, "Follow log output in real-time")
 	LogsCmd.Flags().IntP("tail", "t", 0, "Number of lines to show from the end (0 for all)")
