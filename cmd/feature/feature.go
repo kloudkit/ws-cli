@@ -128,13 +128,14 @@ var storeCmd = cli.New("store", "0.2.0", "List packages available in the feature
 			return fmt.Errorf("failed to fetch store manifest: %w", err)
 		}
 
-		if len(manifest.Artifacts) == 0 {
+		artifacts := manifest.Artifacts()
+		if len(artifacts) == 0 {
 			styles.PrintEmpty(out, "Feature store is empty")
 			return nil
 		}
 
-		items := make([]styles.DescriptionItem, len(manifest.Artifacts))
-		for i, a := range manifest.Artifacts {
+		items := make([]styles.DescriptionItem, len(artifacts))
+		for i, a := range artifacts {
 			items[i] = styles.DescriptionItem{Name: a.Name, Description: a.Version}
 		}
 

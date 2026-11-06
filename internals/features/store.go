@@ -9,18 +9,34 @@ import (
 )
 
 type StoreManifest struct {
-	Built     string          `json:"built"`
-	Artifacts []StoreArtifact `json:"artifacts"`
+	Built    string         `json:"built"`
+	Packages []StorePackage `json:"packages"`
 }
 
-type StoreArtifact struct {
-	Name    string   `json:"name"`
-	Version string   `json:"version"`
-	Files   []string `json:"files"`
+type StorePackage struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	Type    string `json:"type"`
+}
+
+func (m *StoreManifest) Artifacts() []StorePackage {
+	var artifacts []StorePackage
+
+	seen := map[string]bool{}
+	for _, p := range m.Packages {
+		if p.Type != "artifact" || seen[p.Name] {
+			continue
+		}
+
+		seen[p.Name] = true
+		artifacts = append(artifacts, p)
+	}
+
+	return artifacts
 }
 
 func FetchStoreManifest(baseURL string) (*StoreManifest, error) {
-	manifestURL, err := url.JoinPath(baseURL, "artifacts", "manifest.json")
+	manifestURL, err := url.JoinPath(baseURL, "manifest.json")
 	if err != nil {
 		return nil, fmt.Errorf("invalid store URL: %w", err)
 	}
