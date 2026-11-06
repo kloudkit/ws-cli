@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kloudkit/ws-cli/cmd"
+	"github.com/kloudkit/ws-cli/cmd/editor"
 	"github.com/kloudkit/ws-cli/internals/docs"
 	"github.com/spf13/cobra"
 	"go.yaml.in/yaml/v3"
@@ -94,4 +95,13 @@ func TestExamplesAreTrimmedAndNonEmpty(t *testing.T) {
 	check(root)
 
 	assert.Assert(t, found, "expected at least one command to carry an example")
+}
+
+func TestReapArgsNameTheHiddenReapCommand(t *testing.T) {
+	found, rest, err := cmd.RootCmd().Find(editor.ReapArgs)
+
+	assert.NilError(t, err)
+	assert.Equal(t, len(rest), 0)
+	assert.Equal(t, found.CommandPath(), "ws-cli editor reap-download")
+	assert.Assert(t, found.Hidden)
 }

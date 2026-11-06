@@ -40,8 +40,10 @@ var isTerminal = func(r io.Reader) bool {
 	return ok && term.IsTerminal(int(file.Fd()))
 }
 
+var ReapArgs = []string{"editor", "reap-download"}
+
 var reapLater = func(zip string) error {
-	return tempfile.Detach("editor", "reap-download", zip)
+	return tempfile.Detach(append(slices.Clone(ReapArgs), zip)...)
 }
 
 func exit(code int) error {
@@ -137,7 +139,7 @@ var openCmd = cli.New("open <file>", "0.5.0", "Open a file in the editor",
 		return editoripc.Open(req)
 	})
 
-var downloadCmd = cli.New("download <file>", "next", "Download a file to your computer",
+var downloadCmd = cli.New("download <path>", "next", "Download a file to your computer",
 	"Ask the running editor window to download a file of any size to your computer through the browser. The editor asks first, naming the file with its full path and size; once you click Download it returns at once and the transfer shows in the browser's download bar. A folder is zipped first, as <folder>.zip (or --name) in its own temp folder, and the zip is downloaded; --zip zips without asking, a terminal is asked, and without either the folder is refused. The zip is deleted at once when the download does not start, and soon after it does, once the editor has opened it. Fails when file downloads are disabled (WS_EDITOR_DISABLE_FILE_DOWNLOADS), when the path is neither a regular file nor a folder, or when the prompt is cancelled or times out. Blocked over SSH.",
 	func(cmd *cobra.Command, args []string) error {
 		tempfile.Download.Sweep(time.Hour)
@@ -160,15 +162,15 @@ var downloadCmd = cli.New("download <file>", "next", "Download a file to your co
 			return downloadFolder(cmd, path)
 		}
 
-		if cli.String(cmd, "name") != "" {
-			return errors.New("not a folder: --name only applies to folders")
-		}
-
 		if !info.Mode().IsRegular() {
 			return fmt.Errorf("not a regular file: %s", path)
 		}
 
-		_, err = sendDownload(cmd, path)
+		if cli.String(cmd, "name") != "" {
+			return errors.New("not a folder: --name only applies to folders")
+		}
+
+		_, err = sendDownload(cmd, path, path)
 
 		return err
 	})
@@ -261,6 +263,10 @@ func downloadFolder(cmd *cobra.Command, folder string) error {
 		return exit(1)
 	}
 
+	if ask && !confirm(cmd, fmt.Sprintf("Zip %s into %s and download it? [y/N] ", name, zipName)) {
+		return exit(1)
+	}
+
 	file, err := tempfile.Download.Create(zipName)
 	if err != nil {
 		return fmt.Errorf("cannot create a zip for %s: %w", folder, err)
@@ -270,16 +276,15 @@ func downloadFolder(cmd *cobra.Command, folder string) error {
 	release := tempfile.Download.Trap(zipped)
 	defer release()
 
-	if ask && !confirm(cmd, fmt.Sprintf("Zip %s into %s and download it? [y/N] ", name, zipped)) {
-		_ = file.Close()
-		_ = tempfile.Download.Remove(zipped)
-
-		return exit(1)
-	}
-
-	err = wsio.ZipFolder(file, folder, zipped)
+	err = wsio.ZipFolder(file, folder, zipped, func(path string) {
+		styles.PrintWarning(cmd.ErrOrStderr(), fmt.Sprintf("skipped %s: not a regular file, folder or link", path))
+	})
 	if closeErr := file.Close(); err == nil {
 		err = closeErr
+	}
+
+	if err == nil {
+		err = tempfile.Download.Touch(zipped)
 	}
 
 	if err != nil {
@@ -289,40 +294,43 @@ func downloadFolder(cmd *cobra.Command, folder string) error {
 
 	styles.PrintSuccess(cmd.ErrOrStderr(), fmt.Sprintf("Zipped %s into %s", name, zipped))
 
-	downloaded, err := sendDownload(cmd, zipped)
+	downloaded, err := sendDownload(cmd, folder, zipped)
 	if !downloaded {
 		_ = tempfile.Download.Remove(zipped)
 		return err
 	}
 
 	if err := reapLater(zipped); err != nil {
-		styles.PrintWarning(cmd.ErrOrStderr(), fmt.Sprintf("cannot start the cleanup of %s (%v); it is swept after an hour", zipped, err))
+		styles.PrintWarning(cmd.ErrOrStderr(), fmt.Sprintf("cannot start the cleanup of %s (%v); it is swept by the next download run after an hour", zipped, err))
 	}
 
 	return nil
 }
 
-func sendDownload(cmd *cobra.Command, path string) (bool, error) {
-	body, err := editoripc.Download(path)
+func sendDownload(cmd *cobra.Command, window, path string) (bool, error) {
+	styles.PrintMuted(cmd.ErrOrStderr(), "Waiting for you to confirm the download in the editor…")
+
+	body, err := editoripc.Download(window, path)
 	if err != nil {
 		return false, err
 	}
 
-	var result editoripc.DownloadResult
-
-	if cli.Bool(cmd, "raw") {
+	raw := cli.Bool(cmd, "raw")
+	if raw {
 		printBody(cmd.OutOrStdout(), body)
-		_ = json.Unmarshal(body, &result)
-
-		return result.Downloaded, nil
 	}
 
+	var result editoripc.DownloadResult
 	if err := json.Unmarshal(body, &result); err != nil {
 		return false, fmt.Errorf("error parsing download response: %w", err)
 	}
 
 	if !result.Downloaded {
 		return false, errors.New("the download was cancelled or timed out in the editor")
+	}
+
+	if raw {
+		return true, nil
 	}
 
 	styles.PrintSuccess(cmd.OutOrStdout(), "Download started", styles.Pair{Key: "Path", Value: path})

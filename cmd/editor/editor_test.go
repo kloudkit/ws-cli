@@ -8,13 +8,17 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/kloudkit/ws-cli/cmd/clitest"
+	"github.com/kloudkit/ws-cli/internals/config"
 	editoripc "github.com/kloudkit/ws-cli/internals/editor"
+	"github.com/kloudkit/ws-cli/internals/tempfile"
 	"github.com/kloudkit/ws-cli/internals/testutil"
 	"gotest.tools/v3/assert"
 )
@@ -97,6 +101,8 @@ func TestOpenModalExcludesTabFlags(t *testing.T) {
 		assert.ErrorContains(t, err, "none of the others can be")
 	}
 }
+
+const waiting = "  Waiting for you to confirm the download in the editor…\n"
 
 func runEditor(t *testing.T, stdin string, args ...string) (stdout, stderr string, code int, err error) {
 	t.Helper()
@@ -238,7 +244,7 @@ func TestDownloadZipsAFolder(t *testing.T) {
 	assert.Equal(t, filepath.Base(zipped), "build.zip")
 	assert.Equal(t, filepath.Dir(filepath.Dir(zipped)), tmp)
 	assert.Assert(t, strings.HasPrefix(filepath.Base(filepath.Dir(zipped)), "ws-cli-download-"), zipped)
-	assert.Equal(t, stderr, "✓ Zipped build into "+zipped+"\n")
+	assert.Equal(t, stderr, "✓ Zipped build into "+zipped+"\n"+waiting)
 	assert.Assert(t, strings.Contains(stdout, "Download started") && strings.Contains(stdout, zipped), stdout)
 	assert.DeepEqual(t, *reaped, []string{zipped})
 	assert.DeepEqual(t, zipContents(t, zipped), map[string]string{
@@ -297,8 +303,7 @@ func TestDownloadAsksBeforeZippingInATerminal(t *testing.T) {
 			_, stderr, code, err := runEditor(t, answer, "download", folder)
 
 			assert.NilError(t, err)
-			assert.Assert(t, strings.HasPrefix(stderr, "Zip build into "+tmp+"/ws-cli-download-"), stderr)
-			assert.Assert(t, strings.Contains(stderr, "/build.zip and download it? [y/N] "), stderr)
+			assert.Assert(t, strings.HasPrefix(stderr, "Zip build into build.zip and download it? [y/N] "), stderr)
 
 			if wantSent {
 				assert.Equal(t, code, 0)
@@ -383,8 +388,11 @@ func TestDownloadNameOnlyAppliesToFolders(t *testing.T) {
 	assert.NilError(t, os.WriteFile(file, nil, 0o600))
 
 	_, err := clitest.Run(EditorCmd, "", "download", "--name", "other", file)
-
 	assert.Error(t, err, "not a folder: --name only applies to folders")
+
+	_, err = clitest.Run(EditorCmd, "", "download", "--name", "other", "/dev/zero")
+	assert.Error(t, err, "not a regular file: /dev/zero")
+
 	assert.Equal(t, len(editor.paths), 0)
 }
 
@@ -403,10 +411,190 @@ func TestDownloadRefusesWhatIsNotARegularFile(t *testing.T) {
 	downloadWorkspace(t, "")
 	editor := editorAnswering(t, `{"downloaded":true}`)
 
-	_, err := clitest.Run(EditorCmd, "", "download", "/dev/zero")
+	dir := t.TempDir()
+	fifo, dangling := filepath.Join(dir, "pipe"), filepath.Join(dir, "dangling")
+	assert.NilError(t, syscall.Mkfifo(fifo, 0o600))
+	assert.NilError(t, os.Symlink(filepath.Join(dir, "absent"), dangling))
 
-	assert.Error(t, err, "not a regular file: /dev/zero")
+	for path, want := range map[string]string{
+		"/dev/zero": "not a regular file: /dev/zero",
+		fifo:        "not a regular file: " + fifo,
+		dangling:    dangling + ": no such file or directory",
+	} {
+		_, err := clitest.Run(EditorCmd, "", "download", path)
+		assert.Error(t, err, want)
+	}
+
 	assert.Equal(t, len(editor.paths), 0)
+}
+
+func TestDownloadRemovesTheZipWhenZippingFails(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads any file")
+	}
+
+	tmp := downloadWorkspace(t, "")
+	editor := editorAnswering(t, `{"downloaded":true}`)
+	folder := buildFolder(t)
+	assert.NilError(t, os.WriteFile(filepath.Join(folder, "secret"), []byte("x"), 0o000))
+
+	_, err := clitest.Run(EditorCmd, "", "download", "--zip", folder)
+
+	assert.ErrorContains(t, err, "cannot zip "+folder)
+	assert.Equal(t, len(editor.paths), 0)
+	assert.Equal(t, len(leftFolders(t, tmp)), 0)
+}
+
+func TestDownloadWarnsAboutSkippedSpecialFiles(t *testing.T) {
+	downloadWorkspace(t, "")
+	editor := editorAnswering(t, `{"downloaded":true}`)
+	handedOff(t)
+	folder := buildFolder(t)
+	fifo := filepath.Join(folder, "pipe")
+	assert.NilError(t, syscall.Mkfifo(fifo, 0o600))
+
+	_, stderr, code, err := runEditor(t, "", "download", "--zip", folder)
+
+	assert.NilError(t, err)
+	assert.Equal(t, code, 0)
+	assert.Assert(t, strings.HasPrefix(stderr, "⚠ skipped "+fifo+": not a regular file, folder or link\n"), stderr)
+	assert.Equal(t, len(editor.paths), 1)
+	_, zipped := zipContents(t, editor.paths[0])["build/pipe"]
+	assert.Assert(t, !zipped)
+}
+
+func TestDownloadRawWithAZip(t *testing.T) {
+	for _, c := range []struct {
+		body       string
+		downloaded bool
+	}{{`{"downloaded":true}`, true}, {`{"downloaded":false}`, false}} {
+		t.Run(c.body, func(t *testing.T) {
+			tmp := downloadWorkspace(t, "")
+			editor := editorAnswering(t, c.body)
+			reaped := handedOff(t)
+
+			stdout, _, _, err := runEditor(t, "", "download", "--raw", "--zip", buildFolder(t))
+
+			assert.Equal(t, strings.SplitN(stdout, "\n", 2)[0], c.body)
+			if c.downloaded {
+				assert.NilError(t, err)
+				assert.DeepEqual(t, *reaped, editor.paths)
+				assert.DeepEqual(t, leftZips(t, tmp), editor.paths)
+			} else {
+				assert.Error(t, err, "the download was cancelled or timed out in the editor")
+				assert.Equal(t, len(*reaped), 0)
+				assert.Equal(t, len(leftFolders(t, tmp)), 0)
+			}
+		})
+	}
+}
+
+func TestDownloadRoutesAFolderByTheFolder(t *testing.T) {
+	tmp := downloadWorkspace(t, "")
+	handedOff(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", "")
+	t.Setenv("VSCODE_IPC_HOOK_CLI", "")
+
+	pipe := filepath.Join(home, "pipe.sock")
+	session := filepath.Join(home, ".local", "share", "ws-server", "session.sock")
+	assert.NilError(t, os.MkdirAll(filepath.Dir(session), 0o755))
+
+	var routedBy string
+	testutil.ServeUnix(t, session, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		routedBy = r.URL.Query().Get("filePath")
+		_ = json.NewEncoder(w).Encode(map[string]string{"socketPath": pipe})
+	}))
+
+	var sent string
+	testutil.ServeUnix(t, pipe, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var envelope struct {
+			Path string `json:"path"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&envelope)
+		sent = envelope.Path
+		_, _ = w.Write([]byte(`{"downloaded":true}`))
+	}))
+
+	folder := buildFolder(t)
+	_, err := clitest.Run(EditorCmd, "", "download", "--zip", folder)
+
+	assert.NilError(t, err)
+	assert.Equal(t, routedBy, folder)
+	assert.Equal(t, filepath.Dir(filepath.Dir(sent)), tmp)
+}
+
+func TestReapDownloadRemovesAReadZipAndItsFolder(t *testing.T) {
+	tmp := downloadWorkspace(t, "")
+
+	file, err := tempfile.Download.Create("build.zip")
+	assert.NilError(t, err)
+	_, err = file.WriteString("zip")
+	assert.NilError(t, err)
+	assert.NilError(t, file.Close())
+
+	info, err := os.Stat(file.Name())
+	assert.NilError(t, err)
+	assert.NilError(t, os.Chtimes(file.Name(), info.ModTime().Add(time.Second), info.ModTime()))
+
+	_, err = clitest.Run(EditorCmd, "", "reap-download", file.Name())
+
+	assert.NilError(t, err)
+	assert.Equal(t, len(leftFolders(t, tmp)), 0)
+}
+
+func TestDownloadTrapRemovesTheZipOnSIGINT(t *testing.T) {
+	tmp := downloadWorkspace(t, "")
+	folder := buildFolder(t)
+
+	socket := filepath.Join(t.TempDir(), "pipe.sock")
+	arrived := make(chan struct{}, 1)
+	testutil.ServeUnix(t, socket, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		arrived <- struct{}{}
+		<-r.Context().Done()
+	}))
+
+	child := exec.Command(os.Args[0], "-test.run=^TestDownloadHelperProcess$")
+	child.Env = append(os.Environ(),
+		helperArgsEnv+"=download\x1f--zip\x1f"+folder,
+		helperManifestEnv+"="+config.DefaultManifestPath,
+		"VSCODE_IPC_HOOK_CLI="+socket,
+	)
+	assert.NilError(t, child.Start())
+
+	select {
+	case <-arrived:
+	case <-time.After(10 * time.Second):
+		_ = child.Process.Kill()
+		t.Fatal("the download request never arrived")
+	}
+
+	assert.NilError(t, child.Process.Signal(os.Interrupt))
+
+	var exitErr *exec.ExitError
+	assert.Assert(t, errors.As(child.Wait(), &exitErr))
+	assert.Equal(t, exitErr.ExitCode(), 130)
+
+	left, _ := filepath.Glob(filepath.Join(tmp, "*"))
+	assert.Equal(t, len(left), 0)
+}
+
+const (
+	helperArgsEnv     = "EDITOR_TEST_HELPER_ARGS"
+	helperManifestEnv = "EDITOR_TEST_HELPER_MANIFEST"
+)
+
+func TestDownloadHelperProcess(t *testing.T) {
+	args := os.Getenv(helperArgsEnv)
+	if args == "" {
+		return
+	}
+
+	config.DefaultManifestPath = os.Getenv(helperManifestEnv)
+	EditorCmd.SetArgs(strings.Split(args, "\x1f"))
+	_ = EditorCmd.Execute()
+	os.Exit(0)
 }
 
 func TestDownloadRefusedWhenFileDownloadsDisabled(t *testing.T) {

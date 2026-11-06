@@ -64,7 +64,7 @@ func TestEnvelopes(t *testing.T) {
 		}, map[string]any{"type": "editorTerminal", "cwd": "/workspace", "name": "tests", "command": "go test ./..."}, nil, ""},
 		{"TerminalMinimal", "null", func() ([]byte, error) { return nil, editor.OpenTerminal(editor.TerminalRequest{Cwd: "/workspace"}) },
 			map[string]any{"type": "editorTerminal", "cwd": "/workspace"}, []string{"name", "command"}, ""},
-		{"Download", `{"downloaded":true}`, func() ([]byte, error) { return editor.Download("/workspace/big.iso") },
+		{"Download", `{"downloaded":true}`, func() ([]byte, error) { return editor.Download("/workspace/big.iso", "/workspace/big.iso") },
 			map[string]any{"type": "editorDownload", "path": "/workspace/big.iso"}, nil, `{"downloaded":true}`},
 		{"Notify", `{"action":"Yes","timedOut":false}`, func() ([]byte, error) {
 			return editor.Notify(editor.NotifyRequest{Message: "Deploy now?", Actions: []any{"Yes", "No"}, Timeout: new(5000)})
@@ -115,7 +115,7 @@ func TestUnknownRequestNeedsNewerImage(t *testing.T) {
 		_, _ = w.Write([]byte(`"Unknown message type: editorDownload"`))
 	}))
 
-	_, err := editor.Download("/workspace/a.txt")
+	_, err := editor.Download("/workspace/a.txt", "/workspace/a.txt")
 	assert.ErrorContains(t, err, "newer workspace image")
 }
 
@@ -130,7 +130,7 @@ func TestDownloadGivesUpWhenTheEditorNeverAnswers(t *testing.T) {
 		<-r.Context().Done()
 	}))
 
-	_, err := editor.Download("/workspace/big.iso")
+	_, err := editor.Download("/workspace/big.iso", "/workspace/big.iso")
 	assert.Error(t, err, "the workspace editor did not answer within 200ms")
 }
 

@@ -2,18 +2,25 @@ package io
 
 import (
 	"archive/zip"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 )
 
-func ZipFolder(dst io.Writer, folder, skip string) error {
-	archive := zip.NewWriter(dst)
-	parent := filepath.Dir(folder)
+func ZipFolder(dst io.Writer, folder, skip string, skipped func(path string)) error {
+	root, err := filepath.EvalSymlinks(folder)
+	if err != nil {
+		return err
+	}
 
-	err := filepath.WalkDir(folder, func(path string, entry fs.DirEntry, err error) error {
+	if resolved, err := filepath.EvalSymlinks(skip); err == nil {
+		skip = resolved
+	}
+
+	archive := zip.NewWriter(dst)
+
+	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil || path == skip {
 			return err
 		}
@@ -23,10 +30,11 @@ func ZipFolder(dst io.Writer, folder, skip string) error {
 			return err
 		}
 
-		name, err := filepath.Rel(parent, path)
+		name, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
 		}
+		name = filepath.Join(filepath.Base(folder), name)
 
 		header, err := zip.FileInfoHeader(info)
 		if err != nil {
@@ -46,7 +54,9 @@ func ZipFolder(dst io.Writer, folder, skip string) error {
 			return addFile(archive, header, path)
 		}
 
-		return fmt.Errorf("cannot zip %s: not a regular file, folder or link", path)
+		skipped(path)
+
+		return nil
 	})
 	if err != nil {
 		return err

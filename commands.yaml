@@ -61,7 +61,7 @@ commands:
           since: next
           synopsis: Download a file to your computer
           description: Ask the running editor window to download a file of any size to your computer through the browser. The editor asks first, naming the file with its full path and size; once you click Download it returns at once and the transfer shows in the browser's download bar. A folder is zipped first, as <folder>.zip (or --name) in its own temp folder, and the zip is downloaded; --zip zips without asking, a terminal is asked, and without either the folder is refused. The zip is deleted at once when the download does not start, and soon after it does, once the editor has opened it. Fails when file downloads are disabled (WS_EDITOR_DISABLE_FILE_DOWNLOADS), when the path is neither a regular file nor a folder, or when the prompt is cancelled or times out. Blocked over SSH.
-          usage: ws-cli editor download <file> [flags]
+          usage: ws-cli editor download <path> [flags]
           options:
             - name: name
               usage: File name for a folder's zip (default <folder>.zip; .zip added when missing)

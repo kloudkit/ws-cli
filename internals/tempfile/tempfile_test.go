@@ -73,6 +73,35 @@ func TestCreateRefusesAPath(t *testing.T) {
 	assert.Equal(t, len(left), 0)
 }
 
+func TestARelativeTempDirStillCleansUp(t *testing.T) {
+	t.Chdir(t.TempDir())
+	assert.NilError(t, os.Mkdir("tmp", 0o700))
+	t.Setenv("TMPDIR", "./tmp/../tmp")
+
+	path := create(t)
+	assert.Assert(t, filepath.IsAbs(path), path)
+	assert.Assert(t, Download.Owns(path))
+	assert.NilError(t, Download.Remove(path))
+
+	old := create(t)
+	age(t, filepath.Dir(old))
+	Download.Sweep(time.Hour)
+
+	left, _ := filepath.Glob("tmp/*")
+	assert.Equal(t, len(left), 0)
+}
+
+func TestTouchRestartsTheFoldersAge(t *testing.T) {
+	isolate(t)
+	path := create(t)
+	age(t, filepath.Dir(path))
+
+	assert.NilError(t, Download.Touch(path))
+	Download.Sweep(time.Hour)
+
+	assert.Assert(t, exists(path))
+}
+
 func TestRemoveDeletesTheFileAndItsFolder(t *testing.T) {
 	isolate(t)
 	path := create(t)
@@ -159,7 +188,7 @@ func TestSweepLeavesAnotherUsersFolders(t *testing.T) {
 }
 
 func TestTrapRemovesTheFileAndFolderOnASignal(t *testing.T) {
-	for _, received := range []syscall.Signal{syscall.SIGINT, syscall.SIGTERM} {
+	for _, received := range []syscall.Signal{syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT} {
 		t.Run(received.String(), func(t *testing.T) {
 			isolate(t)
 			path := create(t)

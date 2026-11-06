@@ -28,7 +28,7 @@ func (k Kind) Create(name string) (*os.File, error) {
 		return nil, fmt.Errorf("%q is not a file name", name)
 	}
 
-	folder, err := os.MkdirTemp("", k.Prefix+"*")
+	folder, err := os.MkdirTemp(tempDir(), k.Prefix+"*")
 	if err != nil {
 		return nil, err
 	}
@@ -64,8 +64,18 @@ func (k Kind) Remove(path string) error {
 	return os.Remove(filepath.Dir(path))
 }
 
+func (k Kind) Touch(path string) error {
+	if !k.Owns(path) {
+		return k.refusal("touch", path)
+	}
+
+	now := time.Now()
+
+	return os.Chtimes(filepath.Dir(path), now, now)
+}
+
 func (k Kind) Sweep(age time.Duration) {
-	folders, _ := filepath.Glob(filepath.Join(os.TempDir(), k.Prefix+"*"))
+	folders, _ := filepath.Glob(filepath.Join(tempDir(), k.Prefix+"*"))
 
 	for _, folder := range folders {
 		info, err := os.Lstat(folder)
@@ -88,7 +98,7 @@ func (k Kind) Sweep(age time.Duration) {
 
 func (k Kind) Trap(path string) (release func()) {
 	signals, done := make(chan os.Signal, 1), make(chan struct{})
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
 
 	go func() {
 		select {
@@ -118,7 +128,7 @@ func (k Kind) Reap(path string, limit time.Duration) error {
 }
 
 func (k Kind) ownsFolder(folder string) bool {
-	if filepath.Dir(folder) != filepath.Clean(os.TempDir()) {
+	if filepath.Dir(folder) != tempDir() {
 		return false
 	}
 
@@ -137,7 +147,16 @@ func (k Kind) ownsFolder(folder string) bool {
 }
 
 func (k Kind) refusal(action, path string) error {
-	return fmt.Errorf("refusing to %s %s: not a file in a %s* folder of this user in %s", action, path, k.Prefix, os.TempDir())
+	return fmt.Errorf("refusing to %s %s: not a file in a %s* folder of this user in %s", action, path, k.Prefix, tempDir())
+}
+
+func tempDir() string {
+	dir, err := filepath.Abs(os.TempDir())
+	if err != nil {
+		return filepath.Clean(os.TempDir())
+	}
+
+	return dir
 }
 
 func Detach(args ...string) error {

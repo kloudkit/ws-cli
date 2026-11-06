@@ -151,8 +151,8 @@ func OpenTerminal(req TerminalRequest) error {
 
 var DownloadWait = 310 * time.Second
 
-func Download(path string) ([]byte, error) {
-	return fetchWithin(path, map[string]any{"type": "editorDownload", "path": path}, DownloadWait)
+func Download(window, path string) ([]byte, error) {
+	return fetchWithin(window, map[string]any{"type": "editorDownload", "path": path}, DownloadWait)
 }
 
 func Notify(req NotifyRequest) ([]byte, error) {
