@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/kloudkit/ws-cli/internals/editor"
 	"github.com/kloudkit/ws-cli/internals/testutil"
@@ -116,6 +117,21 @@ func TestUnknownRequestNeedsNewerImage(t *testing.T) {
 
 	_, err := editor.Download("/workspace/a.txt")
 	assert.ErrorContains(t, err, "newer workspace image")
+}
+
+func TestDownloadGivesUpWhenTheEditorNeverAnswers(t *testing.T) {
+	assert.Equal(t, editor.DownloadWait, 310*time.Second)
+
+	original := editor.DownloadWait
+	editor.DownloadWait = 200 * time.Millisecond
+	t.Cleanup(func() { editor.DownloadWait = original })
+
+	testutil.StartIPC(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+
+	_, err := editor.Download("/workspace/big.iso")
+	assert.Error(t, err, "the workspace editor did not answer within 200ms")
 }
 
 func TestServerDownIsFriendly(t *testing.T) {

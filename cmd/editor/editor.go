@@ -1,6 +1,7 @@
 package editor
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,12 +11,15 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/kloudkit/ws-cli/cmd/cli"
 	"github.com/kloudkit/ws-cli/internals/config"
 	editoripc "github.com/kloudkit/ws-cli/internals/editor"
 	"github.com/kloudkit/ws-cli/internals/env"
+	wsio "github.com/kloudkit/ws-cli/internals/io"
 	"github.com/kloudkit/ws-cli/internals/styles"
+	"github.com/kloudkit/ws-cli/internals/tempfile"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -29,6 +33,15 @@ var errDownloadsDisabled = errors.New(
 )
 
 var osExit = os.Exit
+
+var isTerminal = func(r io.Reader) bool {
+	file, ok := r.(*os.File)
+	return ok && term.IsTerminal(int(file.Fd()))
+}
+
+var reapLater = func(zip string) error {
+	return tempfile.Detach("editor", "reap-download", zip)
+}
 
 func exit(code int) error {
 	osExit(code)
@@ -76,7 +89,7 @@ var diagnosticsCmd = query("diagnostics", "Show language diagnostics for the wor
 var notifyCmd = cli.New("notify", "0.5.0", "Raise a notification in the editor",
 	"Read a JSON payload from stdin and raise it as a notification in the running editor window over the workspace IPC socket. Requires a \"message\"; optional \"detail\", \"actions\", \"modal\", \"timeout\", and \"severity\" tune it. Prints the chosen action (or timeout) as JSON. Blocked over SSH.",
 	func(cmd *cobra.Command, args []string) error {
-		if file, ok := cmd.InOrStdin().(*os.File); ok && term.IsTerminal(int(file.Fd())) {
+		if isTerminal(cmd.InOrStdin()) {
 			return errors.New(`pipe a JSON payload on stdin, e.g. echo '{"message": "hi"}' | ws editor notify`)
 		}
 
@@ -123,9 +136,11 @@ var openCmd = cli.New("open <file>", "0.5.0", "Open a file in the editor",
 		return editoripc.Open(req)
 	})
 
-var downloadCmd = cli.New("download <file>", "next", "Download a workspace file to your computer",
-	"Ask the running editor window to download a workspace file of any size to your computer through the browser. The editor asks first; once you click Download it returns at once and the transfer shows in the browser's download bar. A folder is refused; archive it first with tar -czf <name>.tgz <name>. Fails when file downloads are disabled (WS_EDITOR_DISABLE_FILE_DOWNLOADS) or the prompt is cancelled. Blocked over SSH.",
+var downloadCmd = cli.New("download <file>", "next", "Download a file to your computer",
+	"Ask the running editor window to download a file of any size to your computer through the browser. The editor asks first, naming the file with its full path and size; once you click Download it returns at once and the transfer shows in the browser's download bar. A folder is zipped into the temp directory first and the zip is downloaded; --zip zips without asking, a terminal is asked, and without either the folder is refused. The zip is deleted at once when the download does not start, and soon after it does, once the editor has opened it. Fails when file downloads are disabled (WS_EDITOR_DISABLE_FILE_DOWNLOADS), when the path is neither a regular file nor a folder, or when the prompt is cancelled or times out. Blocked over SSH.",
 	func(cmd *cobra.Command, args []string) error {
+		tempfile.Download.Sweep(time.Hour)
+
 		disabled, err := downloadsDisabled()
 		if err != nil {
 			return err
@@ -135,46 +150,34 @@ var downloadCmd = cli.New("download <file>", "next", "Download a workspace file 
 			return errDownloadsDisabled
 		}
 
-		path, err := existingPath(args[0])
+		path, info, err := existingPath(args[0])
 		if err != nil {
 			return err
 		}
 
-		if info, _ := os.Stat(path); info.IsDir() {
-			name := filepath.Base(path)
-			styles.PrintWarning(cmd.ErrOrStderr(), fmt.Sprintf("%s is a folder; archive it first: tar -czf %s.tgz %s", path, name, name))
-
-			return exit(1)
+		if info.IsDir() {
+			return downloadFolder(cmd, path)
 		}
 
-		body, err := editoripc.Download(path)
-		if err != nil {
-			return err
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("%s: not a regular file", path)
 		}
 
-		if cli.Bool(cmd, "raw") {
-			printBody(cmd.OutOrStdout(), body)
-			return nil
-		}
+		_, err = sendDownload(cmd, path)
 
-		var result editoripc.DownloadResult
-		if err := json.Unmarshal(body, &result); err != nil {
-			return fmt.Errorf("error parsing download response: %w", err)
-		}
+		return err
+	})
 
-		if !result.Downloaded {
-			return errors.New("the download was cancelled in the editor")
-		}
-
-		styles.PrintSuccess(cmd.OutOrStdout(), "Download started", styles.Pair{Key: "Path", Value: path})
-
-		return nil
+var reapCmd = cli.New("reap-download <zip>", "next", "Delete a downloaded zip once the editor has it open",
+	"Started detached by download once the editor accepts a zip: waits until another process has the zip open, then deletes it, and deletes it anyway after a minute. Refuses any path that is not a ws-cli download zip of this user in the temp directory.",
+	func(cmd *cobra.Command, args []string) error {
+		return tempfile.Download.Reap(args[0], time.Minute)
 	})
 
 var revealCmd = cli.New("reveal <path>", "next", "Reveal a file or folder in the Explorer sidebar",
 	"Show and select a workspace file or folder in the editor's Explorer sidebar without opening it, like the Reveal in Explorer View action. Blocked over SSH.",
 	func(cmd *cobra.Command, args []string) error {
-		path, err := existingPath(args[0])
+		path, _, err := existingPath(args[0])
 		if err != nil {
 			return err
 		}
@@ -185,12 +188,12 @@ var revealCmd = cli.New("reveal <path>", "next", "Reveal a file or folder in the
 var terminalCmd = cli.New("terminal [-- command...]", "next", "Open a terminal session in the editor",
 	"Open a new integrated terminal in the running editor window, in the current directory or --cwd, named with --name. Arguments after -- are joined with spaces and run in the new terminal. Blocked over SSH.",
 	func(cmd *cobra.Command, args []string) error {
-		cwd, err := existingPath(cli.String(cmd, "cwd"))
+		cwd, info, err := existingPath(cli.String(cmd, "cwd"))
 		if err != nil {
 			return err
 		}
 
-		if info, _ := os.Stat(cwd); !info.IsDir() {
+		if !info.IsDir() {
 			return fmt.Errorf("%s: not a directory", cwd)
 		}
 
@@ -210,7 +213,7 @@ ws editor open README.md --modal
 
 # Run the tests in a new editor terminal
 ws editor terminal --name tests -- go test ./...`,
-	diagnosticsCmd, downloadCmd, listCmd, notifyCmd, openCmd, revealCmd, selectionCmd, terminalCmd)
+	diagnosticsCmd, downloadCmd, listCmd, notifyCmd, openCmd, reapCmd, revealCmd, selectionCmd, terminalCmd)
 
 func printBody(out io.Writer, body []byte) {
 	if len(body) > 0 {
@@ -227,17 +230,103 @@ func downloadsDisabled() (bool, error) {
 	return config.ParseBool(value)
 }
 
-func existingPath(value string) (string, error) {
+func existingPath(value string) (string, os.FileInfo, error) {
 	path, err := filepath.Abs(value)
 	if err != nil {
-		return "", fmt.Errorf("cannot resolve path %q: %w", value, err)
+		return "", nil, fmt.Errorf("cannot resolve path %q: %w", value, err)
 	}
 
-	if _, err := os.Stat(path); err != nil {
-		return "", fmt.Errorf("%s: %w", path, errors.Unwrap(err))
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", nil, fmt.Errorf("%s: %w", path, errors.Unwrap(err))
 	}
 
-	return path, nil
+	return path, info, nil
+}
+
+func downloadFolder(cmd *cobra.Command, folder string) error {
+	name, ask := filepath.Base(folder), !cli.Bool(cmd, "zip")
+
+	if ask && !isTerminal(cmd.InOrStdin()) {
+		styles.PrintWarning(cmd.ErrOrStderr(), fmt.Sprintf("%s is a folder; pass --zip to zip it and download the zip", folder))
+		return exit(1)
+	}
+
+	file, err := tempfile.Download.Create(name)
+	if err != nil {
+		return fmt.Errorf("cannot create a zip for %s: %w", folder, err)
+	}
+
+	zipped := file.Name()
+	release := tempfile.Download.Trap(zipped)
+	defer release()
+
+	if ask && !confirm(cmd, fmt.Sprintf("Zip %s into %s and download it? [y/N] ", name, zipped)) {
+		_ = file.Close()
+		_ = tempfile.Download.Remove(zipped)
+
+		return exit(1)
+	}
+
+	err = wsio.ZipFolder(file, folder, zipped)
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
+	}
+
+	if err != nil {
+		_ = tempfile.Download.Remove(zipped)
+		return fmt.Errorf("cannot zip %s: %w", folder, err)
+	}
+
+	styles.PrintSuccess(cmd.ErrOrStderr(), fmt.Sprintf("Zipped %s into %s", name, zipped))
+
+	downloaded, err := sendDownload(cmd, zipped)
+	if !downloaded {
+		_ = tempfile.Download.Remove(zipped)
+		return err
+	}
+
+	if err := reapLater(zipped); err != nil {
+		styles.PrintWarning(cmd.ErrOrStderr(), fmt.Sprintf("cannot start the cleanup of %s (%v); it is swept after an hour", zipped, err))
+	}
+
+	return nil
+}
+
+func sendDownload(cmd *cobra.Command, path string) (bool, error) {
+	body, err := editoripc.Download(path)
+	if err != nil {
+		return false, err
+	}
+
+	var result editoripc.DownloadResult
+
+	if cli.Bool(cmd, "raw") {
+		printBody(cmd.OutOrStdout(), body)
+		_ = json.Unmarshal(body, &result)
+
+		return result.Downloaded, nil
+	}
+
+	if err := json.Unmarshal(body, &result); err != nil {
+		return false, fmt.Errorf("error parsing download response: %w", err)
+	}
+
+	if !result.Downloaded {
+		return false, errors.New("the download was cancelled or timed out in the editor")
+	}
+
+	styles.PrintSuccess(cmd.OutOrStdout(), "Download started", styles.Pair{Key: "Path", Value: path})
+
+	return true, nil
+}
+
+func confirm(cmd *cobra.Command, question string) bool {
+	fmt.Fprint(cmd.ErrOrStderr(), question)
+
+	answer, _ := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
+
+	return slices.Contains([]string{"y", "yes"}, strings.ToLower(strings.TrimSpace(answer)))
 }
 
 func location(p editoripc.Position) string {
@@ -409,6 +498,8 @@ echo '{"message": "Deploy now?", "actions": ["Yes", "No"]}' | ws editor notify`
 	openCmd.MarkFlagsMutuallyExclusive("reuse-window", "new-window", "modal")
 	openCmd.MarkFlagsMutuallyExclusive("preview", "modal")
 	downloadCmd.Args, revealCmd.Args = cobra.ExactArgs(1), cobra.ExactArgs(1)
+	downloadCmd.Flags().Bool("zip", false, "Zip a folder into the temp directory without asking, then download the zip")
+	reapCmd.Args, reapCmd.Hidden = cobra.ExactArgs(1), true
 	terminalCmd.Flags().String("cwd", ".", "Working directory for the terminal")
 	terminalCmd.Flags().String("name", "", "Terminal tab name")
 }
