@@ -167,7 +167,16 @@ func handedOff(t *testing.T) *[]string {
 func leftZips(t *testing.T, tmp string) []string {
 	t.Helper()
 
-	left, err := filepath.Glob(filepath.Join(tmp, "ws-cli-download-*.zip"))
+	left, err := filepath.Glob(filepath.Join(tmp, "ws-cli-download-*", "*"))
+	assert.NilError(t, err)
+
+	return left
+}
+
+func leftFolders(t *testing.T, tmp string) []string {
+	t.Helper()
+
+	left, err := filepath.Glob(filepath.Join(tmp, "ws-cli-download-*"))
 	assert.NilError(t, err)
 
 	return left
@@ -226,8 +235,9 @@ func TestDownloadZipsAFolder(t *testing.T) {
 	assert.Equal(t, len(editor.paths), 1)
 
 	zipped := editor.paths[0]
-	assert.Equal(t, filepath.Dir(zipped), tmp)
-	assert.Assert(t, strings.HasPrefix(filepath.Base(zipped), "ws-cli-download-build-") && strings.HasSuffix(zipped, ".zip"), zipped)
+	assert.Equal(t, filepath.Base(zipped), "build.zip")
+	assert.Equal(t, filepath.Dir(filepath.Dir(zipped)), tmp)
+	assert.Assert(t, strings.HasPrefix(filepath.Base(filepath.Dir(zipped)), "ws-cli-download-"), zipped)
 	assert.Equal(t, stderr, "✓ Zipped build into "+zipped+"\n")
 	assert.Assert(t, strings.Contains(stdout, "Download started") && strings.Contains(stdout, zipped), stdout)
 	assert.DeepEqual(t, *reaped, []string{zipped})
@@ -256,7 +266,7 @@ func TestDownloadRemovesTheZipWhenTheDownloadDoesNotStart(t *testing.T) {
 			_, err := clitest.Run(EditorCmd, "", "download", "--zip", buildFolder(t))
 
 			assert.Assert(t, err != nil)
-			assert.Equal(t, len(leftZips(t, tmp)), 0)
+			assert.Equal(t, len(leftFolders(t, tmp)), 0)
 			assert.Equal(t, len(*reaped), 0)
 		})
 	}
@@ -272,7 +282,7 @@ func TestDownloadRemovesTheZipWhenTheWaitRunsOut(t *testing.T) {
 	_, err := clitest.Run(EditorCmd, "", "download", "--zip", buildFolder(t))
 
 	assert.Error(t, err, "the workspace editor did not answer within 200ms")
-	assert.Equal(t, len(leftZips(t, tmp)), 0)
+	assert.Equal(t, len(leftFolders(t, tmp)), 0)
 }
 
 func TestDownloadAsksBeforeZippingInATerminal(t *testing.T) {
@@ -287,8 +297,8 @@ func TestDownloadAsksBeforeZippingInATerminal(t *testing.T) {
 			_, stderr, code, err := runEditor(t, answer, "download", folder)
 
 			assert.NilError(t, err)
-			assert.Assert(t, strings.HasPrefix(stderr, "Zip build into "+tmp+"/ws-cli-download-build-"), stderr)
-			assert.Assert(t, strings.Contains(stderr, ".zip and download it? [y/N] "), stderr)
+			assert.Assert(t, strings.HasPrefix(stderr, "Zip build into "+tmp+"/ws-cli-download-"), stderr)
+			assert.Assert(t, strings.Contains(stderr, "/build.zip and download it? [y/N] "), stderr)
 
 			if wantSent {
 				assert.Equal(t, code, 0)
@@ -297,7 +307,7 @@ func TestDownloadAsksBeforeZippingInATerminal(t *testing.T) {
 			} else {
 				assert.Equal(t, code, 1)
 				assert.Equal(t, len(editor.paths), 0)
-				assert.Equal(t, len(leftZips(t, tmp)), 0)
+				assert.Equal(t, len(leftFolders(t, tmp)), 0)
 			}
 		})
 	}
@@ -324,9 +334,10 @@ func TestDownloadSweepsOldZips(t *testing.T) {
 	tmp := downloadWorkspace(t, "")
 	editorAnswering(t, `{"downloaded":true}`)
 
-	old, fresh := filepath.Join(tmp, "ws-cli-download-old-1.zip"), filepath.Join(tmp, "ws-cli-download-new-2.zip")
-	for _, path := range []string{old, fresh} {
-		assert.NilError(t, os.WriteFile(path, nil, 0o600))
+	old, fresh := filepath.Join(tmp, "ws-cli-download-1"), filepath.Join(tmp, "ws-cli-download-2")
+	for _, folder := range []string{old, fresh} {
+		assert.NilError(t, os.Mkdir(folder, 0o700))
+		assert.NilError(t, os.WriteFile(filepath.Join(folder, "build.zip"), nil, 0o600))
 	}
 	stale := time.Now().Add(-2 * time.Hour)
 	assert.NilError(t, os.Chtimes(old, stale, stale))
@@ -337,7 +348,55 @@ func TestDownloadSweepsOldZips(t *testing.T) {
 	_, err := clitest.Run(EditorCmd, "", "download", file)
 
 	assert.NilError(t, err)
-	assert.DeepEqual(t, leftZips(t, tmp), []string{fresh})
+	assert.DeepEqual(t, leftFolders(t, tmp), []string{fresh})
+}
+
+func TestDownloadNamesTheZip(t *testing.T) {
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{nil, "build.zip"},
+		{[]string{"--name", "release"}, "release.zip"},
+		{[]string{"--name", "release.zip"}, "release.zip"},
+		{[]string{"--name", "Release.ZIP"}, "Release.ZIP"},
+	} {
+		t.Run(c.want, func(t *testing.T) {
+			downloadWorkspace(t, "")
+			editor := editorAnswering(t, `{"downloaded":true}`)
+			handedOff(t)
+
+			_, err := clitest.Run(EditorCmd, "", append([]string{"download", "--zip", buildFolder(t)}, c.args...)...)
+
+			assert.NilError(t, err)
+			assert.Equal(t, len(editor.paths), 1)
+			assert.Equal(t, filepath.Base(editor.paths[0]), c.want)
+		})
+	}
+}
+
+func TestDownloadNameOnlyAppliesToFolders(t *testing.T) {
+	downloadWorkspace(t, "")
+	editor := editorAnswering(t, `{"downloaded":true}`)
+
+	file := filepath.Join(t.TempDir(), "big.iso")
+	assert.NilError(t, os.WriteFile(file, nil, 0o600))
+
+	_, err := clitest.Run(EditorCmd, "", "download", "--name", "other", file)
+
+	assert.Error(t, err, "not a folder: --name only applies to folders")
+	assert.Equal(t, len(editor.paths), 0)
+}
+
+func TestDownloadRefusesANameThatIsAPath(t *testing.T) {
+	tmp := downloadWorkspace(t, "")
+	editor := editorAnswering(t, `{"downloaded":true}`)
+
+	_, err := clitest.Run(EditorCmd, "", "download", "--zip", "--name", "../escape", buildFolder(t))
+
+	assert.ErrorContains(t, err, `"../escape.zip" is not a file name`)
+	assert.Equal(t, len(editor.paths), 0)
+	assert.Equal(t, len(leftFolders(t, tmp)), 0)
 }
 
 func TestDownloadRefusesWhatIsNotARegularFile(t *testing.T) {

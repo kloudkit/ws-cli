@@ -12,10 +12,9 @@ import (
 
 type Kind struct {
 	Prefix string
-	Suffix string
 }
 
-var Download = Kind{Prefix: "ws-cli-download-", Suffix: ".zip"}
+var Download = Kind{Prefix: "ws-cli-download-"}
 
 var (
 	exit       = os.Exit
@@ -24,27 +23,33 @@ var (
 	pollEvery  = 100 * time.Millisecond
 )
 
-func (k Kind) Create(label string) (*os.File, error) {
-	return os.CreateTemp("", k.Prefix+label+"-*"+k.Suffix)
+func (k Kind) Create(name string) (*os.File, error) {
+	if name == "" || filepath.Base(name) != name || name == "." || name == ".." {
+		return nil, fmt.Errorf("%q is not a file name", name)
+	}
+
+	folder, err := os.MkdirTemp("", k.Prefix+"*")
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := os.OpenFile(filepath.Join(folder, name), os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		_ = os.Remove(folder)
+		return nil, err
+	}
+
+	return file, nil
 }
 
 func (k Kind) Owns(path string) bool {
-	if !filepath.IsAbs(path) || filepath.Dir(path) != filepath.Clean(os.TempDir()) {
-		return false
-	}
-
-	if matched, _ := filepath.Match(k.Prefix+"*"+k.Suffix, filepath.Base(path)); !matched {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path || !k.ownsFolder(filepath.Dir(path)) {
 		return false
 	}
 
 	info, err := os.Lstat(path)
-	if err != nil || !info.Mode().IsRegular() {
-		return false
-	}
 
-	stat, ok := info.Sys().(*syscall.Stat_t)
-
-	return ok && int(stat.Uid) == currentUID()
+	return err == nil && info.Mode().IsRegular()
 }
 
 func (k Kind) Remove(path string) error {
@@ -52,15 +57,31 @@ func (k Kind) Remove(path string) error {
 		return k.refusal("remove", path)
 	}
 
-	return os.Remove(path)
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+
+	return os.Remove(filepath.Dir(path))
 }
 
 func (k Kind) Sweep(age time.Duration) {
-	matches, _ := filepath.Glob(filepath.Join(os.TempDir(), k.Prefix+"*"+k.Suffix))
+	folders, _ := filepath.Glob(filepath.Join(os.TempDir(), k.Prefix+"*"))
 
-	for _, path := range matches {
-		if info, err := os.Lstat(path); err == nil && time.Since(info.ModTime()) > age {
-			_ = k.Remove(path)
+	for _, folder := range folders {
+		info, err := os.Lstat(folder)
+		if err != nil || time.Since(info.ModTime()) <= age || !k.ownsFolder(folder) {
+			continue
+		}
+
+		entries, err := os.ReadDir(folder)
+		if err != nil || len(entries) > 1 {
+			continue
+		}
+
+		if len(entries) == 1 {
+			_ = k.Remove(filepath.Join(folder, entries[0].Name()))
+		} else {
+			_ = os.Remove(folder)
 		}
 	}
 }
@@ -96,8 +117,27 @@ func (k Kind) Reap(path string, limit time.Duration) error {
 	return k.Remove(path)
 }
 
+func (k Kind) ownsFolder(folder string) bool {
+	if filepath.Dir(folder) != filepath.Clean(os.TempDir()) {
+		return false
+	}
+
+	if matched, _ := filepath.Match(k.Prefix+"*", filepath.Base(folder)); !matched {
+		return false
+	}
+
+	info, err := os.Lstat(folder)
+	if err != nil || !info.IsDir() {
+		return false
+	}
+
+	stat, ok := info.Sys().(*syscall.Stat_t)
+
+	return ok && int(stat.Uid) == currentUID()
+}
+
 func (k Kind) refusal(action, path string) error {
-	return fmt.Errorf("refusing to %s %s: not a %s*%s file of this user in %s", action, path, k.Prefix, k.Suffix, os.TempDir())
+	return fmt.Errorf("refusing to %s %s: not a file in a %s* folder of this user in %s", action, path, k.Prefix, os.TempDir())
 }
 
 func Detach(args ...string) error {

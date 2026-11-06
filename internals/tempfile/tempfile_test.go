@@ -36,89 +36,121 @@ func exists(path string) bool {
 func create(t *testing.T) string {
 	t.Helper()
 
-	file, err := Download.Create("build")
+	file, err := Download.Create("build.zip")
 	assert.NilError(t, err)
 	assert.NilError(t, file.Close())
 
 	return file.Name()
 }
 
-func TestCreateNamesTheFileForItsKind(t *testing.T) {
+func age(t *testing.T, path string) {
+	t.Helper()
+
+	stale := time.Now().Add(-2 * time.Hour)
+	assert.NilError(t, os.Chtimes(path, stale, stale))
+}
+
+func TestCreatePutsTheFileInItsOwnFolder(t *testing.T) {
 	dir := isolate(t)
 
 	path := create(t)
 
-	assert.Equal(t, filepath.Dir(path), dir)
-	assert.Assert(t, strings.HasPrefix(filepath.Base(path), "ws-cli-download-build-") && strings.HasSuffix(path, ".zip"), path)
+	assert.Equal(t, filepath.Base(path), "build.zip")
+	assert.Equal(t, filepath.Dir(filepath.Dir(path)), dir)
+	assert.Assert(t, strings.HasPrefix(filepath.Base(filepath.Dir(path)), "ws-cli-download-"), path)
 	assert.Assert(t, Download.Owns(path))
 }
 
-func TestOwnsOnlyThisUsersRegularFilesOfTheKind(t *testing.T) {
+func TestCreateRefusesAPath(t *testing.T) {
+	dir := isolate(t)
+
+	for _, name := range []string{"", ".", "..", "a/b.zip", "/etc/passwd"} {
+		_, err := Download.Create(name)
+		assert.ErrorContains(t, err, "is not a file name", name)
+	}
+
+	left, _ := filepath.Glob(filepath.Join(dir, "*"))
+	assert.Equal(t, len(left), 0)
+}
+
+func TestRemoveDeletesTheFileAndItsFolder(t *testing.T) {
+	isolate(t)
+	path := create(t)
+
+	assert.NilError(t, Download.Remove(path))
+
+	assert.Assert(t, !exists(path))
+	assert.Assert(t, !exists(filepath.Dir(path)))
+}
+
+func TestOwnsOnlyFilesInThisUsersFoldersOfTheKind(t *testing.T) {
 	dir := isolate(t)
 	owned := create(t)
+	folder := filepath.Dir(owned)
 
-	other := filepath.Join(dir, "notes.zip")
+	other := filepath.Join(dir, "other", "build.zip")
+	assert.NilError(t, os.MkdirAll(filepath.Dir(other), 0o700))
 	assert.NilError(t, os.WriteFile(other, nil, 0o600))
 
-	nested := filepath.Join(dir, "sub", "ws-cli-download-x.zip")
+	nested := filepath.Join(folder, "sub", "build.zip")
 	assert.NilError(t, os.MkdirAll(filepath.Dir(nested), 0o700))
 	assert.NilError(t, os.WriteFile(nested, nil, 0o600))
 
-	link := filepath.Join(dir, "ws-cli-download-link.zip")
-	assert.NilError(t, os.Symlink(owned, link))
+	outside := filepath.Join(t.TempDir(), "ws-cli-download-x")
+	assert.NilError(t, os.Mkdir(outside, 0o700))
+	assert.NilError(t, os.WriteFile(filepath.Join(outside, "build.zip"), nil, 0o600))
 
-	folder := filepath.Join(dir, "ws-cli-download-folder.zip")
-	assert.NilError(t, os.Mkdir(folder, 0o700))
+	linked := filepath.Join(dir, "ws-cli-download-link")
+	assert.NilError(t, os.Symlink(outside, linked))
 
-	for _, path := range []string{other, nested, link, folder, "ws-cli-download-x.zip", filepath.Join(dir, "ws-cli-download-absent.zip")} {
+	fileLink := filepath.Join(folder, "link.zip")
+	assert.NilError(t, os.Symlink(other, fileLink))
+
+	for _, path := range []string{
+		other, nested, filepath.Join(outside, "build.zip"), filepath.Join(linked, "build.zip"), fileLink,
+		folder, "build.zip", filepath.Join(folder, "absent.zip"), folder + "/./build.zip",
+	} {
 		assert.Assert(t, !Download.Owns(path), path)
 		assert.ErrorContains(t, Download.Remove(path), "refusing to remove")
 	}
+	assert.Assert(t, exists(filepath.Join(outside, "build.zip")))
 
 	stub(t, &currentUID, func() int { return os.Getuid() + 1 })
 	assert.Assert(t, !Download.Owns(owned))
 }
 
-func TestSweepRemovesOnlyOldFilesOfTheKind(t *testing.T) {
+func TestSweepRemovesOnlyOldFoldersOfTheKind(t *testing.T) {
 	dir := isolate(t)
 	old, fresh := create(t), create(t)
-	stale := time.Now().Add(-2 * time.Hour)
-	assert.NilError(t, os.Chtimes(old, stale, stale))
+	age(t, filepath.Dir(old))
 
-	other := filepath.Join(dir, "other.zip")
-	assert.NilError(t, os.WriteFile(other, nil, 0o600))
-	assert.NilError(t, os.Chtimes(other, stale, stale))
+	other := filepath.Join(dir, "other")
+	assert.NilError(t, os.Mkdir(other, 0o700))
+	age(t, other)
+
+	crowded := create(t)
+	assert.NilError(t, os.WriteFile(filepath.Join(filepath.Dir(crowded), "notes.txt"), nil, 0o600))
+	age(t, filepath.Dir(crowded))
+
+	outside := filepath.Join(t.TempDir(), "kept")
+	assert.NilError(t, os.Mkdir(outside, 0o700))
+	assert.NilError(t, os.WriteFile(filepath.Join(outside, "build.zip"), nil, 0o600))
+	linked := filepath.Join(dir, "ws-cli-download-link")
+	assert.NilError(t, os.Symlink(outside, linked))
 
 	Download.Sweep(time.Hour)
 
 	assert.Assert(t, !exists(old))
-	for _, kept := range []string{fresh, other} {
+	assert.Assert(t, !exists(filepath.Dir(old)))
+	for _, kept := range []string{fresh, other, crowded, linked, filepath.Join(outside, "build.zip")} {
 		assert.Assert(t, exists(kept), kept)
 	}
 }
 
-func TestSweepSkipsLinksAndFolders(t *testing.T) {
-	dir := isolate(t)
-
-	target := filepath.Join(dir, "target.txt")
-	assert.NilError(t, os.WriteFile(target, nil, 0o600))
-	link := filepath.Join(dir, "ws-cli-download-link.zip")
-	assert.NilError(t, os.Symlink(target, link))
-	folder := filepath.Join(dir, "ws-cli-download-folder.zip")
-	assert.NilError(t, os.Mkdir(folder, 0o700))
-
-	Download.Sweep(0)
-
-	for _, kept := range []string{target, link, folder} {
-		assert.Assert(t, exists(kept), kept)
-	}
-}
-
-func TestSweepLeavesAnotherUsersFiles(t *testing.T) {
+func TestSweepLeavesAnotherUsersFolders(t *testing.T) {
 	isolate(t)
 	old := create(t)
-	stale := time.Now().Add(-2 * time.Hour)
-	assert.NilError(t, os.Chtimes(old, stale, stale))
+	age(t, filepath.Dir(old))
 	stub(t, &currentUID, func() int { return os.Getuid() + 1 })
 
 	Download.Sweep(time.Hour)
@@ -126,7 +158,7 @@ func TestSweepLeavesAnotherUsersFiles(t *testing.T) {
 	assert.Assert(t, exists(old))
 }
 
-func TestTrapRemovesTheFileOnASignal(t *testing.T) {
+func TestTrapRemovesTheFileAndFolderOnASignal(t *testing.T) {
 	for _, received := range []syscall.Signal{syscall.SIGINT, syscall.SIGTERM} {
 		t.Run(received.String(), func(t *testing.T) {
 			isolate(t)
@@ -147,7 +179,7 @@ func TestTrapRemovesTheFileOnASignal(t *testing.T) {
 				t.Fatal("the trap did not fire")
 			}
 
-			assert.Assert(t, !exists(path))
+			assert.Assert(t, !exists(filepath.Dir(path)))
 		})
 	}
 }
@@ -182,7 +214,7 @@ func TestReapRemovesTheFileOnceSomethingHasItOpen(t *testing.T) {
 		t.Fatal("the reaper did not notice the open file")
 	}
 
-	assert.Assert(t, !exists(path))
+	assert.Assert(t, !exists(filepath.Dir(path)))
 }
 
 func TestReapRemovesTheFileOnceItWasRead(t *testing.T) {
@@ -198,7 +230,7 @@ func TestReapRemovesTheFileOnceItWasRead(t *testing.T) {
 	assert.NilError(t, Download.Reap(path, time.Minute))
 
 	assert.Assert(t, time.Since(started) < 5*time.Second)
-	assert.Assert(t, !exists(path))
+	assert.Assert(t, !exists(filepath.Dir(path)))
 }
 
 func TestReapGivesUpAtTheCap(t *testing.T) {
@@ -209,7 +241,7 @@ func TestReapGivesUpAtTheCap(t *testing.T) {
 	assert.NilError(t, Download.Reap(path, 300*time.Millisecond))
 
 	assert.Assert(t, time.Since(started) >= 300*time.Millisecond)
-	assert.Assert(t, !exists(path))
+	assert.Assert(t, !exists(filepath.Dir(path)))
 }
 
 func TestReapRefusesWhatItDoesNotOwn(t *testing.T) {
