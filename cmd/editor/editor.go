@@ -160,7 +160,7 @@ var downloadCmd = cli.New("download <file>", "next", "Download a file to your co
 		}
 
 		if !info.Mode().IsRegular() {
-			return fmt.Errorf("%s: not a regular file", path)
+			return fmt.Errorf("not a regular file: %s", path)
 		}
 
 		_, err = sendDownload(cmd, path)

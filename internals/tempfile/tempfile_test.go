@@ -185,6 +185,22 @@ func TestReapRemovesTheFileOnceSomethingHasItOpen(t *testing.T) {
 	assert.Assert(t, !exists(path))
 }
 
+func TestReapRemovesTheFileOnceItWasRead(t *testing.T) {
+	isolate(t)
+	path := create(t)
+	assert.NilError(t, os.WriteFile(path, []byte("zip"), 0o600))
+
+	info, err := os.Stat(path)
+	assert.NilError(t, err)
+	assert.NilError(t, os.Chtimes(path, info.ModTime().Add(time.Second), info.ModTime()))
+
+	started := time.Now()
+	assert.NilError(t, Download.Reap(path, time.Minute))
+
+	assert.Assert(t, time.Since(started) < 5*time.Second)
+	assert.Assert(t, !exists(path))
+}
+
 func TestReapGivesUpAtTheCap(t *testing.T) {
 	isolate(t)
 	path := create(t)

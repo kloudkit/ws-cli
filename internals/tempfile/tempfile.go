@@ -89,7 +89,7 @@ func (k Kind) Reap(path string, limit time.Duration) error {
 		return k.refusal("reap", path)
 	}
 
-	for deadline := time.Now().Add(limit); time.Now().Before(deadline) && !isOpen(path); {
+	for deadline := time.Now().Add(limit); time.Now().Before(deadline) && !isOpen(path) && !wasRead(path); {
 		time.Sleep(pollEvery)
 	}
 
@@ -114,6 +114,17 @@ func Detach(args ...string) error {
 	}
 
 	return command.Process.Release()
+}
+
+func wasRead(path string) bool {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return false
+	}
+
+	stat, ok := info.Sys().(*syscall.Stat_t)
+
+	return ok && time.Unix(stat.Atim.Unix()).After(time.Unix(stat.Mtim.Unix()))
 }
 
 func isOpen(path string) bool {

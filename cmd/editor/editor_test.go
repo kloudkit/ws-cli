@@ -346,7 +346,7 @@ func TestDownloadRefusesWhatIsNotARegularFile(t *testing.T) {
 
 	_, err := clitest.Run(EditorCmd, "", "download", "/dev/zero")
 
-	assert.Error(t, err, "/dev/zero: not a regular file")
+	assert.Error(t, err, "not a regular file: /dev/zero")
 	assert.Equal(t, len(editor.paths), 0)
 }
 
