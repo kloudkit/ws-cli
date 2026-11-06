@@ -26,13 +26,13 @@ func command(use, short, long string, run func(cmd *cobra.Command, source string
 }
 
 var applyCmd = command("apply [dest...]", "Project seed content onto the filesystem",
-	"Apply the seed source to the filesystem — mirror bare files and run the .seed.yaml operations. Writes only where the destination is missing unless --force; pass destinations to limit the run to those paths.",
+	"Apply the seed source to the filesystem: mirror bare files and run the .seed.yaml operations. Writes only where the destination is missing unless --force; pass destinations to limit the run to those paths.",
 	func(cmd *cobra.Command, source string, args []string) error {
 		return seed.Apply(seed.Options{Source: source, Force: cli.Bool(cmd, "force"), Dests: args, MasterKey: cli.String(cmd, "master"), Out: cmd.OutOrStdout()})
 	})
 
 var lsCmd = command("ls", "List seed destinations and their behaviors",
-	"List what apply would write — each destination with its operation and whether it carries a secret or a template — without touching the filesystem.",
+	"List what apply would write, without touching the filesystem: each destination with its operation and whether it carries a secret or a template.",
 	func(cmd *cobra.Command, source string, args []string) error {
 		out := cmd.OutOrStdout()
 
@@ -64,12 +64,12 @@ var rotateCmd = command("rotate", "Re-encrypt managed secrets under a new master
 	})
 
 var SeedCmd = cli.Group("seed", "0.5.0", "Project declarative content onto the filesystem",
-	"Copy files and apply small edits from a seed source onto the filesystem at boot. Bare files mirror verbatim; a .seed.yaml manifest overlays behavior — copy, merge, append — and decrypts secrets under the master key. Point --source at a mounted volume to seed a container from durable storage.",
+	"Copy files and apply small edits from a seed source onto the filesystem at boot. Bare files mirror verbatim; a .seed.yaml manifest overlays behavior (copy, merge, append) and decrypts secrets under the master key. Point --source at a mounted volume to seed a container from durable storage.",
 	`# Preview what apply would write
-ws seed ls --source /mnt/seed
+ws-cli seed ls --source /mnt/seed
 
 # Apply it, overwriting existing destinations
-ws seed apply --source /mnt/seed --force`,
+ws-cli seed apply --source /mnt/seed --force`,
 	applyCmd, lsCmd, rotateCmd)
 
 func describe(op seed.ResolvedOp) string {

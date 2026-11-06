@@ -75,22 +75,22 @@ func query(use, short, long string, fetch func(*cobra.Command) ([]byte, error), 
 }
 
 var listCmd = query("list", "List the currently open editor tabs",
-	"List the editor's open tabs over the IPC socket, with each tab's path, language, and active or dirty state.",
+	"List the editor's open tabs, with each tab's path, language, and active or dirty state.",
 	func(*cobra.Command) ([]byte, error) { return editoripc.FetchEditors() },
 	renderEditors)
 
 var selectionCmd = query("selection", "Show the active editor's current selection",
-	"Report the active editor's current selection — file, range, and selected text — over the IPC socket. Empty when nothing is selected.",
+	"Report the active editor's current selection: file, range, and selected text. Empty when nothing is selected.",
 	func(*cobra.Command) ([]byte, error) { return editoripc.FetchSelection() },
 	renderSelection)
 
 var diagnosticsCmd = query("diagnostics", "Show language diagnostics for the workspace (or a single file)",
-	"Pull language-server diagnostics (errors, warnings) from the editor over the IPC socket, across the whole workspace or a single file with --uri. Styled table by default, --raw for the JSON.",
+	"Pull language-server diagnostics (errors, warnings) from the editor, across the whole workspace or a single file with --uri. Styled table by default, --raw for the JSON.",
 	func(cmd *cobra.Command) ([]byte, error) { return editoripc.FetchDiagnostics(cli.String(cmd, "uri")) },
 	renderDiagnostics)
 
 var notifyCmd = cli.New("notify", "0.5.0", "Raise a notification in the editor",
-	"Read a JSON payload from stdin and raise it as a notification in the running editor window over the workspace IPC socket. Requires a \"message\"; optional \"detail\", \"actions\", \"modal\", \"timeout\", and \"severity\" tune it. Prints the chosen action (or timeout) as JSON. Blocked over SSH.",
+	"Read a JSON payload from stdin and raise it as a notification in the running editor window. Requires a \"message\"; optional \"detail\", \"actions\", \"modal\", \"timeout\", and \"severity\" tune it. Prints the chosen action (or timeout) as JSON. Blocked over SSH.",
 	func(cmd *cobra.Command, args []string) error {
 		if isTerminal(cmd.InOrStdin()) {
 			return errors.New(`pipe a JSON payload on stdin, e.g. echo '{"message": "hi"}' | ws editor notify`)
@@ -121,7 +121,7 @@ var notifyCmd = cli.New("notify", "0.5.0", "Raise a notification in the editor",
 	})
 
 var openCmd = cli.New("open <file>", "0.5.0", "Open a file in the editor",
-	"Open a file in the running editor window over the workspace IPC socket — a tab in the current window by default, a separate one with --new-window, a centered overlay with --modal, jumping to a range with --selection. Fails fast over SSH, where there is no browser editor to open into.",
+	"Open a file in the running editor window: a tab in the current window by default, a new window with --new-window, a centered overlay with --modal, jumping to a range with --selection. Fails fast over SSH, where there is no browser editor to open into.",
 	func(cmd *cobra.Command, args []string) error {
 		path, err := resolvePath(args[0])
 		if err != nil {
@@ -208,18 +208,18 @@ var terminalCmd = cli.New("terminal [-- command...]", "next", "Open a terminal s
 	})
 
 var EditorCmd = cli.Group("editor", "0.5.0", "Inspect and drive the active editor session",
-	"Query and control the running VS Code / code-server window over the workspace IPC socket — list open tabs, read diagnostics and the current selection, open, reveal, or download a file, or open a terminal. Blocked over SSH, where there is no browser editor to reach.",
+	"Query and control the running editor window: list open tabs, read diagnostics and the current selection, open, reveal, or download a file, or open a terminal. Blocked over SSH, where there is no browser editor to reach.",
 	`# List the open editor tabs
-ws editor list
+ws-cli editor list
 
 # Open a file at a specific line and column
-ws editor open src/main.go --selection 12:1
+ws-cli editor open src/main.go --selection 12:1
 
 # Preview a document in an overlay instead of a tab
-ws editor open README.md --modal
+ws-cli editor open README.md --modal
 
 # Run the tests in a new editor terminal
-ws editor terminal --name tests -- go test ./...`,
+ws-cli editor terminal --name tests -- go test ./...`,
 	diagnosticsCmd, downloadCmd, listCmd, notifyCmd, openCmd, reapCmd, revealCmd, selectionCmd, terminalCmd)
 
 func printBody(out io.Writer, body []byte) {
@@ -499,10 +499,10 @@ func init() {
 	}
 
 	notifyCmd.Example = `# A simple toast
-echo '{"message": "Build finished"}' | ws editor notify
+echo '{"message": "Build finished"}' | ws-cli editor notify
 
 # Ask a question and read the chosen action
-echo '{"message": "Deploy now?", "actions": ["Yes", "No"]}' | ws editor notify`
+echo '{"message": "Deploy now?", "actions": ["Yes", "No"]}' | ws-cli editor notify`
 
 	EditorCmd.PersistentFlags().Bool("raw", false, "Output the raw JSON response without styling")
 	diagnosticsCmd.Flags().String("uri", "", "Filter to a single file (URI or absolute path)")

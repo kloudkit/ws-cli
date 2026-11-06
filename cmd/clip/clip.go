@@ -7,19 +7,19 @@ import (
 )
 
 var ClipCmd = cli.Group("clip", "0.2.0", "Interact with the native clipboard",
-	"Reach the browser clipboard from the terminal over the workspace IPC socket.",
+	"Reach the browser clipboard from the terminal.",
 	`# Save the browser clipboard to a file
-ws clip paste > out.txt
+ws-cli clip paste > out.txt
 
 # Search within it
-ws clip paste | grep "pattern"
+ws-cli clip paste | grep "pattern"
 
 # Send command output to the browser clipboard
-ls | ws clip copy`,
+ls | ws-cli clip copy`,
 	cli.New("copy", "0.5.0", "Copy stdin to the clipboard",
-		"Read stdin and write it to the browser clipboard over the workspace IPC socket. Pairs with the pbcopy/xclip/xsel shims for terminal clipboard access.",
+		"Read stdin and write it to the browser clipboard. Pairs with the pbcopy/xclip/xsel shims for terminal clipboard access.",
 		func(cmd *cobra.Command, args []string) error { return clipboard.Copy(cmd.InOrStdin()) }),
 	cli.New("paste", "0.2.0", "Paste clipboard content",
-		"Read the browser clipboard over the workspace IPC socket and write it to stdout — redirect it to a file or pipe it onward. Pairs with the pbcopy/xclip/xsel shims for terminal clipboard access.",
+		"Read the browser clipboard and write it to stdout, so you can redirect it to a file or pipe it onward. Pairs with the pbcopy/xclip/xsel shims for terminal clipboard access.",
 		func(cmd *cobra.Command, args []string) error { return clipboard.Paste(cmd.OutOrStdout()) }),
 )

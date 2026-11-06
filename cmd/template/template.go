@@ -14,7 +14,7 @@ import (
 )
 
 var applyCmd = cli.New("apply <template>", "0.2.0", "Apply a configuration template to the current project",
-	"Copy a template into the project — a shared config like ruff or markdownlint — to --path (the current directory by default). --force overwrites an existing file.",
+	"Copy a template, a shared config like ruff or markdownlint, into the project at --path (the current directory by default). --force overwrites an existing file.",
 	func(cmd *cobra.Command, args []string) error {
 		name, targetPath := args[0], cli.String(cmd, "path")
 
@@ -64,7 +64,7 @@ var listCmd = cli.New("list", "0.2.0", "List all available configuration templat
 	})
 
 var showCmd = cli.New("show <template>", "0.2.0", "Display the contents of a configuration template",
-	fmt.Sprintf("Display the contents of a configuration template.\n\n  Available templates: %s", strings.Join(template.GetTemplateNames(), ", ")),
+	fmt.Sprintf("Display the contents of a configuration template. Available templates: %s.", strings.Join(template.GetTemplateNames(), ", ")),
 	func(cmd *cobra.Command, args []string) error {
 		local := cli.Bool(cmd, "local")
 
@@ -88,10 +88,10 @@ var showCmd = cli.New("show <template>", "0.2.0", "Display the contents of a con
 var TemplateCmd = cli.Group("template", "0.2.0", "Manage static configuration files",
 	"Copy shared configuration files (linters, formatters) from their global locations into a project, and inspect what they hold.",
 	`# List available templates
-ws template list
+ws-cli template list
 
 # Apply the ruff config to the current project
-ws template apply ruff`,
+ws-cli template apply ruff`,
 	applyCmd, listCmd, showCmd)
 
 func sourcePath(config template.Config) string {

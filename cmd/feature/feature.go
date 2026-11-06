@@ -23,7 +23,7 @@ const scaffoldTemplate = `---
 `
 
 var skippableSections = []struct{ flag, key, desc string }{
-	{"skip-extensions", "skip_extensions", "Skip installing VSCode extensions"},
+	{"skip-extensions", "skip_extensions", "Skip installing VS Code extensions"},
 	{"skip-completion", "skip_completion", "Skip configuring shell completion"},
 	{"skip-repository", "skip_repository", "Skip enabling the vendor APT repository"},
 }
@@ -54,7 +54,7 @@ var installCmd = cli.New("install <name>", "0.2.0", "Install additional pre-conf
 	})
 
 var listCmd = cli.New("list", "0.2.0", "List available features that can be installed",
-	"List the features you can install, marking where each comes from — the shipped set, a workspace override, or your own ~/.ws/features.d.",
+	"List the features you can install, marking where each comes from: the shipped set, a workspace override, or your own ~/.ws/features.d.",
 	func(cmd *cobra.Command, args []string) error {
 		out := cmd.OutOrStdout()
 
@@ -113,7 +113,7 @@ var infoCmd = cli.New("info <name>", "0.2.0", "Show detailed information about a
 	})
 
 var storeCmd = cli.New("store", "0.2.0", "List packages available in the feature store",
-	"List the artifacts published to the feature store (WS_FEATURES_STORE_URL) — the offline mirror features install from when the network is locked down.",
+	"List the artifacts published to the feature store (WS_FEATURES_STORE_URL), the offline mirror that features install from when the network is locked down.",
 	func(cmd *cobra.Command, args []string) error {
 		out := cmd.OutOrStdout()
 
@@ -128,13 +128,14 @@ var storeCmd = cli.New("store", "0.2.0", "List packages available in the feature
 			return fmt.Errorf("failed to fetch store manifest: %w", err)
 		}
 
-		if len(manifest.Artifacts) == 0 {
+		artifacts := manifest.Artifacts()
+		if len(artifacts) == 0 {
 			styles.PrintEmpty(out, "Feature store is empty")
 			return nil
 		}
 
-		items := make([]styles.DescriptionItem, len(manifest.Artifacts))
-		for i, a := range manifest.Artifacts {
+		items := make([]styles.DescriptionItem, len(artifacts))
+		for i, a := range artifacts {
 			items[i] = styles.DescriptionItem{Name: a.Name, Description: a.Version}
 		}
 
@@ -150,24 +151,19 @@ var storeCmd = cli.New("store", "0.2.0", "List packages available in the feature
 	})
 
 var newCmd = cli.New("new [name]", "0.2.0", "Print boilerplate for a custom feature playbook",
-	`Print a starter feature playbook to stdout.
-
-Redirect it into ~/.ws/features.d/<name>.yaml, then extend it and install
-with "ws-cli feature install <name>":
-
-  ws-cli feature new redis > ~/.ws/features.d/redis.yaml`,
+	`Print a starter feature playbook to stdout. Redirect it into ~/.ws/features.d/<name>.yaml, extend it, then install it with "ws-cli feature install <name>".`,
 	func(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(cmd.OutOrStdout(), scaffoldTemplate, append(args, "<feature>")[0])
 		return nil
 	})
 
 var FeatureCmd = cli.Group("feature", "0.2.0", "Install additional pre-configured features",
-	"Install and inspect optional workspace features — Ansible playbooks that add tools on top of the base image. Ships a curated set; --root points at your own under ~/.ws/features.d.",
+	"Install and inspect optional workspace features: Ansible playbooks that add tools on top of the base image. Ships a curated set and picks up your own from ~/.ws/features.d; --root reads features from another directory instead.",
 	`# List the features you can install
-ws feature list
+ws-cli feature list
 
-# Install one, skipping its VSCode extensions
-ws feature install redis --skip-extensions`,
+# Install one, skipping its VS Code extensions
+ws-cli feature install redis --skip-extensions`,
 	installCmd, listCmd, infoCmd, storeCmd, newCmd)
 
 func featureDirs(cmd *cobra.Command) []string {
@@ -212,4 +208,7 @@ func init() {
 
 	installCmd.Args, infoCmd.Args, newCmd.Args = cobra.ExactArgs(1), cobra.ExactArgs(1), cobra.MaximumNArgs(1)
 	listCmd.Aliases = []string{"ls"}
+
+	newCmd.Example = `# Start a custom feature in your own features folder
+ws-cli feature new redis > ~/.ws/features.d/redis.yaml`
 }

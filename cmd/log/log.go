@@ -39,7 +39,7 @@ func logCmd(level, use, short, long string) *cobra.Command {
 
 func levelCmd(level, name string) *cobra.Command {
 	return logCmd(level, level+" message", "Log "+name+" messages",
-		fmt.Sprintf("Emit a log line at %s level in the workspace style — the same formatting the startup scripts use. --indent nests it under a preceding line, --stamp prefixes a timestamp.", level))
+		fmt.Sprintf("Emit a log line at %s level in the workspace style, the same formatting the startup scripts use. --indent nests it under a preceding line, --stamp prefixes a timestamp.", level))
 }
 
 var stripCmd = cli.New("strip", "0.5.3", "Strip ANSI escapes from stdin",
@@ -47,14 +47,14 @@ var stripCmd = cli.New("strip", "0.5.3", "Strip ANSI escapes from stdin",
 	func(cmd *cobra.Command, args []string) error { return logger.Strip(cmd.InOrStdin(), cmd.OutOrStdout()) })
 
 var LogCmd = cli.Group("log", "0.2.0", "Log messages",
-	"Emit styled, level-tagged log lines — the same formatting the startup scripts use. --pipe runs each line of piped input through the logger.",
+	"Emit styled, level-tagged log lines in the same formatting the startup scripts use. --pipe runs each line of piped input through the logger.",
 	`# Emit an info-level line
-ws log info "starting up"
+ws-cli log info "starting up"
 
 # Nest a warning under it with a timestamp
-ws log warn "slow response" --indent 1 --stamp`,
+ws-cli log warn "slow response" --indent 1 --stamp`,
 	levelCmd("info", "information"), levelCmd("error", "error"), levelCmd("warn", "warning"), levelCmd("debug", "debugging"),
-	logCmd("", "stamp", "Log the current timestamp", "Print just the current timestamp in the workspace log style — handy for marking phases in a startup log."),
+	logCmd("", "stamp", "Log the current timestamp", "Print just the current timestamp in the workspace log style, to mark phases in a startup log."),
 	stripCmd)
 
 func init() {
