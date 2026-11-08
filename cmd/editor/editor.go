@@ -139,7 +139,7 @@ var openCmd = cli.New("open <file>", "0.5.0", "Open a file in the editor",
 		return editoripc.Open(req)
 	})
 
-var downloadCmd = cli.New("download <path>", "next", "Download a file to your computer",
+var downloadCmd = cli.New("download <path>", "0.6.1", "Download a file to your computer",
 	"Ask the running editor window to download a file of any size to your computer through the browser. The editor asks first, naming the file with its full path and size; once you click Download it returns at once and the transfer shows in the browser's download bar. A folder is zipped first, as <folder>.zip (or --name) in its own temp folder, and the zip is downloaded; --zip zips without asking, a terminal is asked, and without either the folder is refused. The zip is deleted at once when the download does not start, and soon after it does, once the editor has opened it. Fails when file downloads are disabled (WS_EDITOR_DISABLE_FILE_DOWNLOADS), when the path is neither a regular file nor a folder, or when the prompt is cancelled or times out. Blocked over SSH.",
 	func(cmd *cobra.Command, args []string) error {
 		tempfile.Download.Sweep(time.Hour)
@@ -175,13 +175,13 @@ var downloadCmd = cli.New("download <path>", "next", "Download a file to your co
 		return err
 	})
 
-var reapCmd = cli.New("reap-download <zip>", "next", "Delete a downloaded zip once the editor has it open",
+var reapCmd = cli.New("reap-download <zip>", "0.6.1", "Delete a downloaded zip once the editor has it open",
 	"Started detached by download once the editor accepts a zip: waits until another process has the zip open, then deletes it, and deletes it anyway after a minute. Refuses any path that is not a file in a ws-cli download folder of this user directly in the temp directory.",
 	func(cmd *cobra.Command, args []string) error {
 		return tempfile.Download.Reap(args[0], time.Minute)
 	})
 
-var revealCmd = cli.New("reveal <path>", "next", "Reveal a file or folder in the Explorer sidebar",
+var revealCmd = cli.New("reveal <path>", "0.6.1", "Reveal a file or folder in the Explorer sidebar",
 	"Show and select a workspace file or folder in the editor's Explorer sidebar without opening it, like the Reveal in Explorer View action. Blocked over SSH.",
 	func(cmd *cobra.Command, args []string) error {
 		path, _, err := existingPath(args[0])
@@ -192,7 +192,7 @@ var revealCmd = cli.New("reveal <path>", "next", "Reveal a file or folder in the
 		return editoripc.Reveal(path)
 	})
 
-var terminalCmd = cli.New("terminal [-- command...]", "next", "Open a terminal session in the editor",
+var terminalCmd = cli.New("terminal [-- command...]", "0.6.1", "Open a terminal session in the editor",
 	"Open a new integrated terminal in the running editor window, in the current directory or --cwd, named with --name. Arguments after -- are joined with spaces and run in the new terminal. Blocked over SSH.",
 	func(cmd *cobra.Command, args []string) error {
 		cwd, info, err := existingPath(cli.String(cmd, "cwd"))
