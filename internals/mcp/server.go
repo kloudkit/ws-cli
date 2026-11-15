@@ -4,28 +4,33 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"time"
 
+	"github.com/kloudkit/ws-cli/internals/server"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const serverName = "ws-cli"
 
+var outcomes = map[bool]string{false: "ok", true: "failed"}
+
 type Runner func(ctx context.Context, args []string) (text string, failed bool)
 
-func NewServer(version string, tools []Tool, run Runner) *sdk.Server {
+func NewServer(version string, tools []Tool, run Runner, log io.Writer) *sdk.Server {
 	server := sdk.NewServer(
 		&sdk.Implementation{Name: serverName, Version: version},
 		&sdk.ServerOptions{Capabilities: &sdk.ServerCapabilities{Tools: &sdk.ToolCapabilities{}}},
 	)
 
 	for _, tool := range tools {
-		server.AddTool(describe(tool), handle(tool, run))
+		server.AddTool(describe(tool), handle(tool, run, log))
 	}
 
 	return server
 }
 
-func Serve(ctx context.Context, version string, tools []Tool) error {
+func Serve(ctx context.Context, version string, tools []Tool, log io.Writer) error {
 	run := func(call context.Context, args []string) (string, bool) {
 		call, cancel := context.WithCancel(call)
 		defer cancel()
@@ -34,7 +39,7 @@ func Serve(ctx context.Context, version string, tools []Tool) error {
 		return Run(call, args)
 	}
 
-	err := NewServer(version, tools, run).Run(ctx, &sdk.StdioTransport{})
+	err := NewServer(version, tools, run, log).Run(ctx, &sdk.StdioTransport{})
 	if errors.Is(err, context.Canceled) {
 		return nil
 	}
@@ -58,17 +63,18 @@ func describe(tool Tool) *sdk.Tool {
 	}
 }
 
-func handle(tool Tool, run Runner) sdk.ToolHandler {
+func handle(tool Tool, run Runner, log io.Writer) sdk.ToolHandler {
 	return func(ctx context.Context, req *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
+		start := time.Now()
+
 		argv, err := tool.Argv(req.Params.Arguments)
-		if err != nil {
-			return result(fmt.Sprintf("invalid arguments for %s: %v", tool.Name, err), true), nil
+		text, failed := fmt.Sprintf("invalid arguments for %s: %v", tool.Name, err), true
+		if err == nil {
+			text, failed = run(ctx, argv)
 		}
 
-		return result(run(ctx, argv)), nil
-	}
-}
+		server.LogRequest(log, tool.Name, outcomes[failed], time.Since(start))
 
-func result(text string, failed bool) *sdk.CallToolResult {
-	return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: text}}, IsError: failed}
+		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: text}}, IsError: failed}, nil
+	}
 }

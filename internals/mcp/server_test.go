@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"slices"
 	"sync"
 	"testing"
@@ -41,7 +42,7 @@ func connect(t *testing.T, settings Settings, runner Runner) *sdk.ClientSession 
 
 	serverSide, clientSide := sdk.NewInMemoryTransports()
 
-	serverSession, err := NewServer("1.2.3", tools, runner).Connect(t.Context(), serverSide, nil)
+	serverSession, err := NewServer("1.2.3", tools, runner, io.Discard).Connect(t.Context(), serverSide, nil)
 	assert.NilError(t, err)
 	t.Cleanup(func() { _ = serverSession.Close() })
 
@@ -58,9 +59,9 @@ func TestServerInMemory(t *testing.T) {
 		session := connect(t, Settings{}, spy.run)
 
 		for arguments, want := range map[string]string{
-			`{"follow":true}`:     "invalid arguments for logs: unknown argument [follow] (accepted: tail, level)",
-			`{"tail":"5"}`:        "invalid arguments for logs: argument [tail] must be of type integer",
-			`{"args":["--help"]}`: "invalid arguments for logs: unknown argument [args] (accepted: tail, level)",
+			`{"follow":true}`:     `invalid arguments for logs: validating root: unexpected additional properties ["follow"]`,
+			`{"tail":"5"}`:        `invalid arguments for logs: validating root: validating /properties/tail: type: 5 has type "string", want "integer"`,
+			`{"args":["--help"]}`: `invalid arguments for logs: validating root: unexpected additional properties ["args"]`,
 		} {
 			result, err := session.CallTool(t.Context(), &sdk.CallToolParams{Name: "logs", Arguments: json.RawMessage(arguments)})
 			assert.NilError(t, err)

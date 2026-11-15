@@ -48,7 +48,7 @@ func ParseSpec(annotations map[string]string) (Spec, bool, error) {
 	}
 
 	if when, ok := annotations[AnnotationWhen]; ok {
-		for _, raw := range splitList(when) {
+		for _, raw := range config.ParseList(when, ",") {
 			condition, err := config.ParseCondition(raw)
 			if err != nil {
 				return Spec{}, false, fmt.Errorf("annotation [%s] has a %w", AnnotationWhen, err)
@@ -59,7 +59,7 @@ func ParseSpec(annotations map[string]string) (Spec, bool, error) {
 	}
 
 	if flags, ok := annotations[AnnotationFlags]; ok {
-		for _, name := range splitList(flags) {
+		for _, name := range config.ParseList(flags, ",") {
 			if !flagPattern.MatchString(name) {
 				return Spec{}, false, fmt.Errorf("annotation [%s] has a malformed flag name %q", AnnotationFlags, name)
 			}
@@ -85,13 +85,4 @@ func commandPath(cmd *cobra.Command) []string {
 	}
 
 	return append(commandPath(cmd.Parent()), cmd.Name())
-}
-
-func splitList(value string) []string {
-	parts := strings.Split(value, ",")
-	for i, part := range parts {
-		parts[i] = strings.TrimSpace(part)
-	}
-
-	return parts
 }

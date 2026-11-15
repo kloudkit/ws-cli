@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/kloudkit/ws-cli/cmd/cli"
@@ -68,15 +69,29 @@ var mcpCmd = cli.New("mcp", "next", "Serve the workspace tools to AI agents over
 			return err
 		}
 
-		for _, warning := range append(warnings, unmatched...) {
-			styles.PrintWarning(cmd.ErrOrStderr(), warning)
+		out, access := cmd.ErrOrStderr(), "read-only"
+		if settings.AllowWrite {
+			access = "read and write"
 		}
+
+		for _, warning := range append(warnings, unmatched...) {
+			styles.PrintWarning(out, warning)
+		}
+
+		pairs := []styles.Pair{{Key: "Transport", Value: "stdio"}, {Key: "Tools", Value: fmt.Sprintf("%d %s", len(tools), styles.Aside(access))}}
+		if settings.Tools != nil {
+			pairs = append(pairs, styles.Pair{Key: "Filter", Value: strings.Join(settings.Tools, ", ")})
+		}
+
+		styles.PrintTitle(out, "MCP Server")
+		styles.PrintKeyValues(out, pairs...)
+		server.PrintStop(out)
 
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 		defer stop()
 		context.AfterFunc(ctx, stop)
 
-		return mcp.Serve(ctx, cmd.Root().Version, tools)
+		return mcp.Serve(ctx, cmd.Root().Version, tools, out)
 	})
 
 var ServeCmd = cli.Group("serve", "0.2.0", "Serve internal assets",

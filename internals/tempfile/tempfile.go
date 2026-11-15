@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"github.com/kloudkit/ws-cli/internals/proc"
 )
 
 type Kind struct {
@@ -18,7 +20,6 @@ var Download = Kind{Prefix: "ws-cli-download-"}
 
 var (
 	exit       = os.Exit
-	executable = os.Executable
 	currentUID = os.Getuid
 	pollEvery  = 100 * time.Millisecond
 )
@@ -160,7 +161,7 @@ func tempDir() string {
 }
 
 func Detach(args ...string) error {
-	path, err := executable()
+	path, err := proc.Executable()
 	if err != nil {
 		return err
 	}

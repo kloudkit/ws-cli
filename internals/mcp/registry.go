@@ -4,11 +4,11 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/kloudkit/ws-cli/internals/env"
 	"github.com/spf13/cobra"
@@ -220,109 +220,49 @@ func (t Tool) Schema() json.RawMessage {
 }
 
 func (t Tool) Argv(arguments json.RawMessage) ([]string, error) {
-	given := map[string]json.RawMessage{}
-	if len(arguments) > 0 && string(arguments) != "null" {
+	var schema jsonschema.Schema
+	if err := json.Unmarshal(t.Schema(), &schema); err != nil {
+		return nil, err
+	}
+
+	resolved, err := schema.Resolve(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	given := map[string]any{}
+	if len(arguments) > 0 {
 		if err := json.Unmarshal(arguments, &given); err != nil {
 			return nil, fmt.Errorf("arguments must be a JSON object")
 		}
 	}
 
+	if err := resolved.Validate(given); err != nil {
+		return nil, err
+	}
+
 	argv := slices.Clone(t.Command)
 
 	for _, param := range t.Params {
-		raw, ok := given[param.Name]
-		if !ok {
-			continue
-		}
-		delete(given, param.Name)
-
-		value, err := param.parse(raw)
-		if err != nil {
-			return nil, err
-		}
-
-		argv = append(argv, "--"+param.Name+"="+value)
-	}
-
-	var positionals []string
-	if raw, ok := given[argsParam]; ok && t.Args != "" {
-		delete(given, argsParam)
-
-		var err error
-		if positionals, err = parseStrings(raw); err != nil {
-			return nil, err
+		switch value := given[param.Name].(type) {
+		case nil:
+		case float64:
+			argv = append(argv, "--"+param.Name+"="+strconv.FormatFloat(value, 'f', -1, 64))
+		default:
+			argv = append(argv, fmt.Sprintf("--%s=%v", param.Name, value))
 		}
 	}
 
-	if len(given) > 0 {
-		unknown := slices.Sorted(maps.Keys(given))
-		return nil, fmt.Errorf("unknown argument [%s] (accepted: %s)", unknown[0], strings.Join(t.accepted(), ", "))
+	if positionals, _ := given[argsParam].([]any); len(positionals) > 0 {
+		argv = append(argv, "--")
+		for _, positional := range positionals {
+			argv = append(argv, positional.(string))
+		}
 	}
 
-	if len(positionals) > 0 {
-		argv = append(append(argv, "--"), positionals...)
+	if slices.ContainsFunc(argv, func(arg string) bool { return strings.ContainsRune(arg, 0) }) {
+		return nil, fmt.Errorf("arguments must not hold a NUL byte")
 	}
 
 	return argv, nil
-}
-
-func (t Tool) accepted() []string {
-	names := make([]string, len(t.Params))
-	for i, param := range t.Params {
-		names[i] = param.Name
-	}
-
-	if t.Args != "" {
-		names = append(names, argsParam)
-	}
-
-	if len(names) == 0 {
-		return []string{"none"}
-	}
-
-	return names
-}
-
-func (p Param) parse(raw json.RawMessage) (string, error) {
-	text := string(raw)
-
-	switch p.Type {
-	case "boolean":
-		if text == "true" || text == "false" {
-			return text, nil
-		}
-	case "integer":
-		if _, err := strconv.Atoi(text); err == nil {
-			return text, nil
-		}
-	case "string":
-		var value string
-		if err := json.Unmarshal(raw, &value); err == nil && text != "null" && !hasNul(value) {
-			return value, nil
-		}
-	}
-
-	return "", fmt.Errorf("argument [%s] must be of type %s", p.Name, p.Type)
-}
-
-func parseStrings(raw json.RawMessage) ([]string, error) {
-	var items []*string
-	if err := json.Unmarshal(raw, &items); err != nil || string(raw) == "null" {
-		return nil, fmt.Errorf("argument [%s] must be an array of strings", argsParam)
-	}
-
-	values := make([]string, len(items))
-	for i, item := range items {
-		if item == nil || hasNul(*item) {
-			return nil, fmt.Errorf("argument [%s] must be an array of strings", argsParam)
-		}
-
-		values[i] = *item
-	}
-
-	return values, nil
-}
-
-func hasNul(value string) bool {
-	return strings.ContainsRune(value, 0)
 }

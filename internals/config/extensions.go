@@ -1,12 +1,12 @@
 package config
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/kloudkit/ws-cli/internals/proc"
 )
 
 var extensionsTimeout = 10 * time.Second
@@ -17,14 +17,8 @@ type Extension struct {
 }
 
 func GetExtensions() ([]Extension, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), extensionsTimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "code", "--list-extensions", "--show-versions")
-	cmd.WaitDelay = time.Second
-
-	out, err := cmd.Output()
-	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+	out, err := proc.Output(extensionsTimeout, "code", "--list-extensions", "--show-versions")
+	if errors.Is(err, proc.ErrTimeout) {
 		return nil, fmt.Errorf("`code --list-extensions` did not answer within %s", extensionsTimeout)
 	}
 

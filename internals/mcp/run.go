@@ -9,51 +9,29 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 	"unicode/utf8"
 
 	"github.com/charmbracelet/x/ansi"
+	"github.com/kloudkit/ws-cli/internals/proc"
 )
-
-var Command = func(ctx context.Context, args []string) (*exec.Cmd, error) {
-	path, err := os.Executable()
-	if err != nil {
-		return nil, err
-	}
-
-	return exec.CommandContext(ctx, path, args...), nil
-}
 
 var (
 	timeout     = 60 * time.Second
-	waitDelay   = time.Second
 	outputLimit = 64 << 10
 )
 
 var scrubbedEnv = []string{"NO_COLOR", "CLICOLOR_FORCE", "WS__INTERNAL_FORCE_COLOR"}
 
-func Run(parent context.Context, args []string) (text string, failed bool) {
-	ctx, cancel := context.WithTimeout(parent, timeout)
-	defer cancel()
-
-	command, err := Command(ctx, args)
+func Run(ctx context.Context, args []string) (text string, failed bool) {
+	path, err := proc.Executable()
 	if err != nil {
 		return fmt.Sprintf("cannot run the command: %v", err), true
 	}
 
 	stdout, stderr := &tail{limit: outputLimit}, &tail{limit: outputLimit}
 
-	command.Stdin = nil
-	command.Stdout = stdout
-	command.Stderr = stderr
-	command.Env = scrubEnv(command.Env)
-	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	command.WaitDelay = waitDelay
-	command.Cancel = func() error { return killGroup(command) }
-
-	err = command.Run()
-	_ = killGroup(command)
+	err = proc.Cmd{Path: path, Args: args, Env: scrubEnv(), Stdout: stdout, Stderr: stderr, Timeout: timeout}.Run(ctx)
 
 	var (
 		exit *exec.ExitError
@@ -61,46 +39,26 @@ func Run(parent context.Context, args []string) (text string, failed bool) {
 	)
 
 	switch {
-	case err == nil, errors.Is(err, exec.ErrWaitDelay):
-	case parent.Err() != nil:
-		note, failed = "cancelled", true
+	case err == nil:
+	case errors.Is(err, proc.ErrTimeout):
+		note = fmt.Sprintf("timed out after %s", timeout)
 	case ctx.Err() != nil:
-		note, failed = fmt.Sprintf("timed out after %s", timeout), true
-	case errors.As(err, &exit):
-		failed = true
-		if clean(string(stderr.bytes())) == "" {
-			note = fmt.Sprintf("exit code %d", exit.ExitCode())
-		}
-	default:
-		note, failed = fmt.Sprintf("cannot run the command: %v", err), true
+		note = "cancelled"
+	case !errors.As(err, &exit):
+		note = fmt.Sprintf("cannot run the command: %v", err)
+	case clean(string(stderr.bytes())) == "":
+		note = fmt.Sprintf("exit code %d", exit.ExitCode())
 	}
 
 	if text = render(outputLimit, note, stdout, stderr); text == "" {
 		text = "exit code 0"
 	}
 
-	return text, failed
+	return text, err != nil
 }
 
-func killGroup(command *exec.Cmd) error {
-	if command.Process == nil {
-		return nil
-	}
-
-	err := syscall.Kill(-command.Process.Pid, syscall.SIGKILL)
-	if errors.Is(err, syscall.ESRCH) {
-		return os.ErrProcessDone
-	}
-
-	return err
-}
-
-func scrubEnv(env []string) []string {
-	if env == nil {
-		env = os.Environ()
-	}
-
-	env = slices.DeleteFunc(slices.Clone(env), func(entry string) bool {
+func scrubEnv() []string {
+	env := slices.DeleteFunc(os.Environ(), func(entry string) bool {
 		key, _, _ := strings.Cut(entry, "=")
 		return slices.Contains(scrubbedEnv, key)
 	})

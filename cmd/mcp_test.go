@@ -316,7 +316,7 @@ func TestServeMcpOverStdio(t *testing.T) {
 	reference := ws.withReference(t, mcpEnvFixture)
 
 	t.Run("EveryStdoutLineIsAFrame", func(t *testing.T) {
-		server := ws.start(t)
+		server := ws.start(t, reference, "WS_AI_MCP_ALLOW_WRITE=true", "WS_AI_MCP_TOOLS=show,template")
 
 		server.send(t, initializeFrame, initializedFrame, listFrame,
 			`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"show_env","arguments":{"args":["server.port"]}}}`,
@@ -349,6 +349,10 @@ func TestServeMcpOverStdio(t *testing.T) {
 
 		missing := string(frames[4].Result)
 		assert.Assert(t, strings.Contains(missing, `"isError":true`) && strings.Contains(missing, "Template 'nope' not found"), missing)
+
+		for _, want := range []string{"MCP Server", "Transport  stdio", fmt.Sprintf("Tools      %d (read and write)", strings.Count(string(frames[2].Result), `"inputSchema"`)), "Filter     show, template", "Press Ctrl+C to stop", "info  show_env ok ", "info  template_show failed "} {
+			assert.Assert(t, strings.Contains(server.stderr.String(), want), "%q is not in %s", want, server.stderr.String())
+		}
 	})
 
 	t.Run("SettingsShapeTheList", func(t *testing.T) {
@@ -405,7 +409,7 @@ func TestServeMcpOverStdio(t *testing.T) {
 			assert.NilError(t, server.command.Process.Signal(sent))
 
 			assert.NilError(t, server.wait(t), server.stderr.String())
-			assert.Equal(t, server.stderr.String(), "")
+			assert.Assert(t, strings.HasSuffix(server.stderr.String(), "(read-only)\n\n  Press Ctrl+C to stop\n"), server.stderr.String())
 		})
 	}
 

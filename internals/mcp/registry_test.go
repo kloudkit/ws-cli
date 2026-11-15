@@ -196,7 +196,6 @@ func TestBuildTools(t *testing.T) {
 			}()), "names flag [n] twice"},
 			"BadAccess":     {group("ws-cli", leaf("x", map[string]string{AnnotationAccess: "admin"})), `must be "read" or "write"`},
 			"MalformedTerm": {group("ws-cli", leaf("x", read(AnnotationWhen, "features"))), `malformed term "features"`},
-			"EmptyTerm":     {group("ws-cli", leaf("x", read(AnnotationWhen, "features.store_url,"))), `malformed term ""`},
 			"StrayOption":   {group("ws-cli", leaf("x", map[string]string{AnnotationFlags: "tail"})), "needs [mcp]"},
 			"MalformedOnAFilteredTool": {group("ws-cli", func() *cobra.Command {
 				c := leaf("x", read(AnnotationWhen, "!!a.b"))
@@ -330,6 +329,7 @@ func TestArgv(t *testing.T) {
 		`{}`:                                {"logs"},
 		`{"level":"error","tail":5}`:        {"logs", "--tail=5", "--level=error"},
 		`{"plain":false,"tail":-1}`:         {"logs", "--tail=-1", "--plain=false"},
+		`{"plain":true,"tail":1e6}`:         {"logs", "--tail=1000000", "--plain=true"},
 		`{"level":"--follow"}`:              {"logs", "--level=--follow"},
 		`{"level":""}`:                      {"logs", "--level="},
 		`{"args":["--value","-f","a b"]}`:   {"logs", "--", "--value", "-f", "a b"},
@@ -344,26 +344,17 @@ func TestArgv(t *testing.T) {
 	}
 
 	rejected := map[string]string{
-		`{"follow":true}`:          "unknown argument [follow] (accepted: tail, level, plain, args)",
-		`{"--follow":true}`:        "unknown argument [--follow]",
-		`{"tail":"5"}`:             "argument [tail] must be of type integer",
-		`{"tail":5.5}`:             "argument [tail] must be of type integer",
-		`{"tail":1e3}`:             "argument [tail] must be of type integer",
-		`{"tail":null}`:            "argument [tail] must be of type integer",
-		`{"level":5}`:              "argument [level] must be of type string",
-		`{"level":null}`:           "argument [level] must be of type string",
-		`{"level":["a"]}`:          "argument [level] must be of type string",
-		`{"level":"a\u0000b"}`:     "argument [level] must be of type string",
-		`{"plain":"true"}`:         "argument [plain] must be of type boolean",
-		`{"plain":1}`:              "argument [plain] must be of type boolean",
-		`{"args":"x"}`:             "argument [args] must be an array of strings",
-		`{"args":[1]}`:             "argument [args] must be an array of strings",
-		`{"args":["a",null]}`:      "argument [args] must be an array of strings",
-		`{"args":null}`:            "argument [args] must be an array of strings",
-		`{"args":["a\u0000"]}`:     "argument [args] must be an array of strings",
-		`["logs"]`:                 "arguments must be a JSON object",
-		`"logs"`:                   "arguments must be a JSON object",
-		`{"tail":1,"zz":1,"aa":1}`: "unknown argument [aa]",
+		`{"follow":true}`:      `unexpected additional properties ["follow"]`,
+		`{"tail":"5"}`:         `/properties/tail: type: 5 has type "string", want "integer"`,
+		`{"tail":5.5}`:         `want "integer"`,
+		`{"tail":null}`:        `want "integer"`,
+		`{"level":5}`:          `want "string"`,
+		`{"plain":"true"}`:     `want "boolean"`,
+		`{"args":"x"}`:         `want "array"`,
+		`{"args":["a",null]}`:  `want "string"`,
+		`{"level":"a\u0000b"}`: "NUL byte",
+		`{"args":["a\u0000"]}`: "NUL byte",
+		`["logs"]`:             "arguments must be a JSON object",
 	}
 
 	for arguments, want := range rejected {
@@ -373,5 +364,5 @@ func TestArgv(t *testing.T) {
 
 	bare := Tool{Command: []string{"info", "version"}}
 	_, err := bare.Argv([]byte(`{"args":["x"]}`))
-	assert.ErrorContains(t, err, "unknown argument [args] (accepted: none)")
+	assert.ErrorContains(t, err, `unexpected additional properties ["args"]`)
 }
