@@ -133,9 +133,9 @@ func TestMcpAnnotationsAreWellFormed(t *testing.T) {
 				assert.Assert(t, c.Flag(name) != nil, "%q exposes the unknown flag %q", c.CommandPath(), name)
 			}
 
-			for _, flag := range flagMention.FindAllString(cmp.Or(spec.Description, c.Long, c.Short), -1) {
+			for _, flag := range flagMention.FindAllString(cmp.Or(c.Long, c.Short), -1) {
 				assert.Assert(t, slices.Contains(spec.Flags, strings.TrimPrefix(flag, "--")),
-					"%q describes %s, which its tool does not expose: expose it or set cli.MCPDescription", c.CommandPath(), flag)
+					"%q describes %s, which its tool does not expose: expose it or reword the help", c.CommandPath(), flag)
 			}
 		}
 

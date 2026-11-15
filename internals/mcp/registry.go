@@ -136,7 +136,7 @@ func BuildTools(root *cobra.Command, settings Settings) ([]Tool, []string, error
 			known = append(known, tool)
 
 			if settings.allows(tool) {
-				visible, err := When(spec.When)
+				visible, err := config.Holds(spec.When)
 				if err != nil {
 					return fmt.Errorf("%s: %w", cmd.CommandPath(), err)
 				}
@@ -169,44 +169,11 @@ func BuildTools(root *cobra.Command, settings Settings) ([]Tool, []string, error
 	return tools, warnings, nil
 }
 
-func When(terms []Term) (bool, error) {
-	for _, term := range terms {
-		key := config.RuntimeKey(term.Group, term.Prop)
-
-		prop, declared, err := config.LookupProperty(key)
-		if err != nil {
-			return false, err
-		}
-
-		if !declared {
-			return false, nil
-		}
-
-		value, err := config.ResolveKey(key)
-		if err != nil {
-			return false, nil
-		}
-
-		truth := value != ""
-		if truth && prop.Type == "boolean" {
-			if truth, err = config.ParseBool(value); err != nil {
-				return false, nil
-			}
-		}
-
-		if truth == term.Negated {
-			return false, nil
-		}
-	}
-
-	return true, nil
-}
-
 func newTool(cmd *cobra.Command, spec Spec) (Tool, error) {
 	tool := Tool{
 		Name:        ToolName(cmd),
 		Title:       cmd.Short,
-		Description: cmp.Or(spec.Description, cmd.Long, cmd.Short),
+		Description: cmp.Or(cmd.Long, cmd.Short),
 		Access:      spec.Access,
 		Command:     commandPath(cmd),
 		Args:        strings.TrimSpace(strings.TrimPrefix(cmd.Use, cmd.Name())),

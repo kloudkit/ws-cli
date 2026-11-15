@@ -18,11 +18,10 @@ type Option struct {
 }
 
 type MCP struct {
-	Name        string   `yaml:"name"`
-	Access      string   `yaml:"access"`
-	When        []string `yaml:"when,omitempty"`
-	Flags       []string `yaml:"flags,omitempty"`
-	Description string   `yaml:"description,omitempty"`
+	Name   string   `yaml:"name"`
+	Access string   `yaml:"access"`
+	When   []string `yaml:"when,omitempty"`
+	Flags  []string `yaml:"flags,omitempty"`
 }
 
 type Command struct {
@@ -73,7 +72,7 @@ func walk(c *cobra.Command) (Command, error) {
 	}
 
 	if annotated && c.Runnable() {
-		command.MCP = &MCP{Name: mcp.ToolName(c), Access: string(spec.Access), Flags: spec.Flags, Description: spec.Description}
+		command.MCP = &MCP{Name: mcp.ToolName(c), Access: string(spec.Access), Flags: spec.Flags}
 		for _, term := range spec.When {
 			command.MCP.When = append(command.MCP.When, term.String())
 		}

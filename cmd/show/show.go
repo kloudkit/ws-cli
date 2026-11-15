@@ -22,8 +22,8 @@ func exit(code int) error {
 	return nil
 }
 
-var envCmd = cli.New("env <KEY>", "0.2.0", "Display the resolved value of a workspace environment variable",
-	"Resolve a setting by its dotted key (server.port) and print it with its source and description. --value emits just the value for scripts, --as bool|int|list validates the shape, --check tests whether it is set so a startup script can guard on it.",
+var envCmd = cli.MCP(cli.New("env <KEY>", "0.2.0", "Display the resolved value of a workspace environment variable",
+	"Resolve a setting by its dotted key (server.port) and print it with its source and description. The value of a secret setting is shown redacted.",
 	func(cmd *cobra.Command, args []string) error {
 		dotted := args[0]
 
@@ -66,7 +66,7 @@ var envCmd = cli.New("env <KEY>", "0.2.0", "Display the resolved value of a work
 		}
 
 		return runPretty(cmd, dotted, key, propMeta)
-	})
+	}), cli.MCPRead)
 
 func skipBreadcrumb(cmd *cobra.Command, key string) {
 	logger.Log(cmd.ErrOrStderr(), "debug", fmt.Sprintf("Skipped: env [%s] not set", key), 1, true)
@@ -244,9 +244,9 @@ func init() {
 	ShowCmd.PersistentFlags().Bool("raw", false, "Output raw value without styling")
 	pathVscodeCmd.Flags().Bool("workspace", false, "Get the workspace settings")
 	envCmd.Args = cobra.ExactArgs(1)
-	envCmd.Flags().Bool("value", false, "Emit the raw resolved value as a single line")
-	envCmd.Flags().String("as", "", "Validate and emit as one of: bool, int, list (mutex with --value)")
-	envCmd.Flags().Bool("check", false, "Check whether the variable (or its --deprecated alias) is set")
+	envCmd.Flags().Bool("value", false, "Emit just the raw resolved value as a single line, for scripts")
+	envCmd.Flags().String("as", "", "Validate the shape and emit as one of: bool, int, list (mutex with --value)")
+	envCmd.Flags().Bool("check", false, "Check whether the variable (or its --deprecated alias) is set, so a startup script can guard on it")
 	envCmd.Flags().String("delimiter", "", "Override delimiter for --as=list (defaults to YAML delimiter or space)")
 	envCmd.Flags().String("deprecated", "", "Deprecated alias paired with --check")
 	envCmd.Flags().Bool("or-skip", false, "Exit 1 (not error) on the natural absence of the chosen projection")
@@ -254,16 +254,9 @@ func init() {
 
 	envCmd.MarkFlagsMutuallyExclusive("value", "as")
 	envCmd.MarkFlagsMutuallyExclusive("as", "check")
-
-	cli.MCP(envCmd, cli.MCPRead, cli.MCPDescription("Resolve a workspace setting by its dotted key (server.port) and show its value, where the value comes from, and what the setting does. The value of a secret setting is redacted."))
-	cli.MCP(pathVscodeCmd, cli.MCPRead, cli.MCPFlags("workspace"))
-
-	for _, cmd := range []*cobra.Command{ipInternalCmd, ipNodeCmd, pathHomeCmd} {
-		cli.MCP(cmd, cli.MCPRead)
-	}
 }
 
-var pathVscodeCmd = cli.New("vscode-settings", "0.2.0", "Display the VS Code settings path",
+var pathVscodeCmd = cli.MCP(cli.New("vscode-settings", "0.2.0", "Display the VS Code settings path",
 	"Print the path to the VS Code settings file: the user file by default, or the folder's with --workspace.",
 	func(cmd *cobra.Command, args []string) error {
 		if cli.Bool(cmd, "workspace") {
@@ -271,7 +264,7 @@ var pathVscodeCmd = cli.New("vscode-settings", "0.2.0", "Display the VS Code set
 		}
 
 		return emit(cmd, "VS Code Settings Path", "User", "Path", path.GetHomeDirectory("/.local/share/ws-server/User/settings.json"))
-	})
+	}), cli.MCPRead, cli.MCPFlags("workspace"))
 
 func makeValueCmd(use, short, long, title, label string, getter func() (string, error)) *cobra.Command {
 	return cli.New(use, "0.2.0", short, long, func(cmd *cobra.Command, args []string) error {
@@ -285,11 +278,11 @@ func makeValueCmd(use, short, long, title, label string, getter func() (string, 
 }
 
 var (
-	ipInternalCmd = makeValueCmd("internal", "Display the internal IP address", "Print the workspace container's internal IP address.", "Internal IP Address", "Address", net.GetInternalIP)
-	ipNodeCmd     = makeValueCmd("node", "Display the node/host IP address", "Print the IP address of the node hosting the workspace.", "Node IP Address", "Address", net.GetNodeIP)
-	pathHomeCmd   = makeValueCmd("home", "Display the workspace home path", "Print the workspace home (server root) path.", "Workspace Home Path", "Path", func() (string, error) {
+	ipInternalCmd = cli.MCP(makeValueCmd("internal", "Display the internal IP address", "Print the workspace container's internal IP address.", "Internal IP Address", "Address", net.GetInternalIP), cli.MCPRead)
+	ipNodeCmd     = cli.MCP(makeValueCmd("node", "Display the node/host IP address", "Print the IP address of the node hosting the workspace.", "Node IP Address", "Address", net.GetNodeIP), cli.MCPRead)
+	pathHomeCmd   = cli.MCP(makeValueCmd("home", "Display the workspace home path", "Print the workspace home (server root) path.", "Workspace Home Path", "Path", func() (string, error) {
 		return config.MustResolve("server", "root"), nil
-	})
+	}), cli.MCPRead)
 )
 
 var ShowCmd = cli.Group("show", "0.2.0", "Display information about the current workspace instance",

@@ -52,14 +52,13 @@ commands:
         - name: ws-cli editor diagnostics
           since: 0.5.0
           synopsis: Show language diagnostics for the workspace (or a single file)
-          description: Pull language-server diagnostics (errors, warnings) from the editor, across the whole workspace or a single file with --uri. Styled table by default, --raw for the JSON.
+          description: Pull language-server diagnostics (errors, warnings) from the editor, across the whole workspace or a single file with --uri.
           usage: ws-cli editor diagnostics [flags]
           mcp:
             name: editor_diagnostics
             access: read
             flags:
                 - uri
-            description: Pull language-server diagnostics (errors, warnings) from the editor, across the whole workspace or for a single file with uri.
           options:
             - name: uri
               usage: Filter to a single file (URI or absolute path)
@@ -96,7 +95,7 @@ commands:
         - name: ws-cli editor open
           since: 0.5.0
           synopsis: Open a file in the editor
-          description: 'Open a file in the running editor window: a tab in the current window by default, a new window with --new-window, a centered overlay with --modal, jumping to a range with --selection. Fails fast over SSH, where there is no browser editor to open into.'
+          description: 'Open a file in the running editor window: a tab in the current window by default, a preview tab with --preview, jumping to a range with --selection. Fails fast over SSH, where there is no browser editor to open into.'
           usage: ws-cli editor open <file> [flags]
           mcp:
             name: editor_open
@@ -104,7 +103,6 @@ commands:
             flags:
                 - selection
                 - preview
-            description: 'Open a file as a tab in the running editor window: a preview tab with preview, jumping to a range with selection. Fails over SSH, where there is no browser editor to open into.'
           options:
             - name: modal
               default: "false"
@@ -164,12 +162,11 @@ commands:
         - name: ws-cli feature info
           since: 0.2.0
           synopsis: Show detailed information about a feature
-          description: Show a feature's description and the variables it accepts, so you know what --opt values install will take.
+          description: Show a feature's description and the variables it accepts when it is installed.
           usage: ws-cli feature info <name>
           mcp:
             name: feature_info
             access: read
-            description: Show a feature's description and the variables its installation accepts.
         - name: ws-cli feature install
           since: 0.2.0
           synopsis: Install additional pre-configured features
@@ -178,7 +175,7 @@ commands:
           options:
             - name: opt
               default: '[]'
-              usage: Optional variables to use during installation
+              usage: Optional variables to use during installation, from the ones feature info lists
             - name: skip-completion
               default: "false"
               usage: Skip configuring shell completion
@@ -356,7 +353,7 @@ commands:
     - name: ws-cli logs
       since: 0.2.0
       synopsis: Retrieve workspace logs
-      description: 'Read a workspace daemon''s log: the main log by default, or --target metrics|docker|cloudflared. Filter by --level, limit with --tail, or stream live with --follow.'
+      description: 'Read a workspace daemon''s log: the main log by default, or --target metrics|docker|cloudflared. Filter by --level and limit with --tail.'
       usage: ws-cli logs [flags]
       example: |-
         # Stream errors live, starting from the last 100 lines
@@ -371,7 +368,6 @@ commands:
             - tail
             - level
             - target
-        description: 'Read a workspace daemon''s log: the main log by default, or the metrics, docker or cloudflared log with target. Filter by level and keep only the last lines with tail.'
       options:
         - name: follow
           shorthand: f
@@ -554,18 +550,17 @@ commands:
         - name: ws-cli show env
           since: 0.2.0
           synopsis: Display the resolved value of a workspace environment variable
-          description: Resolve a setting by its dotted key (server.port) and print it with its source and description. --value emits just the value for scripts, --as bool|int|list validates the shape, --check tests whether it is set so a startup script can guard on it.
+          description: Resolve a setting by its dotted key (server.port) and print it with its source and description. The value of a secret setting is shown redacted.
           usage: ws-cli show env <KEY> [flags]
           mcp:
             name: show_env
             access: read
-            description: Resolve a workspace setting by its dotted key (server.port) and show its value, where the value comes from, and what the setting does. The value of a secret setting is redacted.
           options:
             - name: as
-              usage: 'Validate and emit as one of: bool, int, list (mutex with --value)'
+              usage: 'Validate the shape and emit as one of: bool, int, list (mutex with --value)'
             - name: check
               default: "false"
-              usage: Check whether the variable (or its --deprecated alias) is set
+              usage: Check whether the variable (or its --deprecated alias) is set, so a startup script can guard on it
             - name: delimiter
               usage: Override delimiter for --as=list (defaults to YAML delimiter or space)
             - name: deprecated
@@ -577,7 +572,7 @@ commands:
               usage: Anchored regex each --as=list token must full-match; rejects fail-closed
             - name: value
               default: "false"
-              usage: Emit the raw resolved value as a single line
+              usage: Emit just the raw resolved value as a single line, for scripts
         - name: ws-cli show ip
           since: 0.2.0
           synopsis: Display IP addresses
@@ -640,14 +635,13 @@ commands:
         - name: ws-cli template apply
           since: 0.2.0
           synopsis: Apply a configuration template to the current project
-          description: Copy a template, a shared config like ruff or markdownlint, into the project at --path (the current directory by default). --force overwrites an existing file.
+          description: Copy a template, a shared config like ruff or markdownlint, into the project at --path (the current directory by default). Fails when the file is already there.
           usage: ws-cli template apply <template> [flags]
           mcp:
             name: template_apply
             access: write
             flags:
                 - path
-            description: Copy a template, a shared config like ruff or markdownlint, into the directory given by path (the current directory by default). An existing file is never overwritten.
           options:
             - name: force
               shorthand: f

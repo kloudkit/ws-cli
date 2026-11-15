@@ -5,14 +5,14 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/kloudkit/ws-cli/internals/config"
 	"github.com/spf13/cobra"
 )
 
 const (
-	AnnotationAccess      = "mcp"
-	AnnotationWhen        = "mcp.when"
-	AnnotationFlags       = "mcp.flags"
-	AnnotationDescription = "mcp.description"
+	AnnotationAccess = "mcp"
+	AnnotationWhen   = "mcp.when"
+	AnnotationFlags  = "mcp.flags"
 )
 
 type Access string
@@ -22,37 +22,18 @@ const (
 	Write Access = "write"
 )
 
-type Term struct {
-	Group   string
-	Prop    string
-	Negated bool
-}
-
-func (t Term) String() string {
-	term := t.Group + "." + t.Prop
-	if t.Negated {
-		return "!" + term
-	}
-
-	return term
-}
-
 type Spec struct {
-	Access      Access
-	When        []Term
-	Flags       []string
-	Description string
+	Access Access
+	When   []config.Condition
+	Flags  []string
 }
 
-var (
-	termPattern = regexp.MustCompile(`^(!?)([a-z][a-z0-9_]*)\.([a-z][a-z0-9_]*)$`)
-	flagPattern = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
-)
+var flagPattern = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 
 func ParseSpec(annotations map[string]string) (Spec, bool, error) {
 	access, annotated := annotations[AnnotationAccess]
 	if !annotated {
-		for _, key := range []string{AnnotationWhen, AnnotationFlags, AnnotationDescription} {
+		for _, key := range []string{AnnotationWhen, AnnotationFlags} {
 			if _, stray := annotations[key]; stray {
 				return Spec{}, false, fmt.Errorf("annotation [%s] needs [%s]", key, AnnotationAccess)
 			}
@@ -68,12 +49,12 @@ func ParseSpec(annotations map[string]string) (Spec, bool, error) {
 
 	if when, ok := annotations[AnnotationWhen]; ok {
 		for _, raw := range splitList(when) {
-			match := termPattern.FindStringSubmatch(raw)
-			if match == nil {
-				return Spec{}, false, fmt.Errorf("annotation [%s] has a malformed term %q (want [!]<group>.<prop>)", AnnotationWhen, raw)
+			condition, err := config.ParseCondition(raw)
+			if err != nil {
+				return Spec{}, false, fmt.Errorf("annotation [%s] has a %w", AnnotationWhen, err)
 			}
 
-			spec.When = append(spec.When, Term{Group: match[2], Prop: match[3], Negated: match[1] != ""})
+			spec.When = append(spec.When, condition)
 		}
 	}
 
@@ -84,12 +65,6 @@ func ParseSpec(annotations map[string]string) (Spec, bool, error) {
 			}
 
 			spec.Flags = append(spec.Flags, name)
-		}
-	}
-
-	if description, ok := annotations[AnnotationDescription]; ok {
-		if spec.Description = strings.TrimSpace(description); spec.Description == "" {
-			return Spec{}, false, fmt.Errorf("annotation [%s] is empty", AnnotationDescription)
 		}
 	}
 

@@ -28,7 +28,7 @@ func Group(use, since, short, long, example string, children ...*cobra.Command) 
 	return cmd
 }
 
-func MCP(cmd *cobra.Command, access mcp.Access, opts ...MCPOption) {
+func MCP(cmd *cobra.Command, access mcp.Access, opts ...MCPOption) *cobra.Command {
 	if cmd.Annotations == nil {
 		cmd.Annotations = map[string]string{}
 	}
@@ -38,6 +38,8 @@ func MCP(cmd *cobra.Command, access mcp.Access, opts ...MCPOption) {
 	for _, opt := range opts {
 		opt(cmd.Annotations)
 	}
+
+	return cmd
 }
 
 func MCPWhen(terms ...string) MCPOption {
@@ -46,10 +48,6 @@ func MCPWhen(terms ...string) MCPOption {
 
 func MCPFlags(names ...string) MCPOption {
 	return func(annotations map[string]string) { annotations[mcp.AnnotationFlags] = strings.Join(names, ",") }
-}
-
-func MCPDescription(text string) MCPOption {
-	return func(annotations map[string]string) { annotations[mcp.AnnotationDescription] = text }
 }
 
 func Bool(cmd *cobra.Command, name string) bool {

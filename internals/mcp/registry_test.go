@@ -194,12 +194,10 @@ func TestBuildTools(t *testing.T) {
 				c.Flags().Int("n", 0, "")
 				return c
 			}()), "names flag [n] twice"},
-			"BadAccess":        {group("ws-cli", leaf("x", map[string]string{AnnotationAccess: "admin"})), `must be "read" or "write"`},
-			"MalformedTerm":    {group("ws-cli", leaf("x", read(AnnotationWhen, "features"))), `malformed term "features"`},
-			"EmptyTerm":        {group("ws-cli", leaf("x", read(AnnotationWhen, "features.store_url,"))), `malformed term ""`},
-			"StrayOption":      {group("ws-cli", leaf("x", map[string]string{AnnotationFlags: "tail"})), "needs [mcp]"},
-			"StrayDescription": {group("ws-cli", leaf("x", map[string]string{AnnotationDescription: "Does x."})), "needs [mcp]"},
-			"EmptyDescription": {group("ws-cli", leaf("x", read(AnnotationDescription, "  "))), "[mcp.description] is empty"},
+			"BadAccess":     {group("ws-cli", leaf("x", map[string]string{AnnotationAccess: "admin"})), `must be "read" or "write"`},
+			"MalformedTerm": {group("ws-cli", leaf("x", read(AnnotationWhen, "features"))), `malformed term "features"`},
+			"EmptyTerm":     {group("ws-cli", leaf("x", read(AnnotationWhen, "features.store_url,"))), `malformed term ""`},
+			"StrayOption":   {group("ws-cli", leaf("x", map[string]string{AnnotationFlags: "tail"})), "needs [mcp]"},
 			"MalformedOnAFilteredTool": {group("ws-cli", func() *cobra.Command {
 				c := leaf("x", read(AnnotationWhen, "!!a.b"))
 				c.Annotations[AnnotationAccess] = "write"
@@ -213,17 +211,6 @@ func TestBuildTools(t *testing.T) {
 				assert.ErrorContains(t, err, tc.want)
 			})
 		}
-	})
-
-	t.Run("DescriptionReplacesLong", func(t *testing.T) {
-		useReference(t, referenceFixture)
-
-		described := leaf("logs", read(AnnotationDescription, " Read the log. "))
-		described.Long = "Read the log, or stream it with --follow."
-
-		tools, _, err := BuildTools(group("ws-cli", described), Settings{})
-		assert.NilError(t, err)
-		assert.Equal(t, tools[0].Description, "Read the log.")
 	})
 
 	t.Run("UnmatchedEntries", func(t *testing.T) {
@@ -328,63 +315,6 @@ func TestResolveSettings(t *testing.T) {
 }
 
 func TestWhen(t *testing.T) {
-	parse := func(t *testing.T, when string) []Term {
-		t.Helper()
-
-		spec, _, err := ParseSpec(read(AnnotationWhen, when))
-		assert.NilError(t, err)
-
-		return spec.When
-	}
-
-	cases := map[string]struct {
-		env  map[string]string
-		when string
-		want bool
-	}{
-		"StringUnset":             {nil, "features.store_url", false},
-		"StringUnsetNegated":      {nil, "!features.store_url", true},
-		"StringSet":               {map[string]string{"WS_FEATURES_STORE_URL": "https://store"}, "features.store_url", true},
-		"StringSetNegated":        {map[string]string{"WS_FEATURES_STORE_URL": "https://store"}, "!features.store_url", false},
-		"BooleanDefaultFalse":     {nil, "features.offline", false},
-		"BooleanDefaultNegated":   {nil, "!features.offline", true},
-		"BooleanTrue":             {map[string]string{"WS_FEATURES_OFFLINE": "yes"}, "features.offline", true},
-		"BooleanFalseIsNotEmpty":  {map[string]string{"WS_FEATURES_OFFLINE": "false"}, "features.offline", false},
-		"BooleanUnparsable":       {map[string]string{"WS_FEATURES_OFFLINE": "maybe"}, "features.offline", false},
-		"BooleanUnparsableNegate": {map[string]string{"WS_FEATURES_OFFLINE": "maybe"}, "!features.offline", false},
-		"Undeclared":              {map[string]string{"WS_FEATURES_GHOST": "1"}, "features.ghost", false},
-		"UndeclaredNegated":       {nil, "!features.ghost", false},
-		"SecretSet":               {map[string]string{"WS_FEATURES_TOKEN": "hunter2"}, "features.token", true},
-		"AllTermsMustHold":        {map[string]string{"WS_FEATURES_STORE_URL": "https://store"}, "features.store_url, features.offline", false},
-		"AllTermsHold":            {map[string]string{"WS_FEATURES_STORE_URL": "https://store"}, "features.store_url,!features.offline", true},
-		"NoTerms":                 {nil, "", true},
-	}
-
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			useReference(t, referenceFixture)
-			for key, value := range tc.env {
-				t.Setenv(key, value)
-			}
-
-			var terms []Term
-			if tc.when != "" {
-				terms = parse(t, tc.when)
-			}
-
-			visible, err := When(terms)
-			assert.NilError(t, err)
-			assert.Equal(t, visible, tc.want)
-		})
-	}
-
-	t.Run("Malformed", func(t *testing.T) {
-		for _, when := range []string{"", "features", "features.", ".store_url", "Features.store_url", "features.store_url.x", "!", "features store_url"} {
-			_, _, err := ParseSpec(read(AnnotationWhen, when))
-			assert.ErrorContains(t, err, "malformed term", "%q", when)
-		}
-	})
-
 	t.Run("HidesAndShowsTheTool", func(t *testing.T) {
 		useReference(t, referenceFixture)
 
@@ -398,11 +328,11 @@ func TestWhen(t *testing.T) {
 		assert.Equal(t, names(tools), "feature_store")
 	})
 
-	t.Run("UnreadableReference", func(t *testing.T) {
+	t.Run("UnreadableReferenceIsAnError", func(t *testing.T) {
 		t.Setenv("WS__INTERNAL_ENV_REFERENCE", filepath.Join(t.TempDir(), "missing.yaml"))
 
-		_, err := When([]Term{{Group: "features", Prop: "store_url"}})
-		assert.ErrorContains(t, err, "cannot read")
+		_, _, err := BuildTools(syntheticTree(), Settings{Tools: []string{"feature"}})
+		assert.ErrorContains(t, err, "ws-cli feature store: cannot read")
 	})
 }
 

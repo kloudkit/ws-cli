@@ -56,7 +56,7 @@ func TestSerializeSortsChildrenAndOmitsHidden(t *testing.T) {
 }
 
 func TestSerializeMcp(t *testing.T) {
-	logs := leaf("logs", map[string]string{"mcp": "read", "mcp.flags": "tail,level", "mcp.when": "features.store_url, !ai.mcp_allow_write", "mcp.description": "Read the log."})
+	logs := leaf("logs", map[string]string{"mcp": "read", "mcp.flags": "tail,level", "mcp.when": "features.store_url, !ai.mcp_allow_write"})
 	logs.Flags().Int("tail", 0, "Lines")
 	logs.Flags().String("level", "", "Level")
 
@@ -74,21 +74,17 @@ func TestSerializeMcp(t *testing.T) {
         flags:
             - tail
             - level
-        description: Read the log.
 `), rendered)
 	assert.Assert(t, strings.Contains(rendered, `          mcp:
             name: path_vscode_settings
             access: write
 `), rendered)
 	assert.Equal(t, strings.Count(rendered, "mcp:"), 2, rendered)
-	assert.Equal(t, strings.Count(rendered, "description: Read the log."), 1, rendered)
-	assert.Assert(t, !strings.Contains(rendered, "access: write\n            description"), rendered)
 
 	for _, annotations := range []map[string]string{
 		{"mcp": "admin"},
 		{"mcp": "read", "mcp.when": "features"},
 		{"mcp.flags": "tail"},
-		{"mcp": "read", "mcp.description": " "},
 	} {
 		root := &cobra.Command{Use: "demo"}
 		root.AddCommand(leaf("broken", annotations))
