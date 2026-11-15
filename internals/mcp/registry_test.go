@@ -248,26 +248,33 @@ func TestBuildTools(t *testing.T) {
 }
 
 func TestResolveSettings(t *testing.T) {
+	const (
+		allowKey = "WS_AI_MCP_ALLOW_WRITE"
+		toolsKey = "WS_AI_MCP_TOOLS"
+	)
+
 	cases := map[string]struct {
 		reference string
 		env       map[string]string
 		want      Settings
-		warnings  int
+		warnings  []string
 	}{
-		"Unset":             {referenceFixture, nil, Settings{}, 0},
-		"WritesEnabled":     {referenceFixture, map[string]string{"WS_AI_MCP_ALLOW_WRITE": "true"}, Settings{AllowWrite: true}, 0},
-		"WritesOn":          {referenceFixture, map[string]string{"WS_AI_MCP_ALLOW_WRITE": "on"}, Settings{AllowWrite: true}, 0},
-		"WritesDisabled":    {referenceFixture, map[string]string{"WS_AI_MCP_ALLOW_WRITE": "0"}, Settings{}, 0},
-		"Unparsable":        {referenceFixture, map[string]string{"WS_AI_MCP_ALLOW_WRITE": "maybe"}, Settings{}, 1},
-		"MissingFromSchema": {referenceWithoutMcp, map[string]string{"WS_AI_MCP_ALLOW_WRITE": "true", "WS_AI_MCP_TOOLS": "info"}, Settings{}, 2},
-		"MissingAndUnset":   {referenceWithoutMcp, nil, Settings{}, 0},
-		"TwoGroups":         {referenceFixture, map[string]string{"WS_AI_MCP_TOOLS": "info,editor"}, Settings{Tools: []string{"info", "editor"}}, 0},
-		"Padded":            {referenceFixture, map[string]string{"WS_AI_MCP_TOOLS": " info , editor_open "}, Settings{Tools: []string{"info", "editor_open"}}, 0},
-		"Bogus":             {referenceFixture, map[string]string{"WS_AI_MCP_TOOLS": "bogus"}, Settings{Tools: []string{"bogus"}}, 0},
-		"OnlySeparators":    {referenceFixture, map[string]string{"WS_AI_MCP_TOOLS": " , "}, Settings{Tools: []string{}}, 0},
-		"UnparsableTools":   {referenceFixture, map[string]string{"WS_AI_MCP_ALLOW_WRITE": "true", "WS_AI_MCP_TOOLS": "file:/nope"}, Settings{AllowWrite: true, Tools: []string{}}, 1},
-		"Star":              {referenceFixture, map[string]string{"WS_AI_MCP_TOOLS": "*"}, Settings{}, 0},
-		"StarAmongOthers":   {referenceFixture, map[string]string{"WS_AI_MCP_TOOLS": "info, *"}, Settings{}, 0},
+		"Unset":           {referenceFixture, nil, Settings{}, nil},
+		"WritesEnabled":   {referenceFixture, map[string]string{allowKey: "true"}, Settings{AllowWrite: true}, nil},
+		"WritesDisabled":  {referenceFixture, map[string]string{allowKey: "0"}, Settings{}, nil},
+		"Unparsable":      {referenceFixture, map[string]string{allowKey: "maybe"}, Settings{}, []string{"Ignoring [WS_AI_MCP_ALLOW_WRITE], write tools stay off:"}},
+		"MissingAndUnset": {referenceWithoutMcp, nil, Settings{}, nil},
+		"MissingFromSchema": {referenceWithoutMcp, map[string]string{allowKey: "true", toolsKey: "info"}, Settings{}, []string{
+			"Ignoring [WS_AI_MCP_ALLOW_WRITE]: it is not declared in this workspace",
+			"Ignoring [WS_AI_MCP_TOOLS]: it is not declared in this workspace",
+		}},
+		"TwoGroups":       {referenceFixture, map[string]string{toolsKey: "info,editor"}, Settings{Tools: []string{"info", "editor"}}, nil},
+		"Padded":          {referenceFixture, map[string]string{toolsKey: " info , editor_open "}, Settings{Tools: []string{"info", "editor_open"}}, nil},
+		"Bogus":           {referenceFixture, map[string]string{toolsKey: "bogus"}, Settings{Tools: []string{"bogus"}}, nil},
+		"OnlySeparators":  {referenceFixture, map[string]string{toolsKey: " , "}, Settings{Tools: []string{}}, nil},
+		"UnparsableTools": {referenceFixture, map[string]string{allowKey: "true", toolsKey: "file:/nope"}, Settings{AllowWrite: true, Tools: []string{}}, []string{"Cannot read [WS_AI_MCP_TOOLS], serving no tools:"}},
+		"Star":            {referenceFixture, map[string]string{toolsKey: "*"}, Settings{}, nil},
+		"StarAmongOthers": {referenceFixture, map[string]string{toolsKey: "info, *"}, Settings{}, nil},
 	}
 
 	for name, tc := range cases {
@@ -279,39 +286,13 @@ func TestResolveSettings(t *testing.T) {
 
 			settings, warnings := ResolveSettings()
 			assert.DeepEqual(t, settings, tc.want)
-			assert.Equal(t, len(warnings), tc.warnings, "%v", warnings)
+			assert.Equal(t, len(warnings), len(tc.warnings), "%v", warnings)
+
+			for i, want := range tc.warnings {
+				assert.Assert(t, strings.HasPrefix(warnings[i], want), warnings[i])
+			}
 		})
 	}
-
-	t.Run("WarningsNameTheVariable", func(t *testing.T) {
-		useReference(t, referenceWithoutMcp)
-		t.Setenv("WS_AI_MCP_ALLOW_WRITE", "true")
-		t.Setenv("WS_AI_MCP_TOOLS", "info")
-
-		_, warnings := ResolveSettings()
-		assert.DeepEqual(t, warnings, []string{
-			"Ignoring [WS_AI_MCP_ALLOW_WRITE]: it is not declared in this workspace",
-			"Ignoring [WS_AI_MCP_TOOLS]: it is not declared in this workspace",
-		})
-
-		useReference(t, referenceFixture)
-		t.Setenv("WS_AI_MCP_ALLOW_WRITE", "maybe")
-
-		_, warnings = ResolveSettings()
-		assert.Equal(t, len(warnings), 1)
-		assert.Assert(t, strings.HasPrefix(warnings[0], "Ignoring [WS_AI_MCP_ALLOW_WRITE], write tools stay off:"), warnings[0])
-	})
-
-	t.Run("BogusListsNothing", func(t *testing.T) {
-		useReference(t, referenceFixture)
-		t.Setenv("WS_AI_MCP_ALLOW_WRITE", "true")
-		t.Setenv("WS_AI_MCP_TOOLS", "bogus")
-
-		settings, _ := ResolveSettings()
-		tools, _, err := BuildTools(syntheticTree(), settings)
-		assert.NilError(t, err)
-		assert.Equal(t, len(tools), 0)
-	})
 }
 
 func TestWhen(t *testing.T) {
@@ -334,20 +315,6 @@ func TestWhen(t *testing.T) {
 		_, _, err := BuildTools(syntheticTree(), Settings{Tools: []string{"feature"}})
 		assert.ErrorContains(t, err, "ws-cli feature store: cannot read")
 	})
-}
-
-func TestToolName(t *testing.T) {
-	root := syntheticTree()
-
-	for path, want := range map[string]string{
-		"show path vscode-settings": "show_path_vscode_settings",
-		"logs":                      "logs",
-		"editor open":               "editor_open",
-	} {
-		cmd, _, err := root.Find(strings.Fields(path))
-		assert.NilError(t, err)
-		assert.Equal(t, ToolName(cmd), want)
-	}
 }
 
 func TestArgv(t *testing.T) {

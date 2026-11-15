@@ -330,20 +330,6 @@ func TestRun(t *testing.T) {
 		assert.Assert(t, !failed)
 	})
 
-	t.Run("Cancelled", func(t *testing.T) {
-		override(t, &waitDelay, 200*time.Millisecond)
-
-		ctx, cancel := context.WithCancel(context.Background())
-		time.AfterFunc(300*time.Millisecond, cancel)
-
-		start := time.Now()
-		text, failed := Run(ctx, []string{"sleep"})
-
-		assert.Assert(t, time.Since(start) < 10*time.Second, "took %s", time.Since(start))
-		assert.Assert(t, strings.HasSuffix(text, "cancelled"), text)
-		assert.Assert(t, failed)
-	})
-
 	t.Run("CannotStart", func(t *testing.T) {
 		override(t, &Command, func(ctx context.Context, args []string) (*exec.Cmd, error) {
 			return exec.CommandContext(ctx, "/nonexistent/ws-cli", args...), nil

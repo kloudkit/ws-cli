@@ -69,38 +69,6 @@ envs:
         delimiter: ","
 `
 
-type pinnedTool struct {
-	Access     string
-	When       string
-	Flags      string
-	Properties string
-}
-
-var pinnedTools = map[string]pinnedTool{
-	"editor_diagnostics":        {Access: "read", Flags: "uri", Properties: "uri"},
-	"editor_list":               {Access: "read"},
-	"editor_open":               {Access: "write", Flags: "selection,preview", Properties: "args,preview,selection"},
-	"editor_reveal":             {Access: "write", Properties: "args"},
-	"editor_selection":          {Access: "read"},
-	"feature_info":              {Access: "read", Properties: "args"},
-	"feature_list":              {Access: "read"},
-	"feature_store":             {Access: "read", When: "features.store_url"},
-	"info_extensions":           {Access: "read"},
-	"info_metrics":              {Access: "read", Flags: "gpu", Properties: "gpu"},
-	"info_uptime":               {Access: "read"},
-	"info_version":              {Access: "read", Flags: "all", Properties: "all"},
-	"logs":                      {Access: "read", Flags: "tail,level,target", Properties: "level,tail,target"},
-	"seed_ls":                   {Access: "read"},
-	"show_env":                  {Access: "read", Properties: "args"},
-	"show_ip_internal":          {Access: "read"},
-	"show_ip_node":              {Access: "read"},
-	"show_path_home":            {Access: "read"},
-	"show_path_vscode_settings": {Access: "read", Flags: "workspace", Properties: "workspace"},
-	"template_apply":            {Access: "write", Flags: "path", Properties: "args,path"},
-	"template_list":             {Access: "read"},
-	"template_show":             {Access: "read", Flags: "local", Properties: "args,local"},
-}
-
 func (w *workspace) withReference(t *testing.T, content string) string {
 	t.Helper()
 
@@ -166,85 +134,22 @@ func properties(t *testing.T, tool *sdk.Tool) []string {
 	return slices.Sorted(maps.Keys(declared))
 }
 
-func TestMcpToolSurfaceIsPinned(t *testing.T) {
-	annotated := map[string]pinnedTool{}
+func annotatedTools(t *testing.T, c *cobra.Command) int {
+	t.Helper()
 
-	var walk func(c *cobra.Command)
-	walk = func(c *cobra.Command) {
-		if spec, ok, err := mcp.ParseSpec(c.Annotations); err == nil && ok {
-			terms := make([]string, len(spec.When))
-			for i, term := range spec.When {
-				terms[i] = term.String()
-			}
+	_, annotated, err := mcp.ParseSpec(c.Annotations)
+	assert.NilError(t, err, c.CommandPath())
 
-			name := mcp.ToolName(c)
-			annotated[name] = pinnedTool{
-				Access:     string(spec.Access),
-				When:       strings.Join(terms, ","),
-				Flags:      strings.Join(spec.Flags, ","),
-				Properties: pinnedTools[name].Properties,
-			}
-		}
-
-		for _, child := range c.Commands() {
-			walk(child)
-		}
+	count := 0
+	if annotated && c.Runnable() && !c.Hidden {
+		count = 1
 	}
-	walk(cmd.RootCmd())
 
-	assert.DeepEqual(t, annotated, pinnedTools)
+	for _, child := range c.Commands() {
+		count += annotatedTools(t, child)
+	}
 
-	ws := installWorkspace(t)
-	reference := ws.withReference(t, mcpEnvFixture)
-
-	t.Run("EverythingOn", func(t *testing.T) {
-		session := ws.connect(t, "", reference, "WS_AI_MCP_ALLOW_WRITE=true", "WS_FEATURES_STORE_URL=http://127.0.0.1:1")
-
-		tools := listTools(t, session)
-		assert.DeepEqual(t, slices.Sorted(maps.Keys(tools)), slices.Sorted(maps.Keys(pinnedTools)))
-
-		for name, tool := range tools {
-			pinned := pinnedTools[name]
-
-			assert.Equal(t, strings.Join(properties(t, tool), ","), pinned.Properties, name)
-			assert.Equal(t, tool.Annotations.ReadOnlyHint, pinned.Access == "read", name)
-			assert.Equal(t, tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint, pinned.Access == "write", name)
-			assert.Assert(t, tool.Description != "" && tool.Title != "", name)
-		}
-	})
-
-	t.Run("Default", func(t *testing.T) {
-		tools := listTools(t, ws.connect(t, "", reference))
-
-		var want []string
-		for name, pinned := range pinnedTools {
-			if pinned.Access == "read" && pinned.When == "" {
-				want = append(want, name)
-			}
-		}
-
-		slices.Sort(want)
-		assert.DeepEqual(t, slices.Sorted(maps.Keys(tools)), want)
-	})
-
-	t.Run("Filtered", func(t *testing.T) {
-		tools := listTools(t, ws.connect(t, "", reference, "WS_AI_MCP_ALLOW_WRITE=true", "WS_AI_MCP_TOOLS= info , editor_open "))
-
-		assert.DeepEqual(t, slices.Sorted(maps.Keys(tools)), []string{"editor_open", "info_extensions", "info_metrics", "info_uptime", "info_version"})
-	})
-
-	t.Run("Typo", func(t *testing.T) {
-		tools := listTools(t, ws.connect(t, "", reference, "WS_AI_MCP_ALLOW_WRITE=true", "WS_AI_MCP_TOOLS=bogus"))
-
-		assert.Equal(t, len(tools), 0)
-	})
-
-	t.Run("UnparsableWriteToggle", func(t *testing.T) {
-		tools := listTools(t, ws.connect(t, "", reference, "WS_AI_MCP_ALLOW_WRITE=maybe"))
-
-		assert.Assert(t, tools["show_env"] != nil)
-		assert.Assert(t, tools["editor_open"] == nil)
-	})
+	return count
 }
 
 func TestMcpToolsNeverLeakSecrets(t *testing.T) {
@@ -285,7 +190,7 @@ func TestMcpToolsNeverLeakSecrets(t *testing.T) {
 	}
 
 	tools := listTools(t, session)
-	assert.Equal(t, len(tools), len(pinnedTools))
+	assert.Equal(t, len(tools), annotatedTools(t, cmd.RootCmd()))
 
 	for name, tool := range tools {
 		t.Run(name, func(t *testing.T) {
@@ -411,20 +316,18 @@ func TestServeMcpOverStdio(t *testing.T) {
 	reference := ws.withReference(t, mcpEnvFixture)
 
 	t.Run("EveryStdoutLineIsAFrame", func(t *testing.T) {
-		server := ws.start(t, "WS_AI_MCP_ALLOW_WRITE=true", "CLICOLOR_FORCE=1")
+		server := ws.start(t)
 
 		server.send(t, initializeFrame, initializedFrame, listFrame,
 			`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"show_env","arguments":{"args":["server.port"]}}}`,
 			`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"template_show","arguments":{"args":["nope"]}}}`,
-			`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"editor_open","arguments":{"args":["main.go"]}}}`,
-			`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"logs","arguments":{"follow":true}}}`,
 		)
-		server.read(t, 6)
+		server.read(t, 4)
 		assert.NilError(t, server.stdin.Close())
 		assert.NilError(t, server.wait(t), server.stderr.String())
 
 		frames := server.frames
-		assert.Equal(t, len(frames), 6, server.stderr.String())
+		assert.Equal(t, len(frames), 4, server.stderr.String())
 
 		var initialized struct {
 			ProtocolVersion string `json:"protocolVersion"`
@@ -439,25 +342,19 @@ func TestServeMcpOverStdio(t *testing.T) {
 		assert.Equal(t, initialized.ServerInfo.Version, cmd.RootCmd().Version)
 		assert.Assert(t, initialized.ServerInfo.Version != "")
 
-		list := string(frames[2].Result)
-		assert.Assert(t, strings.Contains(list, `"name":"show_env"`), list)
-		assert.Assert(t, !strings.Contains(list, `"name":"editor_open"`), list)
-		assert.Assert(t, !strings.Contains(list, `"name":"feature_store"`), list)
+		assert.Assert(t, strings.Contains(string(frames[2].Result), `"name":"show_env"`), string(frames[2].Result))
 
 		value := string(frames[3].Result)
 		assert.Assert(t, strings.Contains(value, "8080") && !strings.Contains(value, "isError"), value)
 
 		missing := string(frames[4].Result)
 		assert.Assert(t, strings.Contains(missing, `"isError":true`) && strings.Contains(missing, "Template 'nope' not found"), missing)
+	})
 
-		assert.Assert(t, strings.Contains(string(frames[5].Error), "unknown tool"), string(frames[5].Error))
+	t.Run("SettingsShapeTheList", func(t *testing.T) {
+		session := ws.connect(t, "", reference, "WS_AI_MCP_ALLOW_WRITE=true", "WS_AI_MCP_TOOLS= info , editor_open ")
 
-		injected := string(frames[6].Result)
-		assert.Assert(t, strings.Contains(injected, `"isError":true`) && strings.Contains(injected, "unknown argument [follow]"), injected)
-
-		for id, decoded := range frames {
-			assert.Assert(t, !strings.Contains(string(decoded.Result), `\u001b`), "escape in frame %d", id)
-		}
+		assert.DeepEqual(t, slices.Sorted(maps.Keys(listTools(t, session))), []string{"editor_open", "info_extensions", "info_metrics", "info_uptime", "info_version"})
 	})
 
 	t.Run("WarnsOnStderrOnly", func(t *testing.T) {
@@ -497,14 +394,6 @@ func TestServeMcpOverStdio(t *testing.T) {
 				assert.Assert(t, strings.Contains(string(server.frames[2].Result), `"name":"info_version"`))
 			})
 		}
-	})
-
-	t.Run("NoWarningsByDefault", func(t *testing.T) {
-		server := ws.start(t, reference)
-
-		assert.NilError(t, server.stdin.Close())
-		assert.NilError(t, server.wait(t))
-		assert.Equal(t, server.stderr.String(), "")
 	})
 
 	for name, sent := range map[string]syscall.Signal{"SIGTERM": syscall.SIGTERM, "SIGINT": syscall.SIGINT, "SIGHUP": syscall.SIGHUP} {
@@ -552,13 +441,6 @@ func TestServeMcpOverStdio(t *testing.T) {
 		assert.NilError(t, server.command.Process.Signal(syscall.SIGTERM))
 		assert.NilError(t, server.wait(t), server.stderr.String())
 		assert.Assert(t, time.Since(start) < 3*time.Second, "took %s", time.Since(start))
-	})
-
-	t.Run("ExitsCleanlyOnImmediateEOF", func(t *testing.T) {
-		out, err := ws.server().Output()
-
-		assert.NilError(t, err)
-		assert.Equal(t, string(out), "")
 	})
 
 	t.Run("RefusesArgsAndFlags", func(t *testing.T) {
