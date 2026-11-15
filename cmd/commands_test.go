@@ -1,14 +1,19 @@
 package cmd_test
 
 import (
+	"cmp"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/kloudkit/ws-cli/cmd"
 	"github.com/kloudkit/ws-cli/cmd/editor"
 	"github.com/kloudkit/ws-cli/internals/docs"
+	"github.com/kloudkit/ws-cli/internals/mcp"
+	"github.com/kloudkit/ws-cli/internals/testutil"
 	"github.com/spf13/cobra"
 	"go.yaml.in/yaml/v3"
 	"gotest.tools/v3/assert"
@@ -104,4 +109,45 @@ func TestReapArgsNameTheHiddenReapCommand(t *testing.T) {
 	assert.Equal(t, len(rest), 0)
 	assert.Equal(t, found.CommandPath(), "ws-cli editor reap-download")
 	assert.Assert(t, found.Hidden)
+}
+
+var flagMention = regexp.MustCompile(`--[a-z][a-z0-9-]*`)
+
+func TestMcpAnnotationsAreWellFormed(t *testing.T) {
+	testutil.FakeWorkspace(t)
+
+	tools := 0
+
+	var check func(c *cobra.Command)
+	check = func(c *cobra.Command) {
+		spec, annotated, err := mcp.ParseSpec(c.Annotations)
+		assert.NilError(t, err, c.CommandPath())
+
+		if annotated {
+			tools++
+
+			assert.Assert(t, c.Runnable(), "%q is a tool but cannot run", c.CommandPath())
+			assert.Assert(t, !c.Hidden, "%q is a tool but hidden", c.CommandPath())
+
+			for _, name := range spec.Flags {
+				assert.Assert(t, c.Flag(name) != nil, "%q exposes the unknown flag %q", c.CommandPath(), name)
+			}
+
+			for _, flag := range flagMention.FindAllString(cmp.Or(c.Long, c.Short), -1) {
+				assert.Assert(t, slices.Contains(spec.Flags, strings.TrimPrefix(flag, "--")),
+					"%q describes %s, which its tool does not expose: expose it or reword the help", c.CommandPath(), flag)
+			}
+		}
+
+		for _, child := range c.Commands() {
+			check(child)
+		}
+	}
+
+	check(cmd.RootCmd())
+	assert.Assert(t, tools > 0)
+
+	built, _, err := mcp.BuildTools(cmd.RootCmd(), mcp.Settings{AllowWrite: true})
+	assert.NilError(t, err)
+	assert.Assert(t, len(built) > 0 && len(built) <= tools)
 }

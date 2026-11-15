@@ -42,6 +42,16 @@ func TestHelperProcess(t *testing.T) {
 	os.Exit(0)
 }
 
+func TestMain(m *testing.M) {
+	if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-test.") {
+		config.DefaultManifestPath = os.Getenv("CLI_TEST_HELPER_MANIFEST")
+		cmd.Execute()
+		os.Exit(0)
+	}
+
+	os.Exit(m.Run())
+}
+
 type workspace struct {
 	dir  string
 	seed string

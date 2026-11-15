@@ -31,7 +31,7 @@ var applyCmd = command("apply [dest...]", "Project seed content onto the filesys
 		return seed.Apply(seed.Options{Source: source, Force: cli.Bool(cmd, "force"), Dests: args, MasterKey: cli.String(cmd, "master"), Out: cmd.OutOrStdout()})
 	})
 
-var lsCmd = command("ls", "List seed destinations and their behaviors",
+var lsCmd = cli.MCP(command("ls", "List seed destinations and their behaviors",
 	"List what apply would write, without touching the filesystem: each destination with its operation and whether it carries a secret or a template.",
 	func(cmd *cobra.Command, source string, args []string) error {
 		out := cmd.OutOrStdout()
@@ -55,7 +55,7 @@ var lsCmd = command("ls", "List seed destinations and their behaviors",
 		styles.PrintList(out, items)
 
 		return nil
-	})
+	}), cli.MCPRead)
 
 var rotateCmd = command("rotate", "Re-encrypt managed secrets under a new master key",
 	"Re-encrypt every managed secret from the old master key (--master) to a new one (--new-master), in place. All-or-nothing: it verifies every secret decrypts before writing anything.",

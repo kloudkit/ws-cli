@@ -1,12 +1,17 @@
 package serve
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
+	"strings"
+	"syscall"
 
 	"github.com/kloudkit/ws-cli/cmd/cli"
+	"github.com/kloudkit/ws-cli/internals/mcp"
 	"github.com/kloudkit/ws-cli/internals/metrics"
 	"github.com/kloudkit/ws-cli/internals/server"
 	"github.com/kloudkit/ws-cli/internals/styles"
@@ -54,14 +59,52 @@ var metricsCmd = cli.New("metrics", "0.2.0", "Start the Prometheus metrics serve
 		})
 	})
 
+var mcpCmd = cli.New("mcp", "next", "Serve the workspace tools to AI agents over MCP",
+	"Run a Model Context Protocol server on stdin and stdout, for an AI agent in the workspace to start. Its tools are the ws-cli commands that opt in: read-only ones by default, the ones that act on the workspace too with WS_AI_MCP_ALLOW_WRITE, narrowed to the groups or tools named in WS_AI_MCP_TOOLS.",
+	func(cmd *cobra.Command, args []string) error {
+		settings, warnings := mcp.ResolveSettings()
+
+		tools, unmatched, err := mcp.BuildTools(cmd.Root(), settings)
+		if err != nil {
+			return err
+		}
+
+		out, access := cmd.ErrOrStderr(), "read-only"
+		if settings.AllowWrite {
+			access = "read and write"
+		}
+
+		for _, warning := range append(warnings, unmatched...) {
+			styles.PrintWarning(out, warning)
+		}
+
+		pairs := []styles.Pair{{Key: "Transport", Value: "stdio"}, {Key: "Tools", Value: fmt.Sprintf("%d %s", len(tools), styles.Aside(access))}}
+		if settings.Tools != nil {
+			pairs = append(pairs, styles.Pair{Key: "Filter", Value: strings.Join(settings.Tools, ", ")})
+		}
+
+		styles.PrintTitle(out, "MCP Server")
+		styles.PrintKeyValues(out, pairs...)
+		server.PrintStop(out)
+
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+		defer stop()
+		context.AfterFunc(ctx, stop)
+
+		return mcp.Serve(ctx, cmd.Root().Version, tools, out)
+	})
+
 var ServeCmd = cli.Group("serve", "0.2.0", "Serve internal assets",
-	"Run a small HTTP server for the current directory on --port (default 38080).",
+	"Run a small local server: the current directory as a static site, the Prometheus metrics, or the workspace tools for AI agents over MCP.",
 	`# Serve the current directory
 ws-cli serve current
 
 # Serve on a custom port
-ws-cli serve current --port 38081`,
-	currentCmd, metricsCmd)
+ws-cli serve current --port 38081
+
+# Serve the workspace tools to an AI agent over stdio
+ws-cli serve mcp`,
+	currentCmd, mcpCmd, metricsCmd)
 
 func serve(cmd *cobra.Command, handler http.Handler, announce func(io.Writer, string)) error {
 	config := server.Config{Port: cli.Int(cmd, "port"), Bind: cli.String(cmd, "bind")}
@@ -70,8 +113,10 @@ func serve(cmd *cobra.Command, handler http.Handler, announce func(io.Writer, st
 }
 
 func init() {
-	ServeCmd.PersistentFlags().IntP("port", "p", 38080, "Port to serve assets on")
-	ServeCmd.PersistentFlags().String("bind", "0.0.0.0", "Bind address")
+	currentCmd.Flags().IntP("port", "p", 38080, "Port to serve assets on")
+	currentCmd.Flags().String("bind", "0.0.0.0", "Bind address")
+	mcpCmd.Args = cobra.NoArgs
+	metricsCmd.Flags().String("bind", "0.0.0.0", "Bind address")
 	metricsCmd.Flags().IntP("port", "p", metrics.DefaultPort(), "Port to serve metrics on")
 	metricsCmd.Flags().StringSlice("collectors", metrics.DefaultCollectors(), "Comma-separated list of collectors to enable (e.g., workspace,container.cpu,gpu)")
 }

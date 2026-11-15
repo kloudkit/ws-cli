@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kloudkit/ws-cli/internals/logger"
@@ -45,11 +46,18 @@ func Serve(config Config, handler http.Handler, w io.Writer, announce func(url s
 
 func serve(listener net.Listener, handler http.Handler, w io.Writer, announce func(url string)) error {
 	announce(displayURL(listener.Addr()))
-
-	fmt.Fprintln(w)
-	styles.PrintMuted(w, "Press Ctrl+C to stop")
+	PrintStop(w)
 
 	return http.Serve(listener, accessLog(handler, w))
+}
+
+func PrintStop(w io.Writer) {
+	fmt.Fprintln(w)
+	styles.PrintMuted(w, "Press Ctrl+C to stop")
+}
+
+func LogRequest(w io.Writer, fields ...any) {
+	logger.Log(w, "info", strings.TrimSuffix(fmt.Sprintln(fields...), "\n"), 0, true)
 }
 
 func accessLog(next http.Handler, w io.Writer) http.Handler {
@@ -59,8 +67,7 @@ func accessLog(next http.Handler, w io.Writer) http.Handler {
 
 		next.ServeHTTP(rec, req)
 
-		message := fmt.Sprintf("%s %s %d %s %s %d", req.Method, req.URL.Path, rec.status, time.Since(start), req.RemoteAddr, rec.size)
-		logger.Log(w, "info", message, 0, true)
+		LogRequest(w, req.Method, req.URL.Path, rec.status, time.Since(start), req.RemoteAddr, rec.size)
 	})
 }
 

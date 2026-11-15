@@ -24,7 +24,7 @@ func Version() string {
 	return "(devel)"
 }
 
-var versionCmd = cli.New("version", "0.2.0", "Display installed workspace version",
+var versionCmd = cli.MCP(cli.New("version", "0.2.0", "Display installed workspace version",
 	"Print the workspace version. --all expands to the full table: workspace, ws-cli, and VS Code.",
 	func(cmd *cobra.Command, args []string) error {
 		out := cmd.OutOrStdout()
@@ -53,7 +53,7 @@ var versionCmd = cli.New("version", "0.2.0", "Display installed workspace versio
 		styles.NewTable().Title("Versions").Rows(rows...).Print(out)
 
 		return nil
-	})
+	}), cli.MCPRead, cli.MCPFlags("all"))
 
 var envCmd = cli.New("env", "0.2.0", "Display effective workspace environment variables",
 	"Print every WS_* variable in effect, sorted: the resolved environment the workspace booted with.",
@@ -78,7 +78,7 @@ var envCmd = cli.New("env", "0.2.0", "Display effective workspace environment va
 		return nil
 	})
 
-var extensionsCmd = cli.New("extensions", "0.2.0", "Display installed extensions",
+var extensionsCmd = cli.MCP(cli.New("extensions", "0.2.0", "Display installed extensions",
 	"List the installed VS Code extensions with their versions.",
 	func(cmd *cobra.Command, args []string) error {
 		out := cmd.OutOrStdout()
@@ -101,9 +101,9 @@ var extensionsCmd = cli.New("extensions", "0.2.0", "Display installed extensions
 		styles.NewTable("Name", "Version").Title("Extensions", len(rows)).Rows(rows...).Print(out)
 
 		return nil
-	})
+	}), cli.MCPRead)
 
-var metricsCmd = cli.New("metrics", "0.2.0", "Display workspace metrics",
+var metricsCmd = cli.MCP(cli.New("metrics", "0.2.0", "Display workspace metrics",
 	"Show live resource usage: CPU, memory, disk, and file descriptors, plus GPU with --gpu.",
 	func(cmd *cobra.Command, args []string) error {
 		out := cmd.OutOrStdout()
@@ -144,9 +144,9 @@ var metricsCmd = cli.New("metrics", "0.2.0", "Display workspace metrics",
 		styles.NewTable().Title("Metrics").Rows(rows...).Print(out)
 
 		return nil
-	})
+	}), cli.MCPRead, cli.MCPFlags("gpu"))
 
-var uptimeCmd = cli.New("uptime", "0.2.0", "Display the workspace uptime",
+var uptimeCmd = cli.MCP(cli.New("uptime", "0.2.0", "Display the workspace uptime",
 	"Show when the workspace session started and how long it has been running.",
 	func(cmd *cobra.Command, args []string) error {
 		out := cmd.OutOrStdout()
@@ -174,7 +174,7 @@ var uptimeCmd = cli.New("uptime", "0.2.0", "Display the workspace uptime",
 		).Print(out)
 
 		return nil
-	})
+	}), cli.MCPRead)
 
 var InfoCmd = cli.Group("info", "0.2.0", "Display workspace information",
 	"Report facts about the running workspace: version, effective environment, installed extensions, live resource metrics, and uptime.",

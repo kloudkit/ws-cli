@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kloudkit/ws-cli/internals/proc"
 	"gotest.tools/v3/assert"
 )
 
@@ -285,7 +286,7 @@ func TestReapRefusesWhatItDoesNotOwn(t *testing.T) {
 func TestDetachStartsTheCommandInItsOwnSession(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "session")
-	stub(t, &executable, func() (string, error) { return "/bin/sh", nil })
+	stub(t, &proc.Executable, func() (string, error) { return "/bin/sh", nil })
 
 	assert.NilError(t, Detach("-c", `cut -d" " -f6 /proc/$$/stat > `+out+`.tmp && mv `+out+`.tmp `+out))
 

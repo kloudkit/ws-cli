@@ -53,7 +53,7 @@ var installCmd = cli.New("install <name>", "0.2.0", "Install additional pre-conf
 		return nil
 	})
 
-var listCmd = cli.New("list", "0.2.0", "List available features that can be installed",
+var listCmd = cli.MCP(cli.New("list", "0.2.0", "List available features that can be installed",
 	"List the features you can install, marking where each comes from: the shipped set, a workspace override, or your own ~/.ws/features.d.",
 	func(cmd *cobra.Command, args []string) error {
 		out := cmd.OutOrStdout()
@@ -88,10 +88,10 @@ var listCmd = cli.New("list", "0.2.0", "List available features that can be inst
 		)
 
 		return nil
-	})
+	}), cli.MCPRead)
 
-var infoCmd = cli.New("info <name>", "0.2.0", "Show detailed information about a feature",
-	"Show a feature's description and the variables it accepts, so you know what --opt values install will take.",
+var infoCmd = cli.MCP(cli.New("info <name>", "0.2.0", "Show detailed information about a feature",
+	"Show a feature's description and the variables it accepts when it is installed.",
 	func(cmd *cobra.Command, args []string) error {
 		out := cmd.OutOrStdout()
 
@@ -110,9 +110,9 @@ var infoCmd = cli.New("info <name>", "0.2.0", "Show detailed information about a
 		}
 
 		return nil
-	})
+	}), cli.MCPRead)
 
-var storeCmd = cli.New("store", "0.2.0", "List packages available in the feature store",
+var storeCmd = cli.MCP(cli.New("store", "0.2.0", "List packages available in the feature store",
 	"List the artifacts published to the feature store (WS_FEATURES_STORE_URL), the offline mirror that features install from when the network is locked down.",
 	func(cmd *cobra.Command, args []string) error {
 		out := cmd.OutOrStdout()
@@ -148,7 +148,7 @@ var storeCmd = cli.New("store", "0.2.0", "List packages available in the feature
 		}
 
 		return nil
-	})
+	}), cli.MCPRead, cli.MCPWhen("features.store_url"))
 
 var newCmd = cli.New("new [name]", "0.2.0", "Print boilerplate for a custom feature playbook",
 	`Print a starter feature playbook to stdout. Redirect it into ~/.ws/features.d/<name>.yaml, extend it, then install it with "ws-cli feature install <name>".`,
@@ -193,7 +193,7 @@ func buildVars(cmd *cobra.Command) map[string]any {
 }
 
 func addInstallFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringToString("opt", map[string]string{}, "Optional variables to use during installation")
+	cmd.PersistentFlags().StringToString("opt", map[string]string{}, "Optional variables to use during installation, from the ones feature info lists")
 
 	for _, section := range skippableSections {
 		cmd.Flags().Bool(section.flag, false, section.desc)

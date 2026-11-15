@@ -15,8 +15,8 @@ var (
 	validLogTargets = []string{"main", "metrics", "docker", "cloudflared"}
 )
 
-var LogsCmd = cli.New("logs", "0.2.0", "Retrieve workspace logs",
-	"Read a workspace daemon's log: the main log by default, or --target metrics|docker|cloudflared. Filter by --level, limit with --tail, or stream live with --follow.",
+var LogsCmd = cli.MCP(cli.New("logs", "0.2.0", "Retrieve workspace logs",
+	"Read a workspace daemon's log: the main log by default, or --target metrics|docker|cloudflared. Filter by --level and limit with --tail.",
 	func(cmd *cobra.Command, args []string) error {
 		level, target := cli.String(cmd, "level"), cli.String(cmd, "target")
 
@@ -34,7 +34,7 @@ var LogsCmd = cli.New("logs", "0.2.0", "Retrieve workspace logs",
 		}
 
 		return reader.ReadLogs(cmd.OutOrStdout(), cli.Bool(cmd, "follow"))
-	})
+	}), cli.MCPRead, cli.MCPFlags("tail", "level", "target"))
 
 func init() {
 	LogsCmd.Args = cobra.NoArgs

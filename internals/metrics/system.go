@@ -8,8 +8,10 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/kloudkit/ws-cli/internals/config"
+	"github.com/kloudkit/ws-cli/internals/proc"
 )
 
 type DiskStats struct {
@@ -147,9 +149,9 @@ func GetGPUStats() *GPUStats {
 		return &GPUStats{}
 	}
 
-	out, err := exec.Command("nvidia-smi",
+	out, err := proc.Output(5*time.Second, "nvidia-smi",
 		"--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
-		"--format=csv,noheader,nounits").Output()
+		"--format=csv,noheader,nounits")
 	if err != nil {
 		return &GPUStats{}
 	}

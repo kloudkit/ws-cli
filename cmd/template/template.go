@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var applyCmd = cli.New("apply <template>", "0.2.0", "Apply a configuration template to the current project",
-	"Copy a template, a shared config like ruff or markdownlint, into the project at --path (the current directory by default). --force overwrites an existing file.",
+var applyCmd = cli.MCP(cli.New("apply <template>", "0.2.0", "Apply a configuration template to the current project",
+	"Copy a template, a shared config like ruff or markdownlint, into the project at --path (the current directory by default). Fails when the file is already there.",
 	func(cmd *cobra.Command, args []string) error {
 		name, targetPath := args[0], cli.String(cmd, "path")
 
@@ -34,9 +34,9 @@ var applyCmd = cli.New("apply <template>", "0.2.0", "Apply a configuration templ
 		styles.PrintHints(out, styles.Hint{Command: "ws template show --local " + name, Description: "View applied template"})
 
 		return nil
-	})
+	}), cli.MCPWrite, cli.MCPFlags("path"))
 
-var listCmd = cli.New("list", "0.2.0", "List all available configuration templates",
+var listCmd = cli.MCP(cli.New("list", "0.2.0", "List all available configuration templates",
 	"List the templates you can apply, with their source paths and whether one is already applied here.",
 	func(cmd *cobra.Command, args []string) error {
 		names := template.GetTemplateNames()
@@ -61,9 +61,9 @@ var listCmd = cli.New("list", "0.2.0", "List all available configuration templat
 		)
 
 		return nil
-	})
+	}), cli.MCPRead)
 
-var showCmd = cli.New("show <template>", "0.2.0", "Display the contents of a configuration template",
+var showCmd = cli.MCP(cli.New("show <template>", "0.2.0", "Display the contents of a configuration template",
 	fmt.Sprintf("Display the contents of a configuration template. Available templates: %s.", strings.Join(template.GetTemplateNames(), ", ")),
 	func(cmd *cobra.Command, args []string) error {
 		local := cli.Bool(cmd, "local")
@@ -83,7 +83,7 @@ var showCmd = cli.New("show <template>", "0.2.0", "Display the contents of a con
 		styles.PrintCode(cmd.OutOrStdout(), content, config.OutputName, 1)
 
 		return nil
-	})
+	}), cli.MCPRead, cli.MCPFlags("local"))
 
 var TemplateCmd = cli.Group("template", "0.2.0", "Manage static configuration files",
 	"Copy shared configuration files (linters, formatters) from their global locations into a project, and inspect what they hold.",
