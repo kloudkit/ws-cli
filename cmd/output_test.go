@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/kloudkit/ws-cli/cmd"
 	"github.com/kloudkit/ws-cli/internals/config"
+	"github.com/kloudkit/ws-cli/internals/mcp"
 	"gotest.tools/v3/assert"
 )
 
@@ -35,11 +37,24 @@ func TestHelperProcess(t *testing.T) {
 	}
 
 	config.DefaultManifestPath = os.Getenv("CLI_TEST_HELPER_MANIFEST")
+	mcp.Command = helperCommand
 
 	os.Args = append([]string{"ws-cli"}, strings.Split(args, "\x1f")...)
 	cmd.RootCmd().SetArgs(os.Args[1:])
 	cmd.Execute()
 	os.Exit(0)
+}
+
+func helperCommand(ctx context.Context, args []string) (*exec.Cmd, error) {
+	self, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+
+	command := exec.CommandContext(ctx, self, "-test.run=^TestHelperProcess$")
+	command.Env = append(os.Environ(), helperArgsEnv+"="+strings.Join(args, "\x1f"))
+
+	return command, nil
 }
 
 type workspace struct {

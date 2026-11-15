@@ -520,4 +520,12 @@ echo '{"message": "Deploy now?", "actions": ["Yes", "No"]}' | ws-cli editor noti
 	reapCmd.Args, reapCmd.Hidden = cobra.ExactArgs(1), true
 	terminalCmd.Flags().String("cwd", ".", "Working directory for the terminal")
 	terminalCmd.Flags().String("name", "", "Terminal tab name")
+
+	cli.MCP(listCmd, cli.MCPRead)
+	cli.MCP(selectionCmd, cli.MCPRead)
+	cli.MCP(diagnosticsCmd, cli.MCPRead, cli.MCPFlags("uri"),
+		cli.MCPDescription("Pull language-server diagnostics (errors, warnings) from the editor, across the whole workspace or for a single file with uri."))
+	cli.MCP(revealCmd, cli.MCPWrite)
+	cli.MCP(openCmd, cli.MCPWrite, cli.MCPFlags("selection", "preview"),
+		cli.MCPDescription("Open a file as a tab in the running editor window: a preview tab with preview, jumping to a range with selection. Fails over SSH, where there is no browser editor to open into."))
 }

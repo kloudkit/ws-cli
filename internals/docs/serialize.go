@@ -1,8 +1,10 @@
 package docs
 
 import (
+	"fmt"
 	"path/filepath"
 
+	"github.com/kloudkit/ws-cli/internals/mcp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"go.yaml.in/yaml/v3"
@@ -15,6 +17,14 @@ type Option struct {
 	Usage     string `yaml:"usage,omitempty"`
 }
 
+type MCP struct {
+	Name        string   `yaml:"name"`
+	Access      string   `yaml:"access"`
+	When        []string `yaml:"when,omitempty"`
+	Flags       []string `yaml:"flags,omitempty"`
+	Description string   `yaml:"description,omitempty"`
+}
+
 type Command struct {
 	Name        string    `yaml:"name"`
 	Since       string    `yaml:"since,omitempty"`
@@ -24,15 +34,21 @@ type Command struct {
 	Usage       string    `yaml:"usage,omitempty"`
 	Aliases     []string  `yaml:"aliases,omitempty"`
 	Example     string    `yaml:"example,omitempty"`
+	MCP         *MCP      `yaml:"mcp,omitempty"`
 	Options     []Option  `yaml:"options,omitempty"`
 	Commands    []Command `yaml:"commands,omitempty"`
 }
 
 func Serialize(root *cobra.Command) ([]byte, error) {
-	return yaml.Marshal(walk(root))
+	command, err := walk(root)
+	if err != nil {
+		return nil, err
+	}
+
+	return yaml.Marshal(command)
 }
 
-func walk(c *cobra.Command) Command {
+func walk(c *cobra.Command) (Command, error) {
 	command := Command{
 		Name:        c.CommandPath(),
 		Since:       c.Annotations["since"],
@@ -47,8 +63,20 @@ func walk(c *cobra.Command) Command {
 		command.Since = ""
 	}
 
+	spec, annotated, err := mcp.ParseSpec(c.Annotations)
+	if err != nil {
+		return Command{}, fmt.Errorf("%s: %w", c.CommandPath(), err)
+	}
+
 	if c.Runnable() {
 		command.Usage = c.UseLine()
+	}
+
+	if annotated && c.Runnable() {
+		command.MCP = &MCP{Name: mcp.ToolName(c), Access: string(spec.Access), Flags: spec.Flags, Description: spec.Description}
+		for _, term := range spec.When {
+			command.MCP.When = append(command.MCP.When, term.String())
+		}
 	}
 
 	c.NonInheritedFlags().VisitAll(func(f *pflag.Flag) {
@@ -74,8 +102,13 @@ func walk(c *cobra.Command) Command {
 			continue
 		}
 
-		command.Commands = append(command.Commands, walk(child))
+		nested, err := walk(child)
+		if err != nil {
+			return Command{}, err
+		}
+
+		command.Commands = append(command.Commands, nested)
 	}
 
-	return command
+	return command, nil
 }

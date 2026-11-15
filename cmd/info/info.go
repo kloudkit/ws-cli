@@ -192,4 +192,9 @@ func usage(used, total uint64) string {
 func init() {
 	versionCmd.Flags().Bool("all", false, "Show all version information")
 	metricsCmd.Flags().Bool("gpu", false, "Include GPU metrics")
+
+	cli.MCP(extensionsCmd, cli.MCPRead)
+	cli.MCP(metricsCmd, cli.MCPRead, cli.MCPFlags("gpu"))
+	cli.MCP(uptimeCmd, cli.MCPRead)
+	cli.MCP(versionCmd, cli.MCPRead, cli.MCPFlags("all"))
 }

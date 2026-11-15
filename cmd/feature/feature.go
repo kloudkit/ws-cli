@@ -211,4 +211,8 @@ func init() {
 
 	newCmd.Example = `# Start a custom feature in your own features folder
 ws-cli feature new redis > ~/.ws/features.d/redis.yaml`
+
+	cli.MCP(listCmd, cli.MCPRead)
+	cli.MCP(infoCmd, cli.MCPRead, cli.MCPDescription("Show a feature's description and the variables its installation accepts."))
+	cli.MCP(storeCmd, cli.MCPRead, cli.MCPWhen("features.store_url"))
 }

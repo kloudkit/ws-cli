@@ -113,4 +113,9 @@ func init() {
 	applyCmd.Args, showCmd.Args = cobra.ExactArgs(1), cobra.ExactArgs(1)
 	applyCmd.ValidArgsFunction, showCmd.ValidArgsFunction = templateCompletion, templateCompletion
 	listCmd.Aliases = []string{"ls"}
+
+	cli.MCP(listCmd, cli.MCPRead)
+	cli.MCP(showCmd, cli.MCPRead, cli.MCPFlags("local"))
+	cli.MCP(applyCmd, cli.MCPWrite, cli.MCPFlags("path"),
+		cli.MCPDescription("Copy a template, a shared config like ruff or markdownlint, into the directory given by path (the current directory by default). An existing file is never overwritten."))
 }

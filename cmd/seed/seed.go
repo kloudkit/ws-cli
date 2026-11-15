@@ -94,4 +94,6 @@ func init() {
 	applyCmd.Flags().String("master", "", "Master key or path to key file")
 	rotateCmd.Flags().String("master", "", "Current master key or path to key file")
 	rotateCmd.Flags().String("new-master", "", "New master key or path to key file")
+
+	cli.MCP(lsCmd, cli.MCPRead)
 }
