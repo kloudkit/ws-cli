@@ -535,13 +535,16 @@ commands:
         # Serve on a custom port
         ws-cli serve current --port 38081
 
+        # Serve it and make it public on its proxy-domain host until Ctrl+C
+        ws-cli serve current --share
+
         # Serve the workspace tools to an AI agent over stdio
         ws-cli serve mcp
       commands:
         - name: ws-cli serve current
           since: 0.2.0
           synopsis: Serve current directory as a static site
-          description: Serve the current directory over HTTP as a static site, a quick way to preview built files.
+          description: Serve the current directory over HTTP as a static site, a quick way to preview built files. With --share the site is also public on its proxy-domain host until you stop it.
           usage: ws-cli serve current [flags]
           options:
             - name: bind
@@ -551,6 +554,9 @@ commands:
               shorthand: p
               default: "38080"
               usage: Port to serve assets on
+            - name: share
+              default: "false"
+              usage: Also make the site public on its proxy-domain host until you stop; dotfiles, directory listings and links leaving the folder answer 404
         - name: ws-cli serve mcp
           since: next
           synopsis: Serve the workspace tools to AI agents over MCP

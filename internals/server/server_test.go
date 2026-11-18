@@ -62,7 +62,7 @@ func TestDisplayURL(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := displayURL(&net.TCPAddr{IP: net.ParseIP(tt.ip), Port: 8080})
+		got := DisplayURL(&net.TCPAddr{IP: net.ParseIP(tt.ip), Port: 8080})
 		assert.Equal(t, got, tt.want)
 	}
 }

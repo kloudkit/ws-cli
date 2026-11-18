@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,8 +12,10 @@ import (
 	"syscall"
 
 	"github.com/kloudkit/ws-cli/cmd/cli"
+	portcmd "github.com/kloudkit/ws-cli/cmd/port"
 	"github.com/kloudkit/ws-cli/internals/mcp"
 	"github.com/kloudkit/ws-cli/internals/metrics"
+	"github.com/kloudkit/ws-cli/internals/port"
 	"github.com/kloudkit/ws-cli/internals/server"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -20,17 +23,23 @@ import (
 )
 
 var currentCmd = cli.New("current", "0.2.0", "Serve current directory as a static site",
-	"Serve the current directory over HTTP as a static site, a quick way to preview built files.",
+	"Serve the current directory over HTTP as a static site, a quick way to preview built files. With --share the site is also public on its proxy-domain host until you stop it.",
 	func(cmd *cobra.Command, args []string) error {
 		root, err := os.Getwd()
 		if err != nil {
 			return fmt.Errorf("error getting current directory: %w", err)
 		}
 
-		return serve(cmd, http.FileServer(http.Dir(root)), func(out io.Writer, url string) {
+		announce := func(out io.Writer, url string) {
 			styles.PrintTitle(out, "Static Server")
 			styles.PrintKeyValues(out, styles.Pair{Key: "URL", Value: url}, styles.Pair{Key: "Root", Value: root})
-		})
+		}
+
+		if cli.Bool(cmd, "share") {
+			return serveShared(cmd, root, announce)
+		}
+
+		return serve(cmd, http.FileServer(http.Dir(root)), announce)
 	})
 
 var metricsCmd = cli.New("metrics", "0.2.0", "Start the Prometheus metrics server",
@@ -102,6 +111,9 @@ ws-cli serve current
 # Serve on a custom port
 ws-cli serve current --port 38081
 
+# Serve it and make it public on its proxy-domain host until Ctrl+C
+ws-cli serve current --share
+
 # Serve the workspace tools to an AI agent over stdio
 ws-cli serve mcp`,
 	currentCmd, mcpCmd, metricsCmd)
@@ -112,8 +124,68 @@ func serve(cmd *cobra.Command, handler http.Handler, announce func(io.Writer, st
 	return server.Serve(config, handler, cmd.OutOrStdout(), func(url string) { announce(cmd.OutOrStdout(), url) })
 }
 
+type held struct {
+	ended *port.Ended
+	err   error
+}
+
+func serveShared(cmd *cobra.Command, root string, announce func(io.Writer, string)) error {
+	handler, err := server.Confined(root)
+	if err != nil {
+		return fmt.Errorf("error resolving %s: %w", root, err)
+	}
+
+	listener, err := server.Listen(server.Config{Port: cli.Int(cmd, "port"), Bind: cli.String(cmd, "bind")})
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+
+	ctx, stop := portcmd.SignalContext()
+	defer stop()
+
+	out := cmd.OutOrStdout()
+	number := listener.Addr().(*net.TCPAddr).Port
+	shared := make(chan struct{})
+	holding := make(chan held, 1)
+
+	go func() {
+		ended, err := port.Hold(ctx, number, func(announced port.Shared) {
+			announce(out, server.DisplayURL(listener.Addr()))
+			fmt.Fprintln(out)
+			portcmd.PrintShared(out, announced)
+			server.PrintStop(out)
+			close(shared)
+		})
+		holding <- held{ended, err}
+	}()
+
+	select {
+	case <-shared:
+	case result := <-holding:
+		return result.err
+	}
+
+	serveCtx, stopServing := context.WithCancel(ctx)
+	defer stopServing()
+
+	serving := make(chan error, 1)
+	go func() { serving <- server.Handle(serveCtx, listener, handler, out) }()
+
+	select {
+	case result := <-holding:
+		stopServing()
+		<-serving
+		portcmd.PrintEnded(out, number, result.ended)
+		return result.err
+	case err := <-serving:
+		return err
+	}
+}
+
 func init() {
 	currentCmd.Flags().IntP("port", "p", 38080, "Port to serve assets on")
+	currentCmd.Flags().Bool("share", false, "Also make the site public on its proxy-domain host until you stop; dotfiles, directory listings and links leaving the folder answer 404")
 	currentCmd.Flags().String("bind", "0.0.0.0", "Bind address")
 	mcpCmd.Args = cobra.NoArgs
 	metricsCmd.Flags().String("bind", "0.0.0.0", "Bind address")
