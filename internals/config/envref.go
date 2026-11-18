@@ -10,7 +10,7 @@ import (
 	"unicode"
 
 	"github.com/kloudkit/ws-cli/internals/env"
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 type Property struct {
