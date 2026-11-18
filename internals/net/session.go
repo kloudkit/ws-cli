@@ -132,3 +132,87 @@ func SendEnvelopeWithin(filePath string, envelope any, wait time.Duration) ([]by
 
 	return data, nil
 }
+
+var errNoServer = errors.New(
+	"cannot reach the workspace server's session socket; is the editor running?",
+)
+
+func sessionError(resp *http.Response) error {
+	data, _ := io.ReadAll(resp.Body)
+
+	var payload struct {
+		Error string `json:"error"`
+	}
+	_ = json.Unmarshal(data, &payload)
+
+	if resp.StatusCode == http.StatusNotFound && payload.Error == "not found" {
+		return errEditorTooOld
+	}
+
+	if payload.Error == "" {
+		payload.Error = strings.TrimSpace(string(data))
+	}
+
+	if payload.Error == "" {
+		payload.Error = resp.Status
+	}
+
+	return errors.New(payload.Error)
+}
+
+func serverRequestError(err error) error {
+	var opErr *nativeNet.OpError
+	if errors.As(err, &opErr) && opErr.Op == "dial" {
+		return errNoServer
+	}
+
+	return requestError(err, answerWithin)
+}
+
+func sessionRequest(client *http.Client, method, path string, body any) (*http.Response, error) {
+	var reader io.Reader
+	if body != nil {
+		data, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("error encoding workspace server request: %w", err)
+		}
+		reader = bytes.NewReader(data)
+	}
+
+	req, err := http.NewRequest(method, "http://unix"+path, reader)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("content-type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, serverRequestError(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		defer resp.Body.Close()
+		return nil, sessionError(resp)
+	}
+
+	return resp, nil
+}
+
+func SessionCall(method, path string, body any) ([]byte, error) {
+	resp, err := sessionRequest(unixClient(SessionSocketPath(), answerWithin), method, path, body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return io.ReadAll(resp.Body)
+}
+
+func SessionStream(path string, body any) (io.ReadCloser, error) {
+	resp, err := sessionRequest(unixClient(SessionSocketPath(), 0), http.MethodPost, path, body)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.Body, nil
+}
