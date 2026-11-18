@@ -33,6 +33,8 @@ func confinedSite(t *testing.T) http.Handler {
 	assert.NilError(t, os.Symlink(filepath.Join(outside, "secret.txt"), filepath.Join(root, "leak.txt")))
 	assert.NilError(t, os.Symlink(outside, filepath.Join(root, "out")))
 	assert.NilError(t, os.Symlink(filepath.Join("docs", "page.html"), filepath.Join(root, "inside.html")))
+	assert.NilError(t, os.Symlink(".env", filepath.Join(root, "cfg")))
+	assert.NilError(t, os.Symlink(".git", filepath.Join(root, "repo")))
 
 	handler, err := Confined(root)
 	assert.NilError(t, err)
@@ -55,7 +57,7 @@ func TestConfinedServesFilesInsideTheRoot(t *testing.T) {
 func TestConfinedAnswers404ForDotfilesEscapesAndListings(t *testing.T) {
 	handler := confinedSite(t)
 
-	for _, path := range []string{"/.env", "/.git/config", "/assets/.hidden.js", "/leak.txt", "/out/secret.txt", "/empty/", "/empty", "/missing"} {
+	for _, path := range []string{"/.env", "/.git/config", "/assets/.hidden.js", "/cfg", "/repo/config", "/leak.txt", "/out/secret.txt", "/empty/", "/empty", "/missing"} {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 
