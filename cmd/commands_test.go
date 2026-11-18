@@ -15,7 +15,7 @@ import (
 	"github.com/kloudkit/ws-cli/internals/mcp"
 	"github.com/kloudkit/ws-cli/internals/testutil"
 	"github.com/spf13/cobra"
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 	"gotest.tools/v3/assert"
 )
 

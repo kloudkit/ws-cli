@@ -15,7 +15,7 @@ import (
 
 	"github.com/kloudkit/ws-cli/internals/secrets"
 	"github.com/kloudkit/ws-cli/internals/styles"
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 const rotateProbeName = ".ws-rotate-probe"

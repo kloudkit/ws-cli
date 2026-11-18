@@ -49,18 +49,48 @@ func unixClient(socket string, wait time.Duration) *http.Client {
 	}
 }
 
-func requestError(err error, wait time.Duration) error {
+type peer struct {
+	name        string
+	unreachable error
+}
+
+var (
+	editorPeer = peer{"the workspace editor", errNoEditor}
+	serverPeer = peer{"the workspace server", errNoServer}
+)
+
+func (p peer) requestError(err error, wait time.Duration) error {
 	var opErr *nativeNet.OpError
 	if errors.As(err, &opErr) && opErr.Op == "dial" {
-		return errNoEditor
+		return p.unreachable
 	}
 
 	var netErr nativeNet.Error
 	if errors.As(err, &netErr) && netErr.Timeout() {
-		return fmt.Errorf("the workspace editor did not answer within %s", wait)
+		return fmt.Errorf("%s did not answer within %s", p.name, wait)
 	}
 
-	return fmt.Errorf("error talking to the workspace editor: %w", err)
+	return fmt.Errorf("error talking to %s: %w", p.name, err)
+}
+
+func errorMessage(data []byte, status string) string {
+	var text string
+	if json.Unmarshal(data, &text) == nil && text != "" {
+		return text
+	}
+
+	var payload struct {
+		Error string `json:"error"`
+	}
+	if json.Unmarshal(data, &payload) == nil && payload.Error != "" {
+		return payload.Error
+	}
+
+	if message := strings.TrimSpace(string(data)); message != "" {
+		return message
+	}
+
+	return status
 }
 
 func resolveWindowSocket(filePath string) (string, error) {
@@ -72,7 +102,7 @@ func resolveWindowSocket(filePath string) (string, error) {
 
 	resp, err := unixClient(SessionSocketPath(), answerWithin).Get(target)
 	if err != nil {
-		return "", requestError(err, answerWithin)
+		return "", editorPeer.requestError(err, answerWithin)
 	}
 	defer resp.Body.Close()
 
@@ -104,7 +134,7 @@ func SendEnvelopeWithin(filePath string, envelope any, wait time.Duration) ([]by
 
 	resp, err := unixClient(socket, wait).Post("http://unix/", "application/json", bytes.NewReader(body))
 	if err != nil {
-		return nil, requestError(err, wait)
+		return nil, editorPeer.requestError(err, wait)
 	}
 	defer resp.Body.Close()
 
@@ -114,14 +144,7 @@ func SendEnvelopeWithin(filePath string, envelope any, wait time.Duration) ([]by
 	}
 
 	if resp.StatusCode >= http.StatusMultipleChoices {
-		message := strings.TrimSpace(string(data))
-		if text := ""; json.Unmarshal(data, &text) == nil {
-			message = text
-		}
-
-		if message == "" {
-			message = resp.Status
-		}
+		message := errorMessage(data, resp.Status)
 
 		if resp.StatusCode == http.StatusNotFound && strings.HasPrefix(message, "Unknown message type") {
 			return nil, errEditorTooOld
@@ -131,4 +154,64 @@ func SendEnvelopeWithin(filePath string, envelope any, wait time.Duration) ([]by
 	}
 
 	return data, nil
+}
+
+var errNoServer = errors.New(
+	"cannot reach the workspace server's session socket; is the editor running?",
+)
+
+func sessionRequest(wait time.Duration, method, path string, body any) (*http.Response, error) {
+	var reader io.Reader
+	if body != nil {
+		data, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("error encoding workspace server request: %w", err)
+		}
+		reader = bytes.NewReader(data)
+	}
+
+	req, err := http.NewRequest(method, "http://unix"+path, reader)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("content-type", "application/json")
+
+	resp, err := unixClient(SessionSocketPath(), wait).Do(req)
+	if err != nil {
+		return nil, serverPeer.requestError(err, answerWithin)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		defer resp.Body.Close()
+
+		data, _ := io.ReadAll(resp.Body)
+		message := errorMessage(data, resp.Status)
+
+		if resp.StatusCode == http.StatusNotFound && message == "not found" {
+			return nil, errEditorTooOld
+		}
+
+		return nil, errors.New(message)
+	}
+
+	return resp, nil
+}
+
+func SessionCall(method, path string, body any) ([]byte, error) {
+	resp, err := sessionRequest(answerWithin, method, path, body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return io.ReadAll(resp.Body)
+}
+
+func SessionStream(path string, body any) (io.ReadCloser, error) {
+	resp, err := sessionRequest(0, http.MethodPost, path, body)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.Body, nil
 }

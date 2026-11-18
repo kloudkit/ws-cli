@@ -4,15 +4,16 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 
 	"github.com/kloudkit/ws-cli/cmd/cli"
+	portcmd "github.com/kloudkit/ws-cli/cmd/port"
 	"github.com/kloudkit/ws-cli/internals/mcp"
 	"github.com/kloudkit/ws-cli/internals/metrics"
+	"github.com/kloudkit/ws-cli/internals/port"
 	"github.com/kloudkit/ws-cli/internals/server"
 	"github.com/kloudkit/ws-cli/internals/styles"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -20,17 +21,23 @@ import (
 )
 
 var currentCmd = cli.New("current", "0.2.0", "Serve current directory as a static site",
-	"Serve the current directory over HTTP as a static site, a quick way to preview built files.",
+	"Serve the current directory over HTTP as a static site, a quick way to preview built files. With --share the site is also public on its proxy-domain host until you stop it.",
 	func(cmd *cobra.Command, args []string) error {
 		root, err := os.Getwd()
 		if err != nil {
 			return fmt.Errorf("error getting current directory: %w", err)
 		}
 
-		return serve(cmd, http.FileServer(http.Dir(root)), func(out io.Writer, url string) {
+		announce := func(out io.Writer, url string) {
 			styles.PrintTitle(out, "Static Server")
 			styles.PrintKeyValues(out, styles.Pair{Key: "URL", Value: url}, styles.Pair{Key: "Root", Value: root})
-		})
+		}
+
+		if cli.Bool(cmd, "share") {
+			return serveShared(cmd, root, announce)
+		}
+
+		return serve(cmd, http.FileServer(http.Dir(root)), announce)
 	})
 
 var metricsCmd = cli.New("metrics", "0.2.0", "Start the Prometheus metrics server",
@@ -87,7 +94,7 @@ var mcpCmd = cli.New("mcp", "next", "Serve the workspace tools to AI agents over
 		styles.PrintKeyValues(out, pairs...)
 		server.PrintStop(out)
 
-		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+		ctx, stop := cli.SignalContext()
 		defer stop()
 		context.AfterFunc(ctx, stop)
 
@@ -102,6 +109,9 @@ ws-cli serve current
 # Serve on a custom port
 ws-cli serve current --port 38081
 
+# Serve it and make it public on its proxy-domain host until Ctrl+C
+ws-cli serve current --share
+
 # Serve the workspace tools to an AI agent over stdio
 ws-cli serve mcp`,
 	currentCmd, mcpCmd, metricsCmd)
@@ -112,8 +122,59 @@ func serve(cmd *cobra.Command, handler http.Handler, announce func(io.Writer, st
 	return server.Serve(config, handler, cmd.OutOrStdout(), func(url string) { announce(cmd.OutOrStdout(), url) })
 }
 
+func serveShared(cmd *cobra.Command, root string, announce func(io.Writer, string)) error {
+	handler, err := server.Confined(root)
+	if err != nil {
+		return fmt.Errorf("error resolving %s: %w", root, err)
+	}
+
+	listener, err := server.Listen(server.Config{Port: cli.Int(cmd, "port"), Bind: cli.String(cmd, "bind")})
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+
+	ctx, stop := cli.SignalContext()
+	defer stop()
+
+	holding, stopHolding := context.WithCancel(ctx)
+	defer stopHolding()
+
+	serving, stopServing := context.WithCancel(context.Background())
+	served := make(chan error, 1)
+
+	out := cmd.OutOrStdout()
+	number := listener.Addr().(*net.TCPAddr).Port
+
+	go func() {
+		served <- server.Handle(serving, listener, handler, out)
+		stopHolding()
+	}()
+
+	by, err := port.Hold(holding, number, func(shared port.Event) {
+		announce(out, server.DisplayURL(listener.Addr()))
+		fmt.Fprintln(out)
+		portcmd.PrintShared(out, shared)
+		server.PrintStop(out)
+	})
+
+	stopServing()
+	if serveErr := <-served; serveErr != nil {
+		return serveErr
+	}
+
+	if err != nil {
+		return err
+	}
+
+	portcmd.PrintEnded(out, number, by)
+
+	return nil
+}
+
 func init() {
 	currentCmd.Flags().IntP("port", "p", 38080, "Port to serve assets on")
+	currentCmd.Flags().Bool("share", false, "Also make the site public on its proxy-domain host until you stop; dotfiles, directory listings and links leaving the folder answer 404")
 	currentCmd.Flags().String("bind", "0.0.0.0", "Bind address")
 	mcpCmd.Args = cobra.NoArgs
 	metricsCmd.Flags().String("bind", "0.0.0.0", "Bind address")

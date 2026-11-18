@@ -1,10 +1,16 @@
 package server
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
+	"os"
+	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -35,8 +41,12 @@ func (r *responseRecorder) Write(b []byte) (int, error) {
 	return n, err
 }
 
+func Listen(config Config) (net.Listener, error) {
+	return net.Listen("tcp", net.JoinHostPort(config.Bind, strconv.Itoa(config.Port)))
+}
+
 func Serve(config Config, handler http.Handler, w io.Writer, announce func(url string)) error {
-	listener, err := net.Listen("tcp", net.JoinHostPort(config.Bind, strconv.Itoa(config.Port)))
+	listener, err := Listen(config)
 	if err != nil {
 		return err
 	}
@@ -45,10 +55,89 @@ func Serve(config Config, handler http.Handler, w io.Writer, announce func(url s
 }
 
 func serve(listener net.Listener, handler http.Handler, w io.Writer, announce func(url string)) error {
-	announce(displayURL(listener.Addr()))
+	announce(DisplayURL(listener.Addr()))
 	PrintStop(w)
 
-	return http.Serve(listener, accessLog(handler, w))
+	return Handle(context.Background(), listener, handler, w)
+}
+
+func Handle(ctx context.Context, listener net.Listener, handler http.Handler, w io.Writer) error {
+	srv := &http.Server{Handler: accessLog(handler, w)}
+	stop := context.AfterFunc(ctx, func() { _ = srv.Close() })
+	defer stop()
+
+	err := srv.Serve(listener)
+	if errors.Is(err, http.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
+		return nil
+	}
+
+	return err
+}
+
+func Confined(dir string) (http.Handler, error) {
+	real, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	root, err := os.OpenRoot(real)
+	if err != nil {
+		return nil, err
+	}
+
+	site := root.FS()
+	files := http.FileServerFS(site)
+
+	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if !servable(site, real, req.URL.Path) {
+			http.NotFound(rw, req)
+			return
+		}
+
+		files.ServeHTTP(rw, req)
+	}), nil
+}
+
+func servable(site fs.FS, dir, urlPath string) bool {
+	if dotted(urlPath) {
+		return false
+	}
+
+	name := strings.TrimPrefix(path.Clean("/"+urlPath), "/")
+	if name == "" {
+		name = "."
+	}
+
+	info, err := fs.Stat(site, name)
+	if err != nil {
+		return false
+	}
+
+	if info.IsDir() {
+		name = path.Join(name, "index.html")
+		if _, err := fs.Stat(site, name); err != nil {
+			return false
+		}
+	}
+
+	resolved, err := filepath.EvalSymlinks(filepath.Join(dir, filepath.FromSlash(name)))
+	if err != nil {
+		return false
+	}
+
+	relative, err := filepath.Rel(dir, resolved)
+
+	return err == nil && !dotted(filepath.ToSlash(relative))
+}
+
+func dotted(slashPath string) bool {
+	for _, segment := range strings.Split(slashPath, "/") {
+		if strings.HasPrefix(segment, ".") {
+			return true
+		}
+	}
+
+	return false
 }
 
 func PrintStop(w io.Writer) {
@@ -71,7 +160,7 @@ func accessLog(next http.Handler, w io.Writer) http.Handler {
 	})
 }
 
-func displayURL(addr net.Addr) string {
+func DisplayURL(addr net.Addr) string {
 	host, port := "localhost", ""
 
 	if tcp, ok := addr.(*net.TCPAddr); ok {

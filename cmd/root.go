@@ -11,6 +11,7 @@ import (
 	"github.com/kloudkit/ws-cli/cmd/info"
 	"github.com/kloudkit/ws-cli/cmd/log"
 	"github.com/kloudkit/ws-cli/cmd/logs"
+	"github.com/kloudkit/ws-cli/cmd/port"
 	"github.com/kloudkit/ws-cli/cmd/secrets"
 	"github.com/kloudkit/ws-cli/cmd/seed"
 	"github.com/kloudkit/ws-cli/cmd/serve"
@@ -58,6 +59,7 @@ func init() {
 		clip.ClipCmd,
 		editor.EditorCmd,
 		feature.FeatureCmd,
+		port.PortCmd,
 		serve.ServeCmd,
 		show.ShowCmd,
 		template.TemplateCmd,
