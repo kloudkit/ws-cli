@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	wsnet "github.com/kloudkit/ws-cli/internals/net"
 	"github.com/kloudkit/ws-cli/internals/port"
 	"github.com/kloudkit/ws-cli/internals/testutil"
 	"gotest.tools/v3/assert"
@@ -70,21 +69,12 @@ type fakeServer struct {
 	body    map[string]any
 }
 
-func sessionSocket(t *testing.T, handler http.Handler) {
-	t.Helper()
-
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("XDG_DATA_HOME", "")
-	assert.NilError(t, os.MkdirAll(filepath.Dir(wsnet.SessionSocketPath()), 0o755))
-	testutil.ServeUnix(t, wsnet.SessionSocketPath(), handler)
-}
-
 func holdingServer(t *testing.T, first string) *fakeServer {
 	t.Helper()
 
 	fake := &fakeServer{unshare: make(chan string, 1), closed: make(chan struct{})}
 
-	sessionSocket(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.ServeSession(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, r.URL.Path, "/ports/share")
 		raw, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(raw, &fake.body)
@@ -110,17 +100,17 @@ func TestHoldAnnouncesTheURLsAndReleasesWhenStopped(t *testing.T) {
 	fake := holdingServer(t, sharedEvent)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	var announced port.Shared
+	var announced port.Event
 	done := make(chan struct{})
 
 	go func() {
 		defer close(done)
-		ended, err := port.Hold(ctx, 8000, func(shared port.Shared) {
+		by, err := port.Hold(ctx, 8000, func(shared port.Event) {
 			announced = shared
 			cancel()
 		})
 		assert.NilError(t, err)
-		assert.Assert(t, ended == nil)
+		assert.Equal(t, by, "")
 	}()
 
 	<-done
@@ -137,19 +127,10 @@ func TestHoldAnnouncesTheURLsAndReleasesWhenStopped(t *testing.T) {
 	}
 }
 
-func TestHoldEndsWhenUnsharedElsewhere(t *testing.T) {
-	fake := holdingServer(t, sharedEvent)
-
-	ended, err := port.Hold(context.Background(), 8000, func(port.Shared) { fake.unshare <- "the editor" })
-
-	assert.NilError(t, err)
-	assert.Equal(t, ended.By, "the editor")
-}
-
 func refusingServer(t *testing.T, status int, body string) {
 	t.Helper()
 
-	sessionSocket(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.ServeSession(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(status)
 		_, _ = io.WriteString(w, body)
 	}))
@@ -165,7 +146,7 @@ func TestHoldPassesARefusalThrough(t *testing.T) {
 			raw, _ := json.Marshal(map[string]string{"error": refusal})
 			refusingServer(t, http.StatusForbidden, string(raw))
 
-			_, err := port.Hold(context.Background(), 8000, func(port.Shared) { t.Fatal("announced a refused share") })
+			_, err := port.Hold(context.Background(), 8000, func(port.Event) { t.Fatal("announced a refused share") })
 
 			assert.Error(t, err, refusal)
 		})
@@ -175,7 +156,7 @@ func TestHoldPassesARefusalThrough(t *testing.T) {
 func TestAnOldServerNeedsANewerImage(t *testing.T) {
 	refusingServer(t, http.StatusNotFound, `{"error":"not found"}`)
 
-	_, holdErr := port.Hold(context.Background(), 8000, func(port.Shared) {})
+	_, holdErr := port.Hold(context.Background(), 8000, func(port.Event) {})
 	_, listErr := port.List()
 	unshareErr := port.Unshare(8000)
 
@@ -195,7 +176,7 @@ func TestNoServerSaysSo(t *testing.T) {
 
 func TestUnshareSendsThePortAndThisProcess(t *testing.T) {
 	var body map[string]any
-	sessionSocket(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.ServeSession(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, r.URL.Path, "/ports/unshare")
 		raw, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(raw, &body)

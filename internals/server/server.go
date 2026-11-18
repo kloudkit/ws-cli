@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -73,16 +73,17 @@ func Handle(ctx context.Context, listener net.Listener, handler http.Handler, w 
 	return err
 }
 
-func Confined(root string) (http.Handler, error) {
-	real, err := filepath.EvalSymlinks(root)
+func Confined(dir string) (http.Handler, error) {
+	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return nil, err
 	}
 
-	files := http.FileServer(http.Dir(real))
+	site := root.FS()
+	files := http.FileServerFS(site)
 
 	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		if !confined(real, req.URL.Path) {
+		if !servable(site, req.URL.Path) {
 			http.NotFound(rw, req)
 			return
 		}
@@ -91,42 +92,24 @@ func Confined(root string) (http.Handler, error) {
 	}), nil
 }
 
-func confined(root, urlPath string) bool {
+func servable(site fs.FS, urlPath string) bool {
 	for _, segment := range strings.Split(urlPath, "/") {
 		if strings.HasPrefix(segment, ".") {
 			return false
 		}
 	}
 
-	resolved, ok := within(root, filepath.Join(root, filepath.FromSlash(path.Clean("/"+urlPath))))
-	if !ok {
-		return false
+	name := strings.TrimPrefix(path.Clean("/"+urlPath), "/")
+	if name == "" {
+		name = "."
 	}
 
-	info, err := os.Stat(resolved)
-	if err != nil {
-		return false
+	info, err := fs.Stat(site, name)
+	if err == nil && info.IsDir() {
+		_, err = fs.Stat(site, path.Join(name, "index.html"))
 	}
 
-	if info.IsDir() {
-		_, ok = within(root, filepath.Join(resolved, "index.html"))
-	}
-
-	return ok
-}
-
-func within(root, target string) (string, bool) {
-	resolved, err := filepath.EvalSymlinks(target)
-	if err != nil {
-		return "", false
-	}
-
-	relative, err := filepath.Rel(root, resolved)
-	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-		return "", false
-	}
-
-	return resolved, true
+	return err == nil
 }
 
 func PrintStop(w io.Writer) {

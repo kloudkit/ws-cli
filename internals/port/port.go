@@ -1,7 +1,6 @@
 package port
 
 import (
-	"bufio"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -55,19 +54,18 @@ type Listing struct {
 	Shares        []Share `json:"shares"`
 }
 
-type Shared struct {
+type Event struct {
 	Share
-	LoginRequired bool `json:"loginRequired"`
+	Event         string `json:"event"`
+	LoginRequired bool   `json:"loginRequired"`
+	By            string `json:"by"`
 }
 
 type TabPort struct {
-	Port      int     `json:"port"`
-	Host      string  `json:"host"`
-	Privacy   string  `json:"privacy"`
-	Forwarded bool    `json:"forwarded"`
-	Running   *bool   `json:"running"`
-	Process   *string `json:"process"`
-	Name      *string `json:"name"`
+	Port      int    `json:"port"`
+	Privacy   string `json:"privacy"`
+	Forwarded bool   `json:"forwarded"`
+	Running   *bool  `json:"running"`
 }
 
 type Cleared struct {
@@ -96,16 +94,15 @@ func Listeners(files ...string) ([]Listener, error) {
 	read := 0
 
 	for _, file := range files {
-		handle, err := os.Open(file)
+		data, err := os.ReadFile(file)
 		if err != nil {
 			continue
 		}
 		read++
 
-		scanner := bufio.NewScanner(handle)
-		scanner.Scan()
-		for scanner.Scan() {
-			fields := strings.Fields(scanner.Text())
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines[1:] {
+			fields := strings.Fields(line)
 			if len(fields) < 4 || fields[3] != listenState {
 				continue
 			}
@@ -115,7 +112,6 @@ func Listeners(files ...string) ([]Listener, error) {
 				byPort[port] = append(byPort[port], address)
 			}
 		}
-		handle.Close()
 	}
 
 	if read == 0 {
@@ -175,71 +171,35 @@ func Unshare(port int) error {
 	return err
 }
 
-type Ended struct {
-	By string
-}
-
-type event struct {
-	Shared
-	Event string `json:"event"`
-	By    string `json:"by"`
-}
-
-func Hold(ctx context.Context, port int, onShared func(Shared)) (*Ended, error) {
+func Hold(ctx context.Context, port int, onShared func(Event)) (string, error) {
 	body, err := wsnet.SessionStream("/ports/share", map[string]any{"port": port, "access": "public", "source": Self()})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer body.Close()
 
-	done := make(chan struct{})
-	defer close(done)
+	stop := context.AfterFunc(ctx, func() { body.Close() })
+	defer stop()
 
-	events := make(chan event)
-	failed := make(chan error, 1)
-
-	go func() {
-		defer close(events)
-		decoder := json.NewDecoder(body)
-		for {
-			var next event
-			if err := decoder.Decode(&next); err != nil {
-				if !errors.Is(err, io.EOF) {
-					failed <- err
-				}
-				return
-			}
-			select {
-			case events <- next:
-			case <-done:
-				return
+	decoder := json.NewDecoder(body)
+	for {
+		var next Event
+		if err := decoder.Decode(&next); err != nil {
+			switch {
+			case ctx.Err() != nil:
+				return "", nil
+			case errors.Is(err, io.EOF):
+				return "the workspace server", nil
+			default:
+				return "", fmt.Errorf("lost the workspace server while holding port %d: %w", port, err)
 			}
 		}
-	}()
 
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, nil
-		case err := <-failed:
-			if ctx.Err() != nil {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("lost the workspace server while holding port %d: %w", port, err)
-		case next, open := <-events:
-			if !open {
-				if ctx.Err() != nil {
-					return nil, nil
-				}
-				return &Ended{By: "the workspace server"}, nil
-			}
-
-			switch next.Event {
-			case "shared":
-				onShared(next.Shared)
-			case "unshared":
-				return &Ended{By: next.By}, nil
-			}
+		switch next.Event {
+		case "shared":
+			onShared(next)
+		case "unshared":
+			return next.By, nil
 		}
 	}
 }

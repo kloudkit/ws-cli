@@ -1,7 +1,11 @@
 package cli
 
 import (
+	"context"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/kloudkit/ws-cli/internals/mcp"
 	"github.com/spf13/cobra"
@@ -63,4 +67,8 @@ func String(cmd *cobra.Command, name string) string {
 func Int(cmd *cobra.Command, name string) int {
 	v, _ := cmd.Flags().GetInt(name)
 	return v
+}
+
+func SignalContext() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 }

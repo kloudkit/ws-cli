@@ -1,15 +1,10 @@
 package port
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"io"
-	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/kloudkit/ws-cli/cmd/cli"
 	"github.com/kloudkit/ws-cli/internals/port"
@@ -20,11 +15,7 @@ import (
 
 const openNotice = "sign-in is off in this workspace, so every forwarded port is already open to anyone who can reach it"
 
-func SignalContext() (context.Context, context.CancelFunc) {
-	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
-}
-
-func PrintShared(out io.Writer, shared port.Shared) {
+func PrintShared(out io.Writer, shared port.Event) {
 	styles.PrintTitle(out, "Public Port")
 
 	pairs := []styles.Pair{{Key: "Port", Value: strconv.Itoa(shared.Port)}, {Key: "Access", Value: shared.Access}}
@@ -40,13 +31,13 @@ func PrintShared(out io.Writer, shared port.Shared) {
 	}
 }
 
-func PrintEnded(out io.Writer, port int, ended *port.Ended) {
-	if ended == nil {
+func PrintEnded(out io.Writer, port int, by string) {
+	if by == "" {
 		return
 	}
 
 	fmt.Fprintln(out)
-	styles.PrintWarning(out, fmt.Sprintf("Port %d is private again: unshared by %s", port, ended.By))
+	styles.PrintWarning(out, fmt.Sprintf("Port %d is private again: unshared by %s", port, by))
 }
 
 var shareCmd = cli.New("share <port>", "next", "Make a forwarded port public until you stop",
@@ -57,12 +48,12 @@ var shareCmd = cli.New("share <port>", "next", "Make a forwarded port public unt
 			return err
 		}
 
-		ctx, stop := SignalContext()
+		ctx, stop := cli.SignalContext()
 		defer stop()
 
 		out := cmd.OutOrStdout()
 
-		ended, err := port.Hold(ctx, number, func(shared port.Shared) {
+		by, err := port.Hold(ctx, number, func(shared port.Event) {
 			PrintShared(out, shared)
 			server.PrintStop(out)
 		})
@@ -70,7 +61,7 @@ var shareCmd = cli.New("share <port>", "next", "Make a forwarded port public unt
 			return err
 		}
 
-		PrintEnded(out, number, ended)
+		PrintEnded(out, number, by)
 
 		return nil
 	})
@@ -131,19 +122,10 @@ var clearCmd = cli.New("clear", "next", "Close the unused ports in the editor's 
 			closed[i] = strconv.Itoa(number)
 		}
 
-		styles.PrintSuccess(out, fmt.Sprintf("Closed %d unused %s", len(closed), plural(len(closed), "port", "ports")),
-			styles.Pair{Key: "Ports", Value: strings.Join(closed, ", ")})
+		styles.PrintSuccess(out, "Closed the unused ports", styles.Pair{Key: "Ports", Value: strings.Join(closed, ", ")})
 
 		return nil
 	})
-
-func plural(n int, one, many string) string {
-	if n == 1 {
-		return one
-	}
-
-	return many
-}
 
 func renderList(out io.Writer, listeners []port.Listener, listing *port.Listing, tab []port.TabPort, tabErr error) {
 	shares := map[int]port.Share{}
@@ -224,16 +206,6 @@ func tabState(tabs map[int]port.TabPort, number int, tabErr error) string {
 	return state
 }
 
-var errNoPort = errors.New("name the port, e.g. ws-cli port share 8000")
-
-func onePort(cmd *cobra.Command, args []string) error {
-	if len(args) != 1 {
-		return errNoPort
-	}
-
-	return nil
-}
-
 var PortCmd = cli.Group("port", "next", "Share and list the workspace's ports",
 	"Make a forwarded port public on its proxy-domain host without the workspace sign-in, list the listening ports and which are public, and tidy the editor's Ports tab.",
 	`# Share a dev server until Ctrl+C
@@ -250,8 +222,8 @@ ws-cli port clear`,
 	shareCmd, unshareCmd, listCmd, clearCmd)
 
 func init() {
-	shareCmd.Args = onePort
-	unshareCmd.Args = onePort
+	shareCmd.Args = cobra.ExactArgs(1)
+	unshareCmd.Args = cobra.ExactArgs(1)
 	listCmd.Args = cobra.NoArgs
 	clearCmd.Args = cobra.NoArgs
 }

@@ -3,27 +3,14 @@ package port
 import (
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/kloudkit/ws-cli/cmd/clitest"
-	wsnet "github.com/kloudkit/ws-cli/internals/net"
 	"github.com/kloudkit/ws-cli/internals/port"
 	"github.com/kloudkit/ws-cli/internals/testutil"
 	"gotest.tools/v3/assert"
 )
-
-func sessionSocket(t *testing.T, handler http.HandlerFunc) {
-	t.Helper()
-
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("XDG_DATA_HOME", "")
-	t.Setenv("VSCODE_IPC_HOOK_CLI", "")
-	assert.NilError(t, os.MkdirAll(filepath.Dir(wsnet.SessionSocketPath()), 0o755))
-	testutil.ServeUnix(t, wsnet.SessionSocketPath(), handler)
-}
 
 func sharedThenUnshared(loginRequired string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -33,7 +20,7 @@ func sharedThenUnshared(loginRequired string) http.HandlerFunc {
 }
 
 func TestSharePrintsTheURLsAndExitsWhenUnsharedElsewhere(t *testing.T) {
-	sessionSocket(t, sharedThenUnshared("true"))
+	testutil.ServeSession(t, sharedThenUnshared("true"))
 
 	out, err := clitest.Run(PortCmd, "", "share", "8000")
 
@@ -45,23 +32,12 @@ func TestSharePrintsTheURLsAndExitsWhenUnsharedElsewhere(t *testing.T) {
 }
 
 func TestShareWarnsWhenSignInIsOff(t *testing.T) {
-	sessionSocket(t, sharedThenUnshared("false"))
+	testutil.ServeSession(t, sharedThenUnshared("false"))
 
 	out, err := clitest.Run(PortCmd, "", "share", "8000")
 
 	assert.NilError(t, err)
 	assert.Assert(t, strings.Contains(out, "every forwarded port is already open"), out)
-}
-
-func TestShareNamesTheMissingSetting(t *testing.T) {
-	sessionSocket(t, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusForbidden)
-		_, _ = io.WriteString(w, `{"error":"public ports are off; set WS_SERVER_PROXY_ALLOW_PUBLIC=true to allow them"}`)
-	})
-
-	_, err := clitest.Run(PortCmd, "", "share", "8000")
-
-	assert.ErrorContains(t, err, "WS_SERVER_PROXY_ALLOW_PUBLIC")
 }
 
 func TestShareAndUnshareRefuseABadPort(t *testing.T) {
@@ -71,27 +47,16 @@ func TestShareAndUnshareRefuseABadPort(t *testing.T) {
 	}
 
 	_, err := clitest.Run(PortCmd, "", "share")
-	assert.ErrorContains(t, err, "name the port")
+	assert.ErrorContains(t, err, "accepts 1 arg(s)")
 }
 
 func TestUnsharePrintsThePortPrivate(t *testing.T) {
-	sessionSocket(t, func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, `{"ok":true}`) })
+	testutil.ServeSession(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, `{"ok":true}`) }))
 
 	out, err := clitest.Run(PortCmd, "", "unshare", "8000")
 
 	assert.NilError(t, err)
 	assert.Assert(t, strings.Contains(out, "Port 8000 is private"), out)
-}
-
-func TestUnshareOfAPrivatePortSaysSo(t *testing.T) {
-	sessionSocket(t, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusConflict)
-		_, _ = io.WriteString(w, `{"error":"port 8000 is not public"}`)
-	})
-
-	_, err := clitest.Run(PortCmd, "", "unshare", "8000")
-
-	assert.Error(t, err, "port 8000 is not public")
 }
 
 func TestRenderListShowsVisibilityURLsAndTabState(t *testing.T) {

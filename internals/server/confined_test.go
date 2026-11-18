@@ -32,7 +32,7 @@ func confinedSite(t *testing.T) http.Handler {
 	assert.NilError(t, os.WriteFile(filepath.Join(root, "docs", "index.html"), []byte("docs"), 0o644))
 	assert.NilError(t, os.Symlink(filepath.Join(outside, "secret.txt"), filepath.Join(root, "leak.txt")))
 	assert.NilError(t, os.Symlink(outside, filepath.Join(root, "out")))
-	assert.NilError(t, os.Symlink(filepath.Join(root, "docs", "page.html"), filepath.Join(root, "inside.html")))
+	assert.NilError(t, os.Symlink(filepath.Join("docs", "page.html"), filepath.Join(root, "inside.html")))
 
 	handler, err := Confined(root)
 	assert.NilError(t, err)

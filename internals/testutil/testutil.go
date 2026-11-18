@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/kloudkit/ws-cli/internals/config"
+	wsnet "github.com/kloudkit/ws-cli/internals/net"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"gotest.tools/v3/assert"
@@ -47,6 +48,18 @@ func ServeUnix(t *testing.T, socket string, handler http.Handler) {
 	go func() { _ = server.Serve(listener) }()
 
 	t.Cleanup(func() { _ = server.Close() })
+}
+
+func ServeSession(t *testing.T, handler http.Handler) {
+	t.Helper()
+
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", "")
+	t.Setenv("VSCODE_IPC_HOOK_CLI", "")
+
+	socket := wsnet.SessionSocketPath()
+	assert.NilError(t, os.MkdirAll(filepath.Dir(socket), 0o755))
+	ServeUnix(t, socket, handler)
 }
 
 const fakeEnvReference = `envs:

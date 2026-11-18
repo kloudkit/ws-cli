@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	wsnet "github.com/kloudkit/ws-cli/internals/net"
 	"github.com/kloudkit/ws-cli/internals/testutil"
 	"gotest.tools/v3/assert"
 )
@@ -86,11 +85,7 @@ func poll(cond func() bool) bool {
 func shareSocket(t *testing.T, unshare <-chan struct{}, refuse string) {
 	t.Helper()
 
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("XDG_DATA_HOME", "")
-	assert.NilError(t, os.MkdirAll(filepath.Dir(wsnet.SessionSocketPath()), 0o755))
-
-	testutil.ServeUnix(t, wsnet.SessionSocketPath(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testutil.ServeSession(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if refuse != "" {
 			w.WriteHeader(http.StatusForbidden)
 			_, _ = io.WriteString(w, `{"error":"`+refuse+`"}`)

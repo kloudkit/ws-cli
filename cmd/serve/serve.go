@@ -7,9 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 
 	"github.com/kloudkit/ws-cli/cmd/cli"
 	portcmd "github.com/kloudkit/ws-cli/cmd/port"
@@ -96,7 +94,7 @@ var mcpCmd = cli.New("mcp", "next", "Serve the workspace tools to AI agents over
 		styles.PrintKeyValues(out, pairs...)
 		server.PrintStop(out)
 
-		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+		ctx, stop := cli.SignalContext()
 		defer stop()
 		context.AfterFunc(ctx, stop)
 
@@ -124,11 +122,6 @@ func serve(cmd *cobra.Command, handler http.Handler, announce func(io.Writer, st
 	return server.Serve(config, handler, cmd.OutOrStdout(), func(url string) { announce(cmd.OutOrStdout(), url) })
 }
 
-type held struct {
-	ended *port.Ended
-	err   error
-}
-
 func serveShared(cmd *cobra.Command, root string, announce func(io.Writer, string)) error {
 	handler, err := server.Confined(root)
 	if err != nil {
@@ -141,46 +134,42 @@ func serveShared(cmd *cobra.Command, root string, announce func(io.Writer, strin
 	}
 	defer listener.Close()
 
-	ctx, stop := portcmd.SignalContext()
+	ctx, stop := cli.SignalContext()
 	defer stop()
+
+	holding, stopHolding := context.WithCancel(ctx)
+	defer stopHolding()
+
+	serving, stopServing := context.WithCancel(context.Background())
+	served := make(chan error, 1)
 
 	out := cmd.OutOrStdout()
 	number := listener.Addr().(*net.TCPAddr).Port
-	shared := make(chan struct{})
-	holding := make(chan held, 1)
 
 	go func() {
-		ended, err := port.Hold(ctx, number, func(announced port.Shared) {
-			announce(out, server.DisplayURL(listener.Addr()))
-			fmt.Fprintln(out)
-			portcmd.PrintShared(out, announced)
-			server.PrintStop(out)
-			close(shared)
-		})
-		holding <- held{ended, err}
+		served <- server.Handle(serving, listener, handler, out)
+		stopHolding()
 	}()
 
-	select {
-	case <-shared:
-	case result := <-holding:
-		return result.err
+	by, err := port.Hold(holding, number, func(shared port.Event) {
+		announce(out, server.DisplayURL(listener.Addr()))
+		fmt.Fprintln(out)
+		portcmd.PrintShared(out, shared)
+		server.PrintStop(out)
+	})
+
+	stopServing()
+	if serveErr := <-served; serveErr != nil {
+		return serveErr
 	}
 
-	serveCtx, stopServing := context.WithCancel(ctx)
-	defer stopServing()
-
-	serving := make(chan error, 1)
-	go func() { serving <- server.Handle(serveCtx, listener, handler, out) }()
-
-	select {
-	case result := <-holding:
-		stopServing()
-		<-serving
-		portcmd.PrintEnded(out, number, result.ended)
-		return result.err
-	case err := <-serving:
+	if err != nil {
 		return err
 	}
+
+	portcmd.PrintEnded(out, number, by)
+
+	return nil
 }
 
 func init() {
