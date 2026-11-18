@@ -215,3 +215,45 @@ func TestTabAndClearUseTheEditorVerbs(t *testing.T) {
 	assert.DeepEqual(t, cleared.Closed, []int{8000})
 	assert.DeepEqual(t, types, []string{"portList", "portClear"})
 }
+
+func streamingServer(t *testing.T, lines string, abort bool) {
+	t.Helper()
+
+	testutil.ServeSession(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("content-type", "application/x-ndjson")
+		_, _ = io.WriteString(w, lines)
+		w.(http.Flusher).Flush()
+
+		if abort {
+			panic(http.ErrAbortHandler)
+		}
+	}))
+}
+
+func TestHoldEndBeforeShare(t *testing.T) {
+	for name, abort := range map[string]bool{"clean": false, "cut": true} {
+		t.Run(name, func(t *testing.T) {
+			streamingServer(t, `{"event":"sha`, abort)
+
+			by, err := port.Hold(context.Background(), 8000, func(port.Event) { t.Fatal("announced an unconfirmed share") })
+
+			assert.ErrorContains(t, err, "8000")
+			assert.Equal(t, by, "")
+		})
+	}
+}
+
+func TestHoldEndAfterShare(t *testing.T) {
+	for name, abort := range map[string]bool{"clean": false, "cut": true} {
+		t.Run(name, func(t *testing.T) {
+			streamingServer(t, sharedEvent+"\n", abort)
+
+			announced := false
+			by, err := port.Hold(context.Background(), 8000, func(port.Event) { announced = true })
+
+			assert.NilError(t, err)
+			assert.Assert(t, announced)
+			assert.Equal(t, by, "the workspace server")
+		})
+	}
+}

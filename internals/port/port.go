@@ -182,21 +182,25 @@ func Hold(ctx context.Context, port int, onShared func(Event)) (string, error) {
 	defer stop()
 
 	decoder := json.NewDecoder(body)
+	shared := false
 	for {
 		var next Event
 		if err := decoder.Decode(&next); err != nil {
 			switch {
 			case ctx.Err() != nil:
 				return "", nil
-			case errors.Is(err, io.EOF):
+			case shared:
 				return "the workspace server", nil
+			case errors.Is(err, io.EOF):
+				return "", fmt.Errorf("the workspace server ended the share of port %d before confirming it", port)
 			default:
-				return "", fmt.Errorf("lost the workspace server while holding port %d: %w", port, err)
+				return "", fmt.Errorf("lost the workspace server while sharing port %d: %w", port, err)
 			}
 		}
 
 		switch next.Event {
 		case "shared":
+			shared = true
 			onShared(next)
 		case "unshared":
 			return next.By, nil

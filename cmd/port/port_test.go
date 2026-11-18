@@ -1,6 +1,7 @@
 package port
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -68,7 +69,7 @@ func TestRenderListShowsVisibilityURLsAndTabState(t *testing.T) {
 	tab := []port.TabPort{{Port: 8000, Privacy: "public", Forwarded: true, Running: &running}, {Port: 3000, Privacy: "private"}}
 
 	var out strings.Builder
-	renderList(&out, []port.Listener{{Port: 3000, Addresses: []string{"::1"}}, {Port: 8000, Addresses: []string{"0.0.0.0"}}}, listing, tab, nil)
+	renderList(&out, []port.Listener{{Port: 3000, Addresses: []string{"::1"}}, {Port: 8000, Addresses: []string{"0.0.0.0"}}}, listing, nil, tab, nil)
 	text := testutil.StripAnsi(out.String())
 
 	for _, want := range []string{"public (ws-cli pid 9)", "https://8000.ws.example", "forwarded, public, unused", "detected", "public (the editor)", "not listening", "private"} {
@@ -78,7 +79,7 @@ func TestRenderListShowsVisibilityURLsAndTabState(t *testing.T) {
 
 func TestRenderListSaysWhenSharingIsOffOrTheTabIsUnknown(t *testing.T) {
 	var out strings.Builder
-	renderList(&out, []port.Listener{{Port: 3000, Addresses: []string{"::1"}}}, &port.Listing{}, nil, io.ErrUnexpectedEOF)
+	renderList(&out, []port.Listener{{Port: 3000, Addresses: []string{"::1"}}}, &port.Listing{}, nil, nil, io.ErrUnexpectedEOF)
 	text := testutil.StripAnsi(out.String())
 
 	assert.Assert(t, strings.Contains(text, "WS_SERVER_PROXY_ALLOW_PUBLIC"), text)
@@ -96,4 +97,29 @@ func TestClearReportsTheClosedPorts(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Assert(t, strings.Contains(out, want), out)
 	}
+}
+
+func TestRenderListShowsTheListenersWhenThePublicPortsAreUnknown(t *testing.T) {
+	var out strings.Builder
+	renderList(&out, []port.Listener{{Port: 3000, Addresses: []string{"::1"}}}, nil, errors.New("needs a newer workspace image"), nil, io.ErrUnexpectedEOF)
+	text := testutil.StripAnsi(out.String())
+
+	for _, want := range []string{"3000", "::1", "Public ports unknown: needs a newer workspace image"} {
+		assert.Assert(t, strings.Contains(text, want), "missing %q in\n%s", want, text)
+	}
+	assert.Assert(t, !strings.Contains(text, "WS_SERVER_PROXY_ALLOW_PUBLIC"), text)
+}
+
+func TestRenderListShowsForwardedPortsThatStoppedListening(t *testing.T) {
+	stopped := false
+	tab := []port.TabPort{{Port: 5000, Privacy: "private", Forwarded: true, Running: &stopped}, {Port: 6000, Privacy: "private"}}
+
+	var out strings.Builder
+	renderList(&out, nil, &port.Listing{Enabled: true, LoginRequired: true}, nil, tab, nil)
+	text := testutil.StripAnsi(out.String())
+
+	assert.Assert(t, strings.Contains(text, "5000"), text)
+	assert.Assert(t, strings.Contains(text, "not listening"), text)
+	assert.Assert(t, strings.Contains(text, "forwarded, private, unused"), text)
+	assert.Assert(t, !strings.Contains(text, "6000"), text)
 }

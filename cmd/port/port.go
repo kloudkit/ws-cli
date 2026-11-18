@@ -3,6 +3,7 @@ package port
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -91,14 +92,10 @@ var listCmd = cli.MCP(cli.New("list", "next", "List the listening ports and whic
 			return err
 		}
 
-		listing, err := port.List()
-		if err != nil {
-			return err
-		}
-
+		listing, listErr := port.List()
 		tab, tabErr := port.Tab()
 
-		renderList(cmd.OutOrStdout(), listeners, listing, tab, tabErr)
+		renderList(cmd.OutOrStdout(), listeners, listing, listErr, tab, tabErr)
 
 		return nil
 	}), cli.MCPRead)
@@ -127,7 +124,11 @@ var clearCmd = cli.New("clear", "next", "Close the unused ports in the editor's 
 		return nil
 	})
 
-func renderList(out io.Writer, listeners []port.Listener, listing *port.Listing, tab []port.TabPort, tabErr error) {
+func renderList(out io.Writer, listeners []port.Listener, listing *port.Listing, listErr error, tab []port.TabPort, tabErr error) {
+	if listErr != nil {
+		listing = &port.Listing{}
+	}
+
 	shares := map[int]port.Share{}
 	for _, share := range listing.Shares {
 		shares[share.Port] = share
@@ -153,13 +154,26 @@ func renderList(out io.Writer, listeners []port.Listener, listing *port.Listing,
 	for _, share := range listing.Shares {
 		if !seen[share.Port] {
 			rows = append(rows, row{share.Port, "not listening"})
+			seen[share.Port] = true
 		}
 	}
+
+	for _, entry := range tab {
+		if entry.Forwarded && !seen[entry.Port] {
+			rows = append(rows, row{entry.Port, "not listening"})
+			seen[entry.Port] = true
+		}
+	}
+
+	slices.SortFunc(rows, func(a, b row) int { return a.port - b.port })
 
 	table := styles.NewTable("Port", "Address", "Visibility", "URL", "Ports Tab").Title("Ports")
 
 	for _, r := range rows {
 		visibility, url := "private", ""
+		if listErr != nil {
+			visibility = "unknown"
+		}
 		if share, ok := shares[r.port]; ok {
 			visibility = fmt.Sprintf("%s (%s)", share.Access, share.Source)
 			url = strings.Join(share.URLs, " ")
@@ -170,7 +184,10 @@ func renderList(out io.Writer, listeners []port.Listener, listing *port.Listing,
 
 	table.Print(out)
 
-	if !listing.Enabled {
+	if listErr != nil {
+		fmt.Fprintln(out)
+		styles.PrintMuted(out, "Public ports unknown: "+listErr.Error())
+	} else if !listing.Enabled {
 		fmt.Fprintln(out)
 		styles.PrintMuted(out, "Public ports are off: set WS_SERVER_PROXY_ALLOW_PUBLIC to allow them")
 	} else if !listing.LoginRequired {
